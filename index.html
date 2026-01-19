@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Artesania & Calendario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                DEFAULT: '#CA7859',
+                hover: '#B56C50',
+                pressed: '#A16047',
+                light: '#D28E71',
+              },
+              neutral: {
+                base: '#F3EDE6',
+                alt: '#F0E8E0',
+                surface: '#FFFFFF',
+                sec: '#F7F1EB',
+                border: '#DDD5CD',
+                textMain: '#3D3437',
+                textSec: '#6F6A6D',
+                textHelper: '#A8A9AE',
+                customGray: '#727375',
+              }
+            },
+            fontFamily: {
+              sans: ['Manrope', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        :root {
+            --vh: 100vh;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #F3EDE6;
+            color: #3D3437;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            font-weight: 300; /* Manrope Light 300 base */
+        }
+        .soft-shadow {
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #DDD5CD;
+            border-radius: 10px;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": " dashboard ceramica taller",
+  "description": "Sistema integral de gestión para estudios de cerámica con calendario de asistencia, control de bonos de alumnos y seguimiento de piezas ",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
