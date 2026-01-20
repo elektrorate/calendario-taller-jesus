@@ -10,8 +10,9 @@ import SettingsView from './components/SettingsView';
 import HistoryView from './components/HistoryView';
 import InventoryView from './components/InventoryView';
 import Login from './components/Login';
-import { AppView, Student, ClassSession, CeramicPiece, GiftCard, AssignedClass, InventoryItem, InventoryMovement } from './types';
-import { STUDENTS as INITIAL_STUDENTS, SESSIONS as INITIAL_SESSIONS, PIECES as INITIAL_PIECES, GIFTCARDS as INITIAL_GIFTCARDS, INVENTORY_ITEMS as INITIAL_INVENTORY, INVENTORY_MOVEMENTS as INITIAL_MOVEMENTS } from './constants';
+import TeachersView from './components/TeachersView';
+import { AppView, Student, ClassSession, CeramicPiece, GiftCard, AssignedClass, InventoryItem, InventoryMovement, Teacher } from './types';
+import { STUDENTS as INITIAL_STUDENTS, SESSIONS as INITIAL_SESSIONS, PIECES as INITIAL_PIECES, GIFTCARDS as INITIAL_GIFTCARDS, INVENTORY_ITEMS as INITIAL_INVENTORY, INVENTORY_MOVEMENTS as INITIAL_MOVEMENTS, TEACHERS as INITIAL_TEACHERS } from './constants';
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -23,12 +24,15 @@ const App: React.FC = () => {
   const [giftCards, setGiftCards] = useState<GiftCard[]>(INITIAL_GIFTCARDS);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(INITIAL_INVENTORY);
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>(INITIAL_MOVEMENTS);
+  const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const getViewTitle = () => {
     switch (currentView) {
       case AppView.DASHBOARD: return <><span className="text-neutral-textHelper font-light text-[12px] block mb-0.5 tracking-widest">CENTRO DE OPERACIONES</span>ESTADO DEL <span className="text-brand">TALLER HOY</span></>;
       case AppView.CALENDAR: return <>GESTIÓN DE <span className="text-brand">AGENDA</span></>;
       case AppView.STUDENTS: return <>GESTIÓN DE <span className="text-brand">ALUMNOS</span></>;
+      case AppView.TEACHERS: return <>GESTIÓN DE <span className="text-brand">PROFESORES</span></>;
       case AppView.PIECES: return <>CONTROL DE <span className="text-brand">PIEZAS</span></>;
       case AppView.GIFTCARDS: return <>TARJETAS DE <span className="text-brand">REGALO</span></>;
       case AppView.HISTORY: return <>HISTORIAL <span className="text-brand">MAESTRO</span></>;
@@ -115,6 +119,20 @@ const App: React.FC = () => {
     setSessions(prev => prev.filter(p => p.id !== id));
   };
 
+  const addTeacher = (newTeacher: Omit<Teacher, 'id'>) => {
+    const teacherWithId: Teacher = { ...newTeacher, id: Math.random().toString(36).substr(2, 9) };
+    setTeachers(prev => [...prev, teacherWithId]);
+  };
+
+  const updateTeacher = (id: string, updates: Partial<Teacher>) => {
+    setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  const deleteTeacher = (id: string) => {
+    setTeachers(prev => prev.filter(t => t.id !== id));
+    setSessions(prev => prev.map(s => s.teacherId === id ? { ...s, teacherId: undefined } : s));
+  };
+
   const addPiece = (newPiece: Omit<CeramicPiece, 'id'>) => {
     const pieceWithId: CeramicPiece = { ...newPiece, id: `p${Math.random().toString(36).substr(2, 5)}` };
     setPieces([...pieces, pieceWithId]);
@@ -181,6 +199,7 @@ const App: React.FC = () => {
     { group: 'GESTIÓN', items: [
       { id: AppView.CALENDAR, label: 'Calendario' },
       { id: AppView.STUDENTS, label: 'Alumnos' },
+      { id: AppView.TEACHERS, label: 'Profesores' },
       { id: AppView.PIECES, label: 'Piezas' },
       { id: AppView.HISTORY, label: 'Historial' }
     ]},
@@ -198,12 +217,25 @@ const App: React.FC = () => {
             sessions={sessions} 
             onUpdateSession={updateSession}
             onNavigate={(view) => setCurrentView(view)}
+            onOpenStudentProfile={(studentId) => { setSelectedStudentId(studentId); setCurrentView(AppView.STUDENTS); }}
           />
         );
       case AppView.CALENDAR:
-        return <CalendarView sessions={sessions} onAddSession={addSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} students={students} />;
+        return <CalendarView sessions={sessions} onAddSession={addSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} students={students} teachers={teachers} />;
       case AppView.STUDENTS:
-        return <StudentList students={students} onAddStudent={addStudent} onRenew={renewStudent} onUpdate={updateStudent} onDeleteStudent={deleteStudent} />;
+        return (
+          <StudentList
+            students={students}
+            onAddStudent={addStudent}
+            onRenew={renewStudent}
+            onUpdate={updateStudent}
+            onDeleteStudent={deleteStudent}
+            selectedStudentId={selectedStudentId}
+            onClearSelectedStudent={() => setSelectedStudentId(null)}
+          />
+        );
+      case AppView.TEACHERS:
+        return <TeachersView teachers={teachers} sessions={sessions} onAddTeacher={addTeacher} onUpdateTeacher={updateTeacher} onDeleteTeacher={deleteTeacher} />;
       case AppView.PIECES:
         return <PiecesToCollect pieces={pieces} students={students} onAddPiece={addPiece} onUpdatePiece={updatePiece} onDeletePiece={deletePiece} />;
       case AppView.GIFTCARDS:
@@ -215,7 +247,15 @@ const App: React.FC = () => {
       case AppView.SETTINGS:
         return <SettingsView />;
       default:
-        return <DashboardView students={students} sessions={sessions} onUpdateSession={updateSession} onNavigate={(view) => setCurrentView(view)} />;
+        return (
+          <DashboardView
+            students={students}
+            sessions={sessions}
+            onUpdateSession={updateSession}
+            onNavigate={(view) => setCurrentView(view)}
+            onOpenStudentProfile={(studentId) => { setSelectedStudentId(studentId); setCurrentView(AppView.STUDENTS); }}
+          />
+        );
     }
   };
 

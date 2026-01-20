@@ -7,7 +7,8 @@ export enum AppView {
   DASHBOARD = 'dashboard',
   SETTINGS = 'settings',
   HISTORY = 'history',
-  INVENTORY = 'inventory'
+  INVENTORY = 'inventory',
+  TEACHERS = 'teachers'
 }
 
 export interface AssignedClass {
@@ -43,9 +44,24 @@ export interface ClassSession {
   date: string; // ISO format
   startTime: string;
   endTime: string;
-  classType: 'mesa' | 'torno';
+  classType: 'mesa' | 'torno' | 'coworking' | 'workshop' | 'privada' | 'feriado';
   students: string[]; // List of student names
   attendance?: Record<string, 'present' | 'absent'>; // Record key is student name or ID
+  teacherId?: string;
+  teacherSubstituteId?: string;
+  completedAt?: string;
+  workshopName?: string;
+  privateReason?: string;
+}
+
+export interface Teacher {
+  id: string;
+  name: string;
+  surname?: string;
+  email?: string;
+  phone?: string;
+  specialty?: string;
+  notes?: string;
 }
 
 export type PieceStatus = '1era_quema' | 'esmaltado' | 'a_recogida' | 'entregado';
@@ -113,6 +129,7 @@ export interface InventoryItem {
   min_quantity?: number;
   location?: string;
   supplier?: string;
+  supplier_code?: string;
   cost_per_unit?: number;
   notes?: string;
   created_at: string;
@@ -120,6 +137,7 @@ export interface InventoryItem {
   status: InventoryItemStatus;
   
   // Específicos Esmaltes y Engobes
+  formula_unit?: 'percent' | 'weight';
   formula?: StructuredFormula;
   firing_range?: string;
   surface?: string;

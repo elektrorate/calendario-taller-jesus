@@ -7,21 +7,34 @@ interface DashboardViewProps {
   sessions: ClassSession[];
   onUpdateSession: (id: string, updates: Partial<ClassSession>) => void;
   onNavigate: (view: AppView) => void;
+  onOpenStudentProfile: (studentId: string) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpdateSession, onNavigate }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpdateSession, onNavigate, onOpenStudentProfile }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Capacidad predeterminada si no está definida en la sesión
   const DEFAULT_CAPACITY_TORNO = 5;
   const DEFAULT_CAPACITY_MESA = 8;
 
+  const getSessionTypeLabel = (type: ClassSession['classType']) => {
+    const map: Record<ClassSession['classType'], string> = {
+      mesa: 'Mesa de Trabajo',
+      torno: 'Clase de Torno',
+      coworking: 'Coworking',
+      workshop: 'Workshop',
+      privada: 'Privadas',
+      feriado: 'Feriados'
+    };
+    return map[type] || 'Sesion';
+  };
+
   const todayStr = new Date().toISOString().split('T')[0];
-  
+
   // Datos filtrados para HOY
-  const todaySessions = useMemo(() => 
+  const todaySessions = useMemo(() =>
     sessions.filter(s => s.date === todayStr).sort((a, b) => a.startTime.localeCompare(b.startTime)),
-  [sessions, todayStr]);
+    [sessions, todayStr]);
 
   const uniqueStudentsToday = useMemo(() => {
     const names = new Set<string>();
@@ -65,17 +78,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
 
   // Alertas inteligentes
   const alerts = useMemo(() => {
-    const list: { name: string; reason: string; type: 'warning' | 'info' | 'critical' }[] = [];
-    
+    const list: { id: string; name: string; reason: string; type: 'warning' | 'info' | 'critical' }[] = [];
+
     // Alumnos asistiendo hoy con bonos bajos
     uniqueStudentsToday.forEach(name => {
       const student = students.find(s => `${s.name} ${s.surname || ''}`.trim().toUpperCase() === name);
       if (student) {
+        const fullName = `${student.name} ${student.surname || ''}`.trim();
         if (student.classesRemaining <= 1) {
-          list.push({ name: student.name, reason: `Bono agotándose (${student.classesRemaining} rest.)`, type: 'critical' });
+          list.push({ id: student.id, name: fullName, reason: `Bono agotándose (${student.classesRemaining} rest.)`, type: 'critical' });
         }
         if (student.expiryDate && new Date(student.expiryDate) < new Date()) {
-          list.push({ name: student.name, reason: 'Fecha de bono expirada', type: 'warning' });
+          list.push({ id: student.id, name: fullName, reason: 'Fecha de bono expirada', type: 'warning' });
         }
       }
     });
@@ -88,9 +102,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
     todaySessions.forEach(s => {
       s.students.forEach(st => {
         if (st.includes(searchQuery.toUpperCase())) {
-          list.push({ 
-            name: st, 
-            time: s.startTime, 
+          list.push({
+            name: st,
+            time: s.startTime,
             type: s.classType,
             status: s.attendance?.[st] || 'pending'
           });
@@ -112,10 +126,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
   return (
     <div className="h-full flex flex-col bg-neutral-base overflow-hidden animate-fade-in">
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 pb-32">
-        
+
         {/* RESUMEN MÉTRICAS SUPERIOR */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between h-32">
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between min-h-[8rem] h-auto">
             <p className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Ocupación Tornos</p>
             <div className="flex items-baseline gap-2">
               <span className="text-[32px] font-black text-neutral-textMain">{stats.occTornos}%</span>
@@ -124,22 +138,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
               </div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between h-32">
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between min-h-[8rem] h-auto">
             <p className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Mesas Disponibles</p>
             <span className="text-[32px] font-black text-brand">{stats.mesasLibres}</span>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between h-32">
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between min-h-[8rem] h-auto">
             <p className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Alumnos Hoy</p>
             <span className="text-[32px] font-black text-neutral-textMain">{stats.totalAlumnos}</span>
           </div>
-          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between h-32">
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col justify-between min-h-[8rem] h-auto">
             <p className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Sesiones Hoy</p>
             <span className="text-[32px] font-black text-neutral-textMain">{stats.totalSessions}</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* LÍNEA DE TIEMPO (Columna Central) */}
           <div className="lg:col-span-7 space-y-6">
             <div className="flex items-center justify-between px-2">
@@ -147,7 +161,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                 <div className="w-1.5 h-6 bg-brand rounded-full"></div>
                 <h4 className="text-[16px] font-extrabold text-neutral-textMain uppercase tracking-widest">Agenda de Hoy</h4>
               </div>
-              <button 
+              <button
                 onClick={() => onNavigate(AppView.CALENDAR)}
                 className="text-[11px] font-extrabold text-brand uppercase hover:underline tracking-widest"
               >
@@ -173,7 +187,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                         </div>
                         <div className="h-8 w-[1px] bg-neutral-alt"></div>
                         <div>
-                          <p className="text-[15px] font-extrabold text-neutral-textMain uppercase tracking-tight">{session.classType === 'torno' ? 'Clase de Torno' : 'Mesa de Trabajo'}</p>
+                          <p className="text-[15px] font-extrabold text-neutral-textMain uppercase tracking-tight">{getSessionTypeLabel(session.classType)}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className={`text-[10px] font-bold uppercase ${isFull ? 'text-red-500' : 'text-green-500'}`}>
                               {session.students.length}/{capacity} {isFull ? 'Completo' : 'Lugares'}
@@ -182,18 +196,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                         </div>
                       </div>
                       <div className="flex gap-2">
-                         <div className="flex -space-x-2">
-                            {session.students.slice(0, 3).map((st, i) => (
-                              <div key={i} className="w-8 h-8 rounded-full bg-neutral-alt border-2 border-white flex items-center justify-center text-[10px] font-black text-neutral-textSec">
-                                {st.charAt(0)}
-                              </div>
-                            ))}
-                            {session.students.length > 3 && (
-                              <div className="w-8 h-8 rounded-full bg-brand/10 border-2 border-white flex items-center justify-center text-[10px] font-black text-brand">
-                                +{session.students.length - 3}
-                              </div>
-                            )}
-                         </div>
+                        <div className="flex -space-x-2">
+                          {session.students.slice(0, 3).map((st, i) => (
+                            <div key={i} className="w-8 h-8 rounded-full bg-neutral-alt border-2 border-white flex items-center justify-center text-[10px] font-black text-neutral-textSec">
+                              {st.charAt(0)}
+                            </div>
+                          ))}
+                          {session.students.length > 3 && (
+                            <div className="w-8 h-8 rounded-full bg-brand/10 border-2 border-white flex items-center justify-center text-[10px] font-black text-brand">
+                              +{session.students.length - 3}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -204,7 +218,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
 
           {/* ALUMNOS HOY & ALERTAS (Columna Lateral) */}
           <div className="lg:col-span-5 space-y-8">
-            
+
             {/* ALERTAS */}
             {alerts.length > 0 && (
               <section className="space-y-4">
@@ -219,8 +233,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                         <p className="text-[13px] font-black text-neutral-textMain uppercase tracking-tight">{alert.name}</p>
                         <p className={`text-[11px] font-medium ${alert.type === 'critical' ? 'text-red-600' : 'text-orange-600'}`}>{alert.reason}</p>
                       </div>
-                      <button 
-                        onClick={() => onNavigate(AppView.STUDENTS)}
+                      <button
+                        onClick={() => onOpenStudentProfile(alert.id)}
                         className="text-[10px] font-black uppercase text-neutral-textMain hover:underline"
                       >
                         Ver Ficha
@@ -240,12 +254,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                 </div>
                 <span className="text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest">{filteredStudentsList.length} Total</span>
               </div>
-              
+
               <div className="bg-white rounded-[2.5rem] border border-neutral-border soft-shadow overflow-hidden flex flex-col max-h-[500px]">
                 <div className="p-4 border-b border-neutral-alt shrink-0">
-                  <input 
-                    type="text" 
-                    placeholder="BUSCAR POR NOMBRE..." 
+                  <input
+                    type="text"
+                    placeholder="BUSCAR POR NOMBRE..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-neutral-sec px-5 py-3 rounded-xl text-[12px] font-extrabold uppercase outline-none focus:bg-neutral-alt transition-all"
@@ -264,13 +278,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                             <span className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest mt-1">Sesión {item.time} • {item.type}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <button 
+                            <button
                               onClick={() => sessionObj && handleAttendance(sessionObj, item.name, 'present')}
                               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${item.status === 'present' ? 'bg-green-500 text-white shadow-md' : 'bg-neutral-alt text-neutral-textHelper hover:bg-green-100 hover:text-green-600'}`}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
                             </button>
-                            <button 
+                            <button
                               onClick={() => sessionObj && handleAttendance(sessionObj, item.name, 'absent')}
                               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${item.status === 'absent' ? 'bg-red-400 text-white shadow-md' : 'bg-neutral-alt text-neutral-textHelper hover:bg-red-100 hover:text-red-500'}`}
                             >

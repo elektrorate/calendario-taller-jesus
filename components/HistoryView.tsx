@@ -11,6 +11,23 @@ interface HistoryViewProps {
 const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces }) => {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
+  const formatSessionDate = (dateValue: string) => {
+    const parts = dateValue.split('-').map(Number);
+    if (parts.length === 3 && parts.every(n => Number.isFinite(n))) {
+      const [year, month, day] = parts;
+      return new Date(year, month - 1, day).toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+      });
+    }
+    return new Date(dateValue).toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  };
+
   const studentDetails = useMemo(() => {
     if (!selectedStudentId) return null;
     const student = students.find(s => s.id === selectedStudentId);
@@ -18,10 +35,14 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces })
     
     const fullName = `${student.name} ${student.surname || ''}`.trim();
     const upperFullName = fullName.toUpperCase();
+    const upperNameOnly = student.name.toUpperCase();
     
     // Filtrar sesiones donde el alumno participó (coincidencia de nombre)
     const studentSessions = sessions.filter(s => 
-      s.students.some(name => name.toUpperCase() === upperFullName)
+      s.students.some(name => {
+        const key = name.toUpperCase();
+        return key === upperFullName || key === upperNameOnly;
+      })
     ).sort((a, b) => b.date.localeCompare(a.date));
 
     // Filtrar piezas del alumno
@@ -103,11 +124,13 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces })
                          </div>
                        ) : (
                          studentDetails.sessions.map(s => {
-                            const status = s.attendance?.[studentDetails.fullName.toUpperCase()] || 'pending';
+                            const attendanceKey = studentDetails.fullName.toUpperCase();
+                            const nameKey = studentDetails.student.name.toUpperCase();
+                            const status = s.attendance?.[attendanceKey] || s.attendance?.[nameKey] || 'pending';
                             return (
                                <div key={s.id} className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex justify-between items-center group hover:border-brand transition-all">
                                   <div className="flex flex-col">
-                                     <p className="text-[15px] font-extrabold text-neutral-textMain uppercase tracking-tight">{new Date(s.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                                     <p className="text-[15px] font-extrabold text-neutral-textMain uppercase tracking-tight">{formatSessionDate(s.date)}</p>
                                      <p className="text-[11px] font-light text-neutral-textSec mt-1">{s.startTime} - {s.endTime} • {s.classType.toUpperCase()}</p>
                                   </div>
                                   <div className={`px-4 py-1.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${status === 'present' ? 'bg-green-100 text-green-600' : status === 'absent' ? 'bg-red-100 text-red-500' : 'bg-neutral-alt text-neutral-textHelper'}`}>

@@ -1,5 +1,5 @@
 
-import { Student, ClassSession, CeramicPiece, GiftCard, InventoryItem, InventoryMovement } from './types';
+import { Student, ClassSession, CeramicPiece, GiftCard, InventoryItem, InventoryMovement, Teacher } from './types';
 
 export const STUDENTS: Student[] = [
   { id: '1', name: 'Sergi', surname: 'Vidal', phone: '34 607 71 39 26', email: 'sergi.vidal@email.com', classesRemaining: 0, status: 'regular', price: 120, notes: 'Alumno avanzado, prefiere torno.', classType: 'Torno', expiryDate: '2026-02-01' },
@@ -15,6 +15,11 @@ export const STUDENTS: Student[] = [
   { id: '11', name: 'Miguel', surname: 'Ángel', phone: '34 655 66 77 88', email: 'miguel.a@email.com', classesRemaining: 4, status: 'regular', price: 120, classType: 'Torno', expiryDate: '2026-02-28' },
   { id: '12', name: 'Elena', surname: 'Rodríguez', phone: '34 666 77 88 99', email: 'elena.rod@email.com', classesRemaining: 0, status: 'needs_renewal', price: 100, classType: 'Modelado', expiryDate: '2026-01-28' },
   { id: '13', name: 'David', surname: 'Pérez', phone: '34 677 88 99 00', email: 'david.p@email.com', classesRemaining: 5, status: 'regular', price: 120, classType: 'Torno', expiryDate: '2026-03-10' }
+];
+
+export const TEACHERS: Teacher[] = [
+  { id: 't1', name: 'Laura', surname: 'Martinez', specialty: 'Torno', email: 'laura@taller.com' },
+  { id: 't2', name: 'Ruben', surname: 'Garcia', specialty: 'Modelado', email: 'ruben@taller.com' }
 ];
 
 export const SESSIONS: ClassSession[] = [
