@@ -1,35 +1,46 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
 
-interface LoginProps {
-  onLogin: () => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulación de carga
-    setTimeout(() => {
-      onLogin();
-      setIsLoading(false);
-    }, 800);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (isRegistering) {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setErrorMessage('No se pudo registrar. Verifica email y contrasena.');
+      } else {
+        setSuccessMessage('Registro exitoso. Revisa tu email para confirmar si esta activado.');
+        setIsRegistering(false);
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setErrorMessage('Credenciales invalidas o usuario no encontrado.');
+      }
+    }
+    setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-neutral-base p-6 md:p-8 font-sans">
       <div className="w-full max-w-xl bg-white rounded-[3.5rem] md:rounded-[4.5rem] p-10 md:p-20 border border-neutral-border soft-shadow animate-fade-in flex flex-col items-center relative overflow-hidden">
-        {/* Adorno visual sutil similar a los interiores */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl"></div>
 
         <div className="w-20 h-20 md:w-24 md:h-24 bg-brand rounded-full flex items-center justify-center text-white font-extrabold text-[32px] md:text-[42px] mb-10 shadow-xl shadow-brand/20 relative z-10">A</div>
         
         <div className="text-center mb-12 relative z-10">
-          <p className="text-[10px] md:text-[12px] font-light text-neutral-textHelper uppercase tracking-[0.3em] mb-2">SISTEMA DE GESTIÓN</p>
+          <p className="text-[10px] md:text-[12px] font-light text-neutral-textHelper uppercase tracking-[0.3em] mb-2">SISTEMA DE GESTIÇ"N</p>
           <h1 className="text-[32px] md:text-[48px] font-extrabold text-neutral-textMain uppercase tracking-tight leading-[1.1]">
             BIENVENIDO AL <span className="text-brand">ESTUDIO</span>
           </h1>
@@ -37,6 +48,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="w-full space-y-6 md:space-y-8 relative z-10">
+          {errorMessage && (
+            <p className="text-[12px] text-red-500 font-bold uppercase tracking-widest text-center">
+              {errorMessage}
+            </p>
+          )}
+          {successMessage && (
+            <p className="text-[12px] text-green-600 font-bold uppercase tracking-widest text-center">
+              {successMessage}
+            </p>
+          )}
           <div className="space-y-3">
             <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">Usuario o Email</label>
             <input 
@@ -49,14 +70,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             />
           </div>
           <div className="space-y-3">
-            <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">Contraseña</label>
+            <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">ContraseÇña</label>
             <input 
               required 
               type="password" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50" 
-              placeholder="••••••••" 
+              placeholder="ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½" 
             />
           </div>
           
@@ -69,14 +90,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
               <>
-                Entrar al Taller
+                {isRegistering ? 'Crear Cuenta' : 'Entrar al Taller'}
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
               </>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => { setIsRegistering(!isRegistering); setErrorMessage(null); setSuccessMessage(null); }}
+            className="w-full py-4 text-[12px] font-extrabold uppercase tracking-widest text-neutral-textHelper hover:text-brand transition-colors"
+          >
+            {isRegistering ? 'Ya tengo cuenta' : 'Crear nueva cuenta'}
+          </button>
         </form>
         
-        <p className="mt-16 text-[10px] md:text-[11px] font-light text-neutral-textHelper uppercase text-center tracking-[0.2em] opacity-60">Artesania & Gestión Studio v1.2</p>
+        <p className="mt-16 text-[10px] md:text-[11px] font-light text-neutral-textHelper uppercase text-center tracking-[0.2em] opacity-60">Artesania & GestiÇün Studio v1.2</p>
       </div>
     </div>
   );

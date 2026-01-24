@@ -208,7 +208,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       startTime: sessionForm.startTime,
       endTime: sessionForm.endTime,
       classType: sessionForm.classType,
-      students: sessionForm.selectedStudents,
+      students: sessionForm.classType === 'feriado' ? [] : sessionForm.selectedStudents,
       teacherId: sessionForm.teacherId || undefined,
       workshopName: sessionForm.workshopName.trim() || undefined,
       privateReason: sessionForm.privateReason.trim() || undefined
@@ -243,10 +243,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     return days;
   }, [selectedDate]);
 
+  const sessionsByDate = useMemo(() => {
+    const map: Record<string, ClassSession[]> = {};
+    sessions.forEach(session => {
+      if (!map[session.date]) map[session.date] = [];
+      map[session.date].push(session);
+    });
+    return map;
+  }, [sessions]);
+
   const renderDayView = () => {
     const dateKey = formatDateKey(selectedDate);
     const daySessions = sessions.filter(s => s.date === dateKey);
-    const dayNameLong = selectedDate.toLocaleDateString('es-ES', { weekday: 'long' }).toUpperCase();
+    const dayLabel = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const dayTitle = `${dayLabel.charAt(0).toUpperCase()}${dayLabel.slice(1)}`;
 
     let startHour = 8;
     let endHour = 22;
@@ -272,89 +282,106 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
     return (
       <div className="flex-1 flex flex-col h-full overflow-hidden animate-fade-in">
-        <div className="flex items-center justify-center gap-2 mb-6 px-4 overflow-x-auto pb-4 no-scrollbar shrink-0 mt-2">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-6 md:px-10 pt-4 pb-3">
+          <h3 className="text-[20px] md:text-[26px] font-semibold text-neutral-textMain tracking-tight">{dayTitle}</h3>
+          <div className="flex items-center gap-3 md:gap-6">
+            <div className="flex bg-[#EDE7DF] p-1 rounded-full border border-[#E4DDD4] w-full md:w-auto">
+              <button onClick={() => setViewMode('day')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'day' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>DIA</button>
+              <button onClick={() => setViewMode('month')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>MES</button>
+            </div>
+            <button onClick={() => handleOpenSessionModal()} className="px-5 py-2.5 md:px-7 bg-[#B7A67B] text-white rounded-full text-[11px] font-semibold uppercase tracking-widest shadow-sm hover:brightness-95 active:scale-95 transition-all">NUEVA SESION</button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-6 md:px-10 mb-5 overflow-x-auto pb-2 no-scrollbar shrink-0">
+          <div className="w-9 h-9 rounded-xl border border-neutral-border/30 bg-white flex items-center justify-center text-neutral-textHelper">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          </div>
           {weekDays.map((date, i) => {
             const isSelected = date.toDateString() === selectedDate.toDateString();
-            const dName = date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase();
+            const dName = date.toLocaleDateString('es-ES', { weekday: 'long' });
             return (
-
-              <button key={i} onClick={() => setSelectedDate(new Date(date))} className={`flex flex-col items-center min-w-[50px] md:min-w-[70px] py-3 rounded-2xl transition-all border ${isSelected ? 'bg-brand border-brand text-white soft-shadow scale-105 z-10' : 'bg-white border-white text-neutral-textHelper hover:border-brand-light'}`}>
-                <span className={`text-[9px] font-extrabold uppercase mb-1 tracking-widest ${isSelected ? 'text-white/80' : 'text-[#A8A9AE]'}`}>{dName}</span>
-                <span className={`text-[16px] md:text-[20px] font-extrabold ${isSelected ? 'text-white' : 'text-[#3D3437]'}`}>{date.getDate()}</span>
+              <button
+                key={i}
+                onClick={() => setSelectedDate(new Date(date))}
+                className={`flex flex-col items-center min-w-[82px] md:min-w-[96px] px-4 py-3 rounded-2xl transition-all border ${isSelected ? 'bg-[#B7A67B] border-[#B7A67B] text-white shadow-md' : 'bg-white border-neutral-border/40 text-neutral-textMain hover:border-neutral-border/70'}`}
+              >
+                <span className={`text-[10px] font-semibold capitalize mb-1 ${isSelected ? 'text-white/80' : 'text-neutral-textHelper'}`}>{dName}</span>
+                <span className={`text-[20px] md:text-[22px] font-semibold leading-none ${isSelected ? 'text-white' : 'text-neutral-textMain'}`}>{date.getDate()}</span>
               </button>
             );
           })}
         </div>
 
-        <div className="mb-4 px-5 md:px-8 flex items-center justify-between">
-          <h3 className="text-[18px] md:text-[22px] font-extrabold text-neutral-textMain uppercase tracking-tight">{dayNameLong}</h3>
-          <button onClick={() => handleOpenSessionModal()} className="px-5 py-3 md:px-8 bg-brand text-white rounded-full text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest soft-shadow hover:bg-brand-hover active:scale-95 transition-all">NUEVA SESIÓN</button>
-        </div>
-
-        <div className="relative flex-1 overflow-hidden">
-          <div className="h-full overflow-y-auto custom-scrollbar px-5 md:px-8 pt-2 pb-32">
-            <div className="relative" style={{ minHeight: `${hours.length * HOUR_HEIGHT}px` }}>
+        <div className="relative flex-1 overflow-hidden bg-[#F4F1ED] border-t border-neutral-border/30">
+          <div className="h-full overflow-y-auto custom-scrollbar px-6 md:px-10 pt-4 pb-32">
+            <div className="relative pl-20" style={{ minHeight: `${hours.length * HOUR_HEIGHT}px` }}>
               {hours.map((hour) => (
-                <div key={hour} className="relative flex items-start border-t border-neutral-border/20 h-[140px]">
-                  <span className="w-10 text-left text-[10px] md:text-[11px] font-light text-neutral-textHelper -mt-2.5 uppercase tracking-tighter">{hour === 24 ? '00' : hour}:00</span>
+                <div key={hour} className="relative flex items-start border-t border-neutral-border/30 h-[140px]">
+                  <span className="-ml-20 w-20 text-left text-[11px] font-medium text-neutral-textHelper -mt-2 uppercase tracking-wider">{hour === 24 ? '00' : hour}:00</span>
                 </div>
               ))}
 
               {Object.keys(sessionsByTime).map(startTime => {
                 const concurrentSessions = sessionsByTime[startTime];
-                const widthPercent = (100 - 15) / concurrentSessions.length;
+                const widthPercent = 100 / concurrentSessions.length;
                 return concurrentSessions.map((session, index) => {
                   const [startH, startM] = session.startTime.split(':').map(Number);
                   const topOffset = ((startH * 60 + startM - startHour * 60) / 60) * HOUR_HEIGHT;
-                  const leftOffset = 15 + (index * widthPercent);
+                  const leftOffset = index * widthPercent;
                   return (
-                    <div key={session.id} className="absolute rounded-[2rem] md:rounded-[2.5rem] bg-white soft-shadow border border-neutral-border/20 transition-all z-10 p-6 md:p-8 flex flex-col items-start overflow-hidden group cursor-pointer" style={{ top: `${topOffset}px`, left: `${leftOffset}%`, width: `calc(${widthPercent}% - 12px)`, minHeight: '180px' }} onClick={() => handleOpenSessionModal(session)}>
-                      <div className="flex flex-col md:flex-row justify-between items-start w-full mb-4 md:mb-6 gap-2">
-                        <span className="text-[18px] md:text-[22px] font-extrabold text-neutral-textMain leading-none tracking-tight">{session.startTime} - {session.endTime}</span>
-                        <span className={`px-3 py-1 rounded-full text-[9px] md:text-[10px] font-extrabold uppercase tracking-[0.1em] text-white ${getSessionBadgeClasses(session.classType)}`}>{getSessionLabel(session).toUpperCase()}</span>
+                    <div
+                      key={session.id}
+                      className="absolute rounded-[2rem] bg-white shadow-md border border-neutral-border/30 transition-all z-10 p-6 md:p-7 flex flex-col items-start overflow-hidden group cursor-pointer"
+                      style={{ top: `${topOffset}px`, left: `calc(${leftOffset}% + 80px)`, width: `calc(${widthPercent}% - 92px)`, minHeight: '190px' }}
+                      onClick={() => handleOpenSessionModal(session)}
+                    >
+                      <div className="flex flex-col md:flex-row justify-between items-start w-full mb-4 gap-2">
+                        <span className="text-[16px] md:text-[18px] font-semibold text-neutral-textMain leading-none">{session.startTime} - {session.endTime}</span>
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-semibold uppercase tracking-[0.2em] text-white ${getSessionBadgeClasses(session.classType)}`}>{getSessionLabel(session).toUpperCase()}</span>
                       </div>
-                      <div className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest mb-4">
+                      <div className="text-[11px] font-medium text-neutral-textHelper uppercase tracking-widest mb-4">
                         <span>Profesor/a: </span>
-                        <span className="text-brand font-extrabold">{getTeacherName(session.teacherId)}</span>
+                        <span className="text-[#B07D4E] font-semibold">{getTeacherName(session.teacherId)}</span>
                         {getTeacherSpecialty(session.teacherId) && (
-                          <span className="block text-[10px] font-light text-neutral-textSec uppercase tracking-widest mt-1">
+                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             {getTeacherSpecialty(session.teacherId)}
                           </span>
                         )}
                         {session.classType === 'workshop' && session.workshopName && (
-                          <span className="block text-[10px] font-light text-neutral-textSec uppercase tracking-widest mt-1">
+                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             {session.workshopName}
                           </span>
                         )}
                         {session.classType === 'privada' && session.privateReason && (
-                          <span className="block text-[10px] font-light text-neutral-textSec uppercase tracking-widest mt-1">
+                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             {session.privateReason}
                           </span>
                         )}
                         {session.classType === 'feriado' && (
-                          <span className="block text-[10px] font-light text-neutral-textSec uppercase tracking-widest mt-1">
+                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             Vacaciones
                           </span>
                         )}
                       </div>
-                      <div className="space-y-2 md:space-y-3 w-full flex-1 mb-10 overflow-hidden">
+                      <div className="space-y-2 w-full flex-1 mb-10 overflow-hidden">
                         {session.students.map((s, idx) => {
                           const att = session.attendance?.[s];
                           return (
                             <div key={idx} className="flex items-center gap-2.5">
-                              <div className={`w-2 h-2 rounded-full shrink-0 ${att === 'absent' ? 'bg-red-500' : (att === 'present' ? 'bg-green-500' : 'bg-[#CA7859]')}`}></div>
-                              <span className={`text-[14px] md:text-[16px] font-light truncate ${att === 'absent' ? 'text-red-400 line-through opacity-60' : (att === 'present' ? 'text-green-600 font-normal' : 'text-neutral-textMain')}`}>{s.toLowerCase()}</span>
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${att === 'absent' ? 'bg-red-500' : (att === 'present' ? 'bg-green-500' : 'bg-[#C88B6A]')}`}></div>
+                              <span className={`text-[12px] md:text-[13px] font-medium truncate ${att === 'absent' ? 'text-red-400 line-through opacity-60' : (att === 'present' ? 'text-green-600' : 'text-neutral-textMain')}`}>{s.toLowerCase()}</span>
                             </div>
                           );
                         })}
                       </div>
-                      {/* Botón Control de Asistencia Específico */}
+                      {/* BotÇün Control de Asistencia EspecÇðfico */}
                       <button
                         onClick={(e) => { e.stopPropagation(); handleOpenAttendanceModal(session); }}
-                        className="absolute bottom-4 right-4 md:bottom-6 md:right-6 w-10 h-10 md:w-14 md:h-14 bg-brand rounded-full flex items-center justify-center text-white soft-shadow hover:scale-105 transition-all z-20"
+                        className="absolute bottom-4 right-4 w-10 h-10 bg-white border border-neutral-border/40 rounded-full flex items-center justify-center text-neutral-textMain shadow-sm hover:shadow-md transition-all z-20"
                         title="Control de Asistencia"
                       >
-                        <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
                       </button>
                     </div>
                   );
@@ -368,16 +395,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-neutral-base">
-      <div className="flex justify-center md:justify-end px-5 md:px-8 pt-4 mb-2">
-        <div className="flex bg-white p-1 rounded-full border border-neutral-border/30 soft-shadow w-full md:w-auto">
-          <button onClick={() => setViewMode('day')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest transition-all ${viewMode === 'day' ? 'bg-brand text-white' : 'text-neutral-textHelper'}`}>DÍA</button>
-          <button onClick={() => setViewMode('month')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-brand text-white' : 'text-neutral-textHelper'}`}>MES</button>
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col overflow-hidden bg-[#F6F1EC]">
       {viewMode === 'day' ? renderDayView() : (
         <div className="flex-1 bg-white rounded-t-[2.5rem] md:rounded-t-[3rem] border-x border-t border-neutral-border p-4 md:p-8 flex flex-col items-center overflow-y-auto custom-scrollbar">
+          <div className="w-full max-w-4xl flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <h3 className="text-[18px] md:text-[22px] font-semibold text-neutral-textMain tracking-tight">
+              Calendario mensual
+            </h3>
+            <div className="flex items-center gap-3 md:gap-6">
+              <div className="flex bg-[#EDE7DF] p-1 rounded-full border border-[#E4DDD4] w-full md:w-auto">
+                <button onClick={() => setViewMode('day')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'day' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>DIA</button>
+                <button onClick={() => setViewMode('month')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>MES</button>
+              </div>
+              <button onClick={() => handleOpenSessionModal()} className="px-5 py-2.5 md:px-7 bg-[#B7A67B] text-white rounded-full text-[11px] font-semibold uppercase tracking-widest shadow-sm hover:brightness-95 active:scale-95 transition-all">NUEVA SESION</button>
+            </div>
+          </div>
           <div className="w-full max-w-md flex justify-between items-center mb-8">
             <button onClick={() => setSelectedDate(new Date(selectedDate.setMonth(selectedDate.getMonth() - 1)))} className="p-2 text-neutral-customGray hover:text-brand"><svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M15 19l-7-7 7-7" /></svg></button>
             <h3 className="text-[16px] md:text-lg font-extrabold text-neutral-textMain uppercase tracking-widest">{selectedDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</h3>
@@ -387,9 +419,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
             {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => <div key={d} className="text-center text-[10px] md:text-[11px] font-extrabold text-neutral-textHelper uppercase mb-1">{d}</div>)}
             {monthDays.map((item, i) => {
               const isSelected = item.date.toDateString() === selectedDate.toDateString();
+              const dayKey = formatDateKey(item.date);
+              const daySessions = sessionsByDate[dayKey] || [];
+              const activeSessions = daySessions.filter(s => s.classType !== 'feriado');
               return (
-                <div key={i} onClick={() => { setSelectedDate(item.date); setViewMode('day'); }} className={`aspect-square rounded-xl md:rounded-2xl flex items-center justify-center cursor-pointer transition-all border ${!item.currentMonth ? 'opacity-10' : 'opacity-100'} ${isSelected ? 'bg-brand text-white border-brand' : 'bg-neutral-sec/50 border-neutral-border hover:bg-white'}`}>
+                <div key={i} onClick={() => { setSelectedDate(item.date); setViewMode('day'); }} className={`aspect-square rounded-xl md:rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all border ${!item.currentMonth ? 'opacity-10' : 'opacity-100'} ${isSelected ? 'bg-brand text-white border-brand' : 'bg-neutral-sec/50 border-neutral-border hover:bg-white'}`}>
                   <span className="text-[14px] md:text-lg font-extrabold">{item.date.getDate()}</span>
+                  {activeSessions.length > 0 && (
+                    <div className="mt-1 flex items-center gap-1">
+                      {activeSessions.slice(0, 3).map((session, idx) => (
+                        <span key={`${session.id}-${idx}`} className={`w-2 h-2 rounded-full ${getSessionBadgeClasses(session.classType)}`}></span>
+                      ))}
+                      {activeSessions.length > 3 && (
+                        <span className="text-[9px] font-extrabold text-neutral-textHelper">+{activeSessions.length - 3}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -512,13 +557,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-2">INICIO</label>
-                  <input type="time" value={sessionForm.startTime} onChange={(e) => setSessionForm({ ...sessionForm, startTime: e.target.value })} className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl font-extrabold text-[16px] md:text-[18px]" />
+                  <input type="time" value={sessionForm.startTime} onChange={(e) => setSessionForm({ ...sessionForm, startTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl font-extrabold text-[16px] md:text-[18px] ${sessionForm.classType === 'feriado' ? 'opacity-60 cursor-not-allowed' : ''}`} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-2">FIN</label>
-                  <input type="time" value={sessionForm.endTime} onChange={(e) => setSessionForm({ ...sessionForm, endTime: e.target.value })} className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl font-extrabold text-[16px] md:text-[18px]" />
+                  <input type="time" value={sessionForm.endTime} onChange={(e) => setSessionForm({ ...sessionForm, endTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl font-extrabold text-[16px] md:text-[18px] ${sessionForm.classType === 'feriado' ? 'opacity-60 cursor-not-allowed' : ''}`} />
                 </div>
               </div>
+              {sessionForm.classType === 'feriado' && (
+                <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest">
+                  Dia bloqueado por feriado (00:00 - 24:00).
+                </p>
+              )}
               <div>
                 <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">TIPO</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -538,7 +588,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         classType: option.id,
                         teacherId: (option.id === 'mesa' || option.id === 'torno') ? sessionForm.teacherId : '',
                         workshopName: option.id === 'workshop' ? sessionForm.workshopName : '',
-                        privateReason: option.id === 'privada' ? sessionForm.privateReason : ''
+                        privateReason: option.id === 'privada' ? sessionForm.privateReason : '',
+                        selectedStudents: option.id === 'feriado' ? [] : sessionForm.selectedStudents,
+                        startTime: option.id === 'feriado' ? '00:00' : sessionForm.startTime,
+                        endTime: option.id === 'feriado' ? '24:00' : sessionForm.endTime
                       })}
                       className={`py-4 rounded-xl font-extrabold text-[12px] md:text-[13px] uppercase tracking-widest border transition-all ${
                         sessionForm.classType === option.id ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'
@@ -588,24 +641,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   />
                 </div>
               )}
-              <div>
-                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-4">ALUMNOS ASIGNADOS</label>
-                <div className="flex flex-wrap gap-2">
-                  {students.map(s => {
-                    const fullName = `${s.name} ${s.surname || ''}`.trim();
-                    const studentKey = fullName.toUpperCase();
-                    const isSelected = sessionForm.selectedStudents.includes(studentKey);
-                    return (
-                      <button key={s.id} onClick={() => {
-                        const newList = isSelected
-                          ? sessionForm.selectedStudents.filter(n => n !== studentKey)
-                          : [...sessionForm.selectedStudents, studentKey];
-                        setSessionForm({ ...sessionForm, selectedStudents: newList });
-                      }} className={`px-3 py-2 rounded-lg text-[10px] font-extrabold uppercase border transition-all ${isSelected ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'}`}>{fullName}</button>
-                    );
-                  })}
+              {sessionForm.classType !== 'feriado' && (
+                <div>
+                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-4">ALUMNOS ASIGNADOS</label>
+                  <div className="flex flex-wrap gap-2">
+                    {students.map(s => {
+                      const fullName = `${s.name} ${s.surname || ''}`.trim();
+                      const studentKey = fullName.toUpperCase();
+                      const isSelected = sessionForm.selectedStudents.includes(studentKey);
+                      return (
+                        <button key={s.id} onClick={() => {
+                          const newList = isSelected
+                            ? sessionForm.selectedStudents.filter(n => n !== studentKey)
+                            : [...sessionForm.selectedStudents, studentKey];
+                          setSessionForm({ ...sessionForm, selectedStudents: newList });
+                        }} className={`px-3 py-2 rounded-lg text-[10px] font-extrabold uppercase border transition-all ${isSelected ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'}`}>{fullName}</button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div className="pt-8 flex gap-3 shrink-0">
               {editingSessionId && (
