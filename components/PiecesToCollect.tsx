@@ -332,6 +332,16 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                 </div>
 
                 <div>
+                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">FECHA DE ENTREGA</label>
+                  <input
+                    type="date"
+                    value={form.deliveryDate}
+                    onChange={(e) => setForm({ ...form, deliveryDate: e.target.value })}
+                    className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[16px] focus:outline-none focus:border-brand"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">NOTAS ADICIONALES</label>
                   <textarea value={form.extraCommentary} onChange={(e) => setForm({ ...form, extraCommentary: e.target.value })} className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[15px] min-h-[100px] resize-none focus:outline-none focus:border-brand" placeholder="..." />
                 </div>

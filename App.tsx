@@ -543,12 +543,13 @@ const App: React.FC = () => {
       description: newPiece.description,
       status: newPiece.status,
       glaze_type: newPiece.glazeType,
-      delivery_date: newPiece.deliveryDate,
+      delivery_date: newPiece.deliveryDate || null,
       notes: newPiece.notes,
       extra_commentary: newPiece.extraCommentary
     });
     if (error) {
-      alert('ERROR: No se pudo crear la pieza.');
+      console.error('addPiece error:', error);
+      alert(`ERROR: No se pudo crear la pieza. ${error.message || ''}`.trim());
       return;
     }
     await loadAllData();
@@ -560,7 +561,7 @@ const App: React.FC = () => {
       description: updates.description,
       status: updates.status,
       glaze_type: updates.glazeType,
-      delivery_date: updates.deliveryDate,
+      delivery_date: updates.deliveryDate || null,
       notes: updates.notes,
       extra_commentary: updates.extraCommentary
     });
