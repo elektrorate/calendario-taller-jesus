@@ -1,0 +1,28 @@
+import React from 'react';
+import { useData } from '../context/DataContext';
+import CalendarView from '../components/CalendarView';
+
+const CalendarPage: React.FC = () => {
+    const { sessions, addSession, updateSession, deleteSession, students, teachers, isLoadingData } = useData();
+
+    if (isLoadingData) {
+        return (
+            <div className="h-full flex items-center justify-center text-neutral-textHelper uppercase text-[12px] tracking-widest">
+                Cargando datos...
+            </div>
+        );
+    }
+
+    return (
+        <CalendarView
+            sessions={sessions}
+            onAddSession={addSession}
+            onUpdateSession={updateSession}
+            onDeleteSession={deleteSession}
+            students={students}
+            teachers={teachers}
+        />
+    );
+};
+
+export default CalendarPage;

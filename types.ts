@@ -135,7 +135,7 @@ export interface InventoryItem {
   created_at: string;
   updated_at: string;
   status: InventoryItemStatus;
-  
+
   // Específicos Esmaltes y Engobes
   formula_unit?: 'percent' | 'weight';
   formula?: StructuredFormula;

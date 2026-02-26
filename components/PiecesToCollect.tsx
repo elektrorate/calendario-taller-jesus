@@ -96,8 +96,8 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, onEdit, onUpdateStatus, ge
           disabled={!action}
           onClick={() => action && onUpdateStatus(piece.id, action.next)}
           className={`w-full py-4 rounded-xl text-[12px] font-extrabold uppercase tracking-widest transition-all ${!action
-              ? 'bg-neutral-alt text-neutral-textHelper cursor-not-allowed border border-neutral-border shadow-none opacity-50'
-              : 'bg-neutral-textMain text-white hover:bg-black active:scale-[0.98] soft-shadow'
+            ? 'bg-neutral-alt text-neutral-textHelper cursor-not-allowed border border-neutral-border shadow-none opacity-50'
+            : 'bg-neutral-textMain text-white hover:bg-black active:scale-[0.98] soft-shadow'
             }`}
         >
           {action ? action.label : 'FINALIZADO'}

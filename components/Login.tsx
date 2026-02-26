@@ -1,4 +1,6 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 
 const Login: React.FC = () => {
@@ -9,26 +11,53 @@ const Login: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const { login, session, profile } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (session && profile) {
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (profile.role === 'super_admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [session, profile, navigate, location]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+
     if (isRegistering) {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) {
-        setErrorMessage('No se pudo registrar. Verifica email y contrasena.');
+        setErrorMessage('No se pudo registrar. Verifica email y contraseña.');
       } else {
-        setSuccessMessage('Registro exitoso. Revisa tu email para confirmar si esta activado.');
+        setSuccessMessage('Registro exitoso. Revisa tu email para confirmar si está activado.');
         setIsRegistering(false);
       }
+      setIsLoading(false);
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setErrorMessage('Credenciales invalidas o usuario no encontrado.');
+      const result = await login(email, password);
+
+      if (result.success && result.role) {
+        if (result.role === 'super_admin') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      } else {
+        setErrorMessage(result.error || 'Error al iniciar sesión.');
       }
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -38,9 +67,9 @@ const Login: React.FC = () => {
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl"></div>
 
         <div className="w-20 h-20 md:w-24 md:h-24 bg-brand rounded-full flex items-center justify-center text-white font-extrabold text-[32px] md:text-[42px] mb-10 shadow-xl shadow-brand/20 relative z-10">A</div>
-        
+
         <div className="text-center mb-12 relative z-10">
-          <p className="text-[10px] md:text-[12px] font-light text-neutral-textHelper uppercase tracking-[0.3em] mb-2">SISTEMA DE GESTIÇ"N</p>
+          <p className="text-[10px] md:text-[12px] font-light text-neutral-textHelper uppercase tracking-[0.3em] mb-2">SISTEMA DE GESTIÓN</p>
           <h1 className="text-[32px] md:text-[48px] font-extrabold text-neutral-textMain uppercase tracking-tight leading-[1.1]">
             BIENVENIDO AL <span className="text-brand">ESTUDIO</span>
           </h1>
@@ -60,30 +89,30 @@ const Login: React.FC = () => {
           )}
           <div className="space-y-3">
             <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">Usuario o Email</label>
-            <input 
-              required 
-              type="text" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50" 
-              placeholder="alexander@estudio.com" 
+            <input
+              required
+              type="text"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50"
+              placeholder="alexander@estudio.com"
             />
           </div>
           <div className="space-y-3">
-            <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">ContraseÇña</label>
-            <input 
-              required 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50" 
-              placeholder="ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½ƒ?½" 
+            <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">Contraseña</label>
+            <input
+              required
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50"
+              placeholder="••••••••"
             />
           </div>
-          
-          <button 
-            type="submit" 
-            disabled={isLoading} 
+
+          <button
+            type="submit"
+            disabled={isLoading}
             className="w-full py-6 md:py-7 bg-brand text-white rounded-[2.5rem] font-extrabold shadow-lg shadow-brand/20 uppercase tracking-[0.2em] text-[16px] md:text-[18px] hover:bg-brand-hover hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 mt-4"
           >
             {isLoading ? (
@@ -103,8 +132,8 @@ const Login: React.FC = () => {
             {isRegistering ? 'Ya tengo cuenta' : 'Crear nueva cuenta'}
           </button>
         </form>
-        
-        <p className="mt-16 text-[10px] md:text-[11px] font-light text-neutral-textHelper uppercase text-center tracking-[0.2em] opacity-60">Artesania & GestiÇün Studio v1.2</p>
+
+        <p className="mt-16 text-[10px] md:text-[11px] font-light text-neutral-textHelper uppercase text-center tracking-[0.2em] opacity-60">Artesanía & Gestión Studio v1.2</p>
       </div>
     </div>
   );
