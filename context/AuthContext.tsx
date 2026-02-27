@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 
@@ -44,6 +44,9 @@ interface AuthProviderProps {
     children: ReactNode;
 }
 
+// Max time (ms) to wait for auth initialization before forcing loading=false
+const AUTH_TIMEOUT_MS = 8000;
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
@@ -52,15 +55,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [error, setError] = useState<string | null>(null);
     const [sedeId, setSedeId] = useState<string | null>(null);
 
-    // Ref to avoid stale closures in onAuthStateChange
+    // Track if initial load is done to prevent onAuthStateChange from interfering
+    const initializedRef = useRef(false);
     const profileRef = useRef<Profile | null>(null);
 
-    // Keep ref in sync with state
     useEffect(() => {
         profileRef.current = profile;
     }, [profile]);
 
-    const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -78,15 +81,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.error('Error in fetchProfile:', err);
             return null;
         }
-    };
+    }, []);
 
-    const fetchSedeId = async (userId: string, role: UserRole): Promise<string | null> => {
+    const fetchSedeId = useCallback(async (userId: string, role: UserRole): Promise<string | null> => {
         if (role === 'super_admin') {
             return null;
         }
 
         try {
-            // Use .limit(1) instead of .single() to avoid errors on 0 rows
             const { data: ownedSedes, error: ownedError } = await supabase
                 .from('sedes')
                 .select('id')
@@ -98,7 +100,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 return ownedSedes[0].id;
             }
 
-            // Check sede_members as fallback
             const { data: memberships, error: memberError } = await supabase
                 .from('sede_members')
                 .select('sede_id')
@@ -115,11 +116,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.error('Error fetching sede_id:', err);
             return null;
         }
-    };
+    }, []);
+
+    // Full load helper: sets session, user, profile, sedeId, and loading=false
+    const loadUserData = useCallback(async (currentSession: Session) => {
+        setSession(currentSession);
+        setUser(currentSession.user);
+
+        const userProfile = await fetchProfile(currentSession.user.id);
+        if (userProfile) {
+            setProfile(userProfile);
+            profileRef.current = userProfile;
+            const userSedeId = await fetchSedeId(currentSession.user.id, userProfile.role);
+            setSedeId(userSedeId);
+        }
+
+        setLoading(false);
+    }, [fetchProfile, fetchSedeId]);
 
     // Initialize auth on mount
     useEffect(() => {
         let isActive = true;
+
+        // Safety timeout: if auth takes too long, force loading=false
+        const timeoutId = setTimeout(() => {
+            if (isActive && !initializedRef.current) {
+                console.warn('Auth initialization timed out — forcing loading=false');
+                initializedRef.current = true;
+                setLoading(false);
+            }
+        }, AUTH_TIMEOUT_MS);
 
         const initializeAuth = async () => {
             try {
@@ -128,32 +154,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 if (!isActive) return;
 
                 if (currentSession?.user) {
-                    setSession(currentSession);
-                    setUser(currentSession.user);
-
-                    const userProfile = await fetchProfile(currentSession.user.id);
-                    if (userProfile && isActive) {
-                        setProfile(userProfile);
-                        profileRef.current = userProfile;
-                        const userSedeId = await fetchSedeId(currentSession.user.id, userProfile.role);
-                        if (isActive) {
-                            setSedeId(userSedeId);
-                        }
-                    }
+                    await loadUserData(currentSession);
+                } else {
+                    // No session: just stop loading
+                    setLoading(false);
                 }
             } catch (err) {
                 console.error('Error initializing auth:', err);
-            } finally {
                 if (isActive) {
                     setLoading(false);
+                }
+            } finally {
+                if (isActive) {
+                    initializedRef.current = true;
                 }
             }
         };
 
         initializeAuth();
 
+        // Listen for auth changes AFTER initial load
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
             if (!isActive) return;
+
+            // During initial load, ignore SIGNED_IN — initializeAuth handles it
+            if (!initializedRef.current && event === 'SIGNED_IN') {
+                return;
+            }
 
             if (event === 'SIGNED_OUT') {
                 setSession(null);
@@ -172,32 +199,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             if (event === 'SIGNED_IN' && newSession?.user) {
-                setSession(newSession);
-                setUser(newSession.user);
-
-                // Only fetch profile if we don't already have one
-                if (!profileRef.current) {
-                    const userProfile = await fetchProfile(newSession.user.id);
-                    if (userProfile && isActive) {
-                        setProfile(userProfile);
-                        profileRef.current = userProfile;
-                        const userSedeId = await fetchSedeId(newSession.user.id, userProfile.role);
-                        if (isActive) {
-                            setSedeId(userSedeId);
-                        }
-                    }
-                    if (isActive) {
-                        setLoading(false);
-                    }
-                }
+                // This fires after manual login or re-auth (not initial page load)
+                await loadUserData(newSession);
             }
         });
 
         return () => {
             isActive = false;
+            clearTimeout(timeoutId);
             authListener.subscription.unsubscribe();
         };
-    }, []);
+    }, [loadUserData]);
 
     const login = async (email: string, password: string): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
         setError(null);

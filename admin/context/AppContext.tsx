@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 import { Workshop, User, WorkshopStatus, UserRole, ActivityLog, Invitation, InvitationStatus } from '../types';
 
 interface AppContextType {
@@ -39,6 +41,8 @@ const hasStoredSession = (): boolean => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
+  const { logout: authLogout } = useAuth();
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -236,7 +240,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    await authLogout();
+    setCurrentUser(null);
+    setWorkshops([]);
+    setUsers([]);
+    navigate('/login', { replace: true });
     showToast('Sesión cerrada', 'info');
   };
 

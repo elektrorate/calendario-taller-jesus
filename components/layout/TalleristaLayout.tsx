@@ -89,6 +89,11 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
     const navigate = useNavigate();
     const { logout, profile } = useAuth();
 
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login', { replace: true });
+    };
+
     const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'Estudio';
 
     return (
@@ -127,7 +132,7 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
 
                         <div className="mt-6 pt-6 border-t border-neutral-border space-y-4 shrink-0">
                             <button
-                                onClick={logout}
+                                onClick={handleLogout}
                                 className="w-full flex items-center space-x-4 py-2 text-neutral-textHelper hover:text-brand transition-colors"
                             >
                                 <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -207,7 +212,7 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
 
                             <div className="pt-6 border-t border-[#EAEAEA]">
                                 <button
-                                    onClick={() => { logout(); setIsMenuOpen(false); }}
+                                    onClick={() => { handleLogout(); setIsMenuOpen(false); }}
                                     className="w-full text-left px-6 py-4 text-[#E26D5A] font-bold uppercase text-[14px] tracking-widest hover:opacity-70 transition-opacity"
                                 >
                                     Cerrar Sesión

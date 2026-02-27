@@ -82,16 +82,22 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [isLoadingData, setIsLoadingData] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    const hasLoadedOnceRef = useRef(false);
 
     const removeUndefined = (obj: Record<string, unknown>) => {
         return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined));
     };
 
     const buildStudentPayload = (student: Partial<Student>) => {
+        // Build full_name from name + surname (full_name is NOT NULL in DB)
+        const fullName = student.name
+            ? [student.name, student.surname].filter(Boolean).join(' ')
+            : undefined;
         return removeUndefined({
             name: student.name,
             surname: student.surname,
+            full_name: fullName,
             email: student.email,
             phone: student.phone,
             phone_country: student.phoneCountry,
@@ -110,10 +116,20 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const buildSessionPayload = (data: Partial<ClassSession>) => {
+        // Build full timestamps for start_time/end_time (timestamp with time zone NOT NULL in DB)
+        // The frontend sends date as "2026-02-26" and startTime/endTime as "10:00"
+        let startTimestamp: string | undefined;
+        let endTimestamp: string | undefined;
+        if (data.date && data.startTime) {
+            startTimestamp = `${data.date}T${data.startTime}:00`;
+        }
+        if (data.date && data.endTime) {
+            endTimestamp = `${data.date}T${data.endTime}:00`;
+        }
         return removeUndefined({
             date: data.date,
-            start_time: data.startTime,
-            end_time: data.endTime,
+            start_time: startTimestamp ?? data.startTime,
+            end_time: endTimestamp ?? data.endTime,
             class_type: data.classType,
             teacher_id: data.teacherId,
             teacher_substitute_id: data.teacherSubstituteId,
@@ -125,8 +141,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     const loadAllData = useCallback(async () => {
         if (!session) return;
+        // For non-super_admin, wait until sedeId is resolved
+        if (!isSuperAdmin && !sedeId) return;
 
-        setIsLoadingData(true);
+        // Only show loading spinner on the FIRST load.
+        // After that, refresh silently in the background.
+        if (!hasLoadedOnceRef.current) {
+            setIsLoadingData(true);
+        }
         try {
             // Build queries - filter by sede_id for non-super_admin users
             const buildQuery = (table: string) => {
@@ -264,13 +286,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             console.error('Supabase load error', error);
         } finally {
             setIsLoadingData(false);
+            hasLoadedOnceRef.current = true;
         }
     }, [session, sedeId, isSuperAdmin]);
 
     useEffect(() => {
-        if (session) {
+        if (session && (isSuperAdmin || sedeId)) {
             loadAllData();
-        } else {
+        } else if (!session) {
             setStudents([]);
             setSessions([]);
             setPieces([]);
@@ -279,7 +302,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             setInventoryMovements([]);
             setTeachers([]);
         }
-    }, [session, loadAllData]);
+    }, [session, sedeId, isSuperAdmin, loadAllData]);
 
     const buildAssignedKey = (cls: AssignedClass) => `${cls.date}|${cls.startTime}|${cls.endTime}`;
 
@@ -456,7 +479,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         const { data, error } = await supabase.from('students').insert(payload).select().single();
         if (error) {
-            alert('ERROR: No se pudo crear el alumno.');
+            console.error('addStudent error:', error);
+            alert(`ERROR: No se pudo crear el alumno. ${error.message || ''}`);
             return;
         }
         const assignedClasses = newStudent.assignedClasses || [];
@@ -471,7 +495,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         const payload = buildStudentPayload(updates);
         const { error } = await supabase.from('students').update(payload).eq('id', id);
         if (error) {
-            alert('ERROR: No se pudo actualizar el alumno.');
+            console.error('updateStudent error:', error);
+            alert(`ERROR: No se pudo actualizar el alumno. ${error.message || ''}`);
             return;
         }
         if (updates.assignedClasses) {
@@ -510,7 +535,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         const { data, error } = await supabase.from('sessions').insert(payload).select().single();
         if (error) {
-            alert('ERROR: No se pudo crear la sesión.');
+            console.error('addSession error:', error);
+            alert(`ERROR: No se pudo crear la sesión. ${error.message || ''}`);
             return;
         }
         if (newSession.students && newSession.students.length) {
@@ -524,7 +550,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (Object.keys(payload).length) {
             const { error } = await supabase.from('sessions').update(payload).eq('id', id);
             if (error) {
-                alert('ERROR: No se pudo actualizar la sesión.');
+                console.error('updateSession error:', error);
+                alert(`ERROR: No se pudo actualizar la sesión. ${error.message || ''}`);
                 return;
             }
         }
@@ -562,7 +589,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         const { error } = await supabase.from('teachers').insert(payload);
         if (error) {
-            alert('ERROR: No se pudo crear el profesor.');
+            console.error('addTeacher error:', error);
+            alert(`ERROR: No se pudo crear el profesor. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -579,7 +607,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         });
         const { error } = await supabase.from('teachers').update(payload).eq('id', id);
         if (error) {
-            alert('ERROR: No se pudo actualizar el profesor.');
+            console.error('updateTeacher error:', error);
+            alert(`ERROR: No se pudo actualizar el profesor. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -595,7 +624,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         const ownerUpper = newPiece.owner.toUpperCase();
         const student = students.find(s => `${s.name} ${s.surname || ''}`.trim().toUpperCase() === ownerUpper);
         const payload: any = {
-            owner_student_id: student?.id || null,
+            student_id: student?.id || null,
             owner_name: newPiece.owner,
             description: newPiece.description,
             status: newPiece.status,
@@ -628,7 +657,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         });
         const { error } = await supabase.from('pieces').update(payload).eq('id', id);
         if (error) {
-            alert('ERROR: No se pudo actualizar la pieza.');
+            console.error('updatePiece error:', error);
+            alert(`ERROR: No se pudo actualizar la pieza. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -654,7 +684,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         const { error } = await supabase.from('gift_cards').insert(payload);
         if (error) {
-            alert('ERROR: No se pudo crear la tarjeta regalo.');
+            console.error('addGiftCard error:', error);
+            alert(`ERROR: No se pudo crear la tarjeta regalo. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -671,7 +702,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         });
         const { error } = await supabase.from('gift_cards').update(payload).eq('id', id);
         if (error) {
-            alert('ERROR: No se pudo actualizar la tarjeta regalo.');
+            console.error('updateGiftCard error:', error);
+            alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -695,7 +727,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         const { error } = await supabase.from('inventory_items').insert(payload);
         if (error) {
-            alert('ERROR: No se pudo crear el item.');
+            console.error('addInventoryItem error:', error);
+            alert(`ERROR: No se pudo crear el item. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -710,7 +743,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         });
         const { error } = await supabase.from('inventory_items').update(payload).eq('id', id);
         if (error) {
-            alert('ERROR: No se pudo actualizar el item.');
+            console.error('updateInventoryItem error:', error);
+            alert(`ERROR: No se pudo actualizar el item. ${error.message || ''}`);
             return;
         }
         await loadAllData();
@@ -722,6 +756,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     const addInventoryMovement = async (newMov: Omit<InventoryMovement, 'id'>) => {
         const payload: any = {
+            inventory_item_id: newMov.item_id,
             item_id: newMov.item_id,
             type: newMov.type,
             quantity: newMov.quantity,
@@ -736,7 +771,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         const { error } = await supabase.from('inventory_movements').insert(payload);
         if (error) {
-            alert('ERROR: No se pudo registrar el movimiento.');
+            console.error('addInventoryMovement error:', error);
+            alert(`ERROR: No se pudo registrar el movimiento. ${error.message || ''}`);
             return;
         }
         await loadAllData();

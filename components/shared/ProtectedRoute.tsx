@@ -24,12 +24,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         );
     }
 
+    // No session → redirect to login
     if (!session) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-        // Redirect to appropriate home based on role
+    // Session exists but profile hasn't loaded → send to login
+    // (this prevents an infinite limbo state)
+    if (!profile) {
+        console.warn('ProtectedRoute: session exists but profile is null, redirecting to login');
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    // Check role permissions
+    if (allowedRoles && !allowedRoles.includes(profile.role)) {
         if (profile.role === 'super_admin') {
             return <Navigate to="/admin" replace />;
         }

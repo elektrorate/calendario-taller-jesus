@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import ProtectedRoute from './components/shared/ProtectedRoute';
@@ -45,6 +45,20 @@ const RootRedirect: React.FC = () => {
   return <Navigate to="/dashboard" replace />;
 };
 
+/**
+ * Wrapper that provides DataProvider + TalleristaLayout ONCE for ALL tallerista routes.
+ * This prevents data reload on every navigation between tallerista pages.
+ */
+const TalleristaShell: React.FC = () => (
+  <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
+    <DataProvider>
+      <TalleristaLayout>
+        <Outlet />
+      </TalleristaLayout>
+    </DataProvider>
+  </ProtectedRoute>
+);
+
 const App: React.FC = () => {
   return (
     <BrowserRouter>
@@ -56,70 +70,18 @@ const App: React.FC = () => {
           {/* Root redirect */}
           <Route path="/" element={<RootRedirect />} />
 
-          {/* Tallerista Routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><DashboardPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/calendar" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><CalendarPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/students" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><StudentsPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/teachers" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><TeachersPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/pieces" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><PiecesPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/giftcards" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><GiftCardsPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/history" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><HistoryPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/inventory" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><InventoryPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
-          <Route path="/settings" element={
-            <ProtectedRoute allowedRoles={['tallerista', 'staff']}>
-              <DataProvider>
-                <TalleristaLayout><SettingsPage /></TalleristaLayout>
-              </DataProvider>
-            </ProtectedRoute>
-          } />
+          {/* Tallerista Routes — Single DataProvider + Layout shared across all pages */}
+          <Route element={<TalleristaShell />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/students" element={<StudentsPage />} />
+            <Route path="/teachers" element={<TeachersPage />} />
+            <Route path="/pieces" element={<PiecesPage />} />
+            <Route path="/giftcards" element={<GiftCardsPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
 
           {/* Admin Routes - Self-contained module with original UI */}
           <Route path="/admin/*" element={
