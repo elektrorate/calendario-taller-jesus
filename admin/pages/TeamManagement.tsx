@@ -117,6 +117,11 @@ export const TeamManagement: React.FC = () => {
     const [editForm, setEditForm] = useState({ nombre: '', telefono: '', newPassword: '' });
     const [editSaving, setEditSaving] = useState(false);
 
+    /* ── Delete member modal ── */
+    const [deleteMember, setDeleteMember] = useState<TeamMember | null>(null);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deleting, setDeleting] = useState(false);
+
     /* ── Search ── */
     const [search, setSearch] = useState('');
 
@@ -246,6 +251,29 @@ export const TeamManagement: React.FC = () => {
             showToast(err.message || 'Error inesperado', 'error');
         } finally {
             setEditSaving(false);
+        }
+    };
+
+    const handleDeleteMember = async () => {
+        if (!deleteMember) return;
+        if (deleteConfirmText !== 'ELIMINAR') {
+            showToast('Escribe ELIMINAR para confirmar', 'error');
+            return;
+        }
+        setDeleting(true);
+        try {
+            await callManageStaff({
+                action: 'delete',
+                staffUserId: deleteMember.id
+            });
+            showToast(`${deleteMember.full_name} eliminado correctamente`, 'success');
+            setDeleteMember(null);
+            setDeleteConfirmText('');
+            await loadTeam();
+        } catch (err: any) {
+            showToast(err.message || 'Error al eliminar usuario', 'error');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -393,9 +421,19 @@ export const TeamManagement: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
-                                <Button variant="dark" size="sm" className="!px-6 !py-3 shrink-0" onClick={() => openEditMember(member)}>
-                                    EDITAR
-                                </Button>
+                                <div className="flex gap-2 shrink-0">
+                                    <Button variant="dark" size="sm" className="!px-5 !py-3" onClick={() => openEditMember(member)}>
+                                        EDITAR
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="!px-5 !py-3 !border-red-300 !text-red-600 hover:!bg-red-50"
+                                        onClick={() => { setDeleteMember(member); setDeleteConfirmText(''); }}
+                                    >
+                                        ELIMINAR
+                                    </Button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -432,6 +470,62 @@ export const TeamManagement: React.FC = () => {
                         <Input label="Nueva contraseña (dejar vacío para no cambiar)" type="password" value={editForm.newPassword}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, newPassword: e.target.value })}
                             placeholder="Mínimo 6 caracteres" />
+                    </div>
+                </div>
+            </Modal>
+
+            {/* ── MODAL: Confirmar eliminación ── */}
+            <Modal isOpen={!!deleteMember} onClose={() => { setDeleteMember(null); setDeleteConfirmText(''); }}
+                title="Eliminar Usuario"
+                footer={
+                    <>
+                        <Button variant="outline" size="sm" onClick={() => { setDeleteMember(null); setDeleteConfirmText(''); }}>CANCELAR</Button>
+                        <Button
+                            variant="dark"
+                            size="sm"
+                            className="!bg-red-600 hover:!bg-red-700"
+                            onClick={handleDeleteMember}
+                            disabled={deleting || deleteConfirmText !== 'ELIMINAR'}
+                        >
+                            {deleting ? 'ELIMINANDO...' : 'ELIMINAR USUARIO'}
+                        </Button>
+                    </>
+                }>
+                <div className="space-y-6">
+                    <div className="flex items-center gap-4 p-5 bg-red-50 rounded-[24px] border border-red-200">
+                        <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white shrink-0">
+                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${deleteMember?.email}`} alt="" className="w-full h-full" />
+                        </div>
+                        <div>
+                            <p className="text-[14px] font-extrabold text-[#312A2C] uppercase tracking-tight">{deleteMember?.full_name}</p>
+                            <p className="text-[12px] text-[#8A8481]">{deleteMember?.email}</p>
+                            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${deleteMember?.role === 'tallerista' ? 'bg-[#C17D5C]/10 text-[#C17D5C]' : 'bg-[#312A2C]/10 text-[#312A2C]'}`}>
+                                {roleLabel(deleteMember?.role || '')}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                        <p className="text-[13px] text-red-800 font-medium">
+                            <strong>Esta accion es irreversible.</strong> Se eliminara permanentemente:
+                        </p>
+                        <ul className="mt-2 text-[12px] text-red-700 list-disc list-inside space-y-1">
+                            <li>La cuenta de usuario</li>
+                            <li>Su perfil y datos asociados</li>
+                            <li>Su acceso a la plataforma</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <p className="text-[11px] font-extrabold text-[#8A8481] uppercase tracking-widest mb-3">
+                            Escribe ELIMINAR para confirmar:
+                        </p>
+                        <Input
+                            value={deleteConfirmText}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeleteConfirmText(e.target.value)}
+                            placeholder="ELIMINAR"
+                            className={deleteConfirmText === 'ELIMINAR' ? '!border-green-500 !ring-green-100' : ''}
+                        />
                     </div>
                 </div>
             </Modal>

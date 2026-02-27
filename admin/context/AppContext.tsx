@@ -240,12 +240,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = async () => {
-    await authLogout();
+    // Clear local state first
     setCurrentUser(null);
     setWorkshops([]);
     setUsers([]);
-    navigate('/login', { replace: true });
-    showToast('Sesión cerrada', 'info');
+    // Sign out from Supabase
+    await authLogout();
+    // Force full page reload to bypass ProtectedRoute interception
+    window.location.href = '/login';
   };
 
   const clearAuthError = () => setAuthError(null);

@@ -96,8 +96,13 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
     const { logout, profile } = useAuth();
 
     const handleLogout = async () => {
+        // Sign out from Supabase first, then force a full page reload to /login.
+        // We CANNOT use navigate() here because this component lives inside
+        // ProtectedRoute, which intercepts the navigation and redirects back
+        // to /dashboard before the logout actually completes.
+        // window.location.href forces a clean, full-page navigation.
         await logout();
-        navigate('/login', { replace: true });
+        window.location.href = '/login';
     };
 
     const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'Estudio';
