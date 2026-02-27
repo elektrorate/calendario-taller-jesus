@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Teacher, ClassSession } from '../types';
+import { ConfirmModal } from './shared/ConfirmModal';
 
 interface TeachersViewProps {
   teachers: Teacher[];
@@ -21,6 +22,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
     phone: '',
     notes: ''
   });
+  const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
 
   const filteredTeachers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -148,7 +150,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
                     Editar
                   </button>
                   <button
-                    onClick={async () => { if (confirm('¿Eliminar este profesor?')) await onDeleteTeacher(teacher.id); }}
+                    onClick={() => setTeacherToDelete(teacher.id)}
                     className="px-4 py-2 bg-red-50 text-red-400 rounded-xl text-[10px] font-extrabold uppercase tracking-widest"
                   >
                     Eliminar
@@ -264,6 +266,20 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!teacherToDelete}
+        title="¿Eliminar profesor?"
+        message="Esta acción no se puede deshacer. Las clases concluidas seguirán mostrando su nombre pero se desvincularán de su perfil."
+        isDestructive={true}
+        onConfirm={async () => {
+          if (teacherToDelete) {
+            await onDeleteTeacher(teacherToDelete);
+            setTeacherToDelete(null);
+          }
+        }}
+        onCancel={() => setTeacherToDelete(null)}
+      />
     </div>
   );
 };

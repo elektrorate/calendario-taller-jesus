@@ -1,5 +1,6 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import { Student, AssignedClass } from '../types';
+import { ConfirmModal } from './shared/ConfirmModal';
 
 interface StudentListProps {
   students: Student[];
@@ -45,6 +46,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -538,7 +540,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                   <div className="pt-8 border-t border-neutral-border">
                     <button
                       type="button"
-                      onClick={async () => { if (confirm("Seguro que deseas eliminar el historial de este alumno?")) { await onDeleteStudent(editingStudent.id); setShowModal(false); } }}
+                      onClick={() => setStudentToDelete(editingStudent.id)}
                       className="w-full text-red-400 hover:text-red-600 font-extrabold uppercase text-[11px] tracking-[0.2em] transition-colors py-4"
                     >
                       Eliminar Alumno Definitivamente
@@ -559,6 +561,21 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!studentToDelete}
+        title="¿Eliminar alumno?"
+        message="¿Seguro que deseas eliminar el historial de este alumno? Esta acción no se puede deshacer."
+        isDestructive={true}
+        onConfirm={async () => {
+          if (studentToDelete) {
+            await onDeleteStudent(studentToDelete);
+            setStudentToDelete(null);
+            setShowModal(false);
+          }
+        }}
+        onCancel={() => setStudentToDelete(null)}
+      />
     </div>
   );
 };
