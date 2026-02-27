@@ -23,6 +23,10 @@ const SettingsView: React.FC = () => {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportDone, setExportDone] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   const saveSettings = () => {
     const config = {
@@ -301,6 +305,21 @@ const SettingsView: React.FC = () => {
       {/* Divider */}
       <div className="border-t border-neutral-100 my-2" />
 
+      {/* ── CAMBIAR CONTRASEÑA ── */}
+      <section className="mt-8 mb-8">
+        <h3 className="text-[23px] font-black text-gray-800 uppercase leading-tight mb-2">Seguridad</h3>
+        <p className="text-[14px] text-gray-400 font-medium mb-6">Gestiona tu contraseña de acceso</p>
+        <button
+          onClick={() => { setShowPasswordModal(true); setPasswordFeedback(null); }}
+          className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest hover:bg-gray-800 active:scale-[0.97] transition-all"
+        >
+          Cambiar mi contraseña
+        </button>
+      </section>
+
+      {/* Divider */}
+      <div className="border-t border-neutral-100 my-2" />
+
       {/* ── RESPALDO EN EXCEL ── */}
       <section className="mt-8">
         <div className="flex items-start justify-between flex-wrap gap-4 mb-2">
@@ -363,6 +382,87 @@ const SettingsView: React.FC = () => {
           </p>
         </div>
       </section>
+
+      {/* ── PASSWORD CHANGE MODAL ── */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-xl relative animate-fade-in border border-neutral-200 overflow-hidden">
+            <button onClick={() => setShowPasswordModal(false)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 transition-colors z-20">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="p-10">
+              <h3 className="text-[24px] font-black text-gray-800 uppercase tracking-tight leading-none mb-2">Cambiar Contraseña</h3>
+              <p className="text-gray-400 text-[14px] mb-8 font-medium">Actualiza tu contraseña de acceso.</p>
+
+              {passwordFeedback && (
+                <div className={`mb-6 p-4 rounded-2xl text-[12px] font-bold ${passwordFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                  {passwordFeedback.msg}
+                </div>
+              )}
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                  setPasswordFeedback({ type: 'error', msg: 'Las contraseñas no coinciden.' });
+                  return;
+                }
+                if (passwordForm.newPassword.length < 6) {
+                  setPasswordFeedback({ type: 'error', msg: 'La contraseña debe tener al menos 6 caracteres.' });
+                  return;
+                }
+                try {
+                  setPasswordLoading(true);
+                  const { createClient } = await import('@supabase/supabase-js');
+                  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_PROJECT_URL || '';
+                  const supabase = createClient(supabaseUrl, import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+                  const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
+                  if (error) {
+                    setPasswordFeedback({ type: 'error', msg: error.message || 'Error al cambiar contraseña.' });
+                  } else {
+                    setPasswordFeedback({ type: 'success', msg: 'Contraseña actualizada exitosamente.' });
+                    setPasswordForm({ newPassword: '', confirmPassword: '' });
+                    setTimeout(() => setShowPasswordModal(false), 1500);
+                  }
+                } catch (err: any) {
+                  setPasswordFeedback({ type: 'error', msg: err.message || 'Error de conexión.' });
+                } finally {
+                  setPasswordLoading(false);
+                }
+              }} className="space-y-5">
+                <div>
+                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2">NUEVA CONTRASEÑA</label>
+                  <input
+                    required
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full p-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-[14px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-2">CONFIRMAR CONTRASEÑA</label>
+                  <input
+                    required
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="Repite la nueva contraseña"
+                    className="w-full p-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-[14px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest hover:bg-gray-800 active:scale-[0.97] transition-all mt-2 disabled:opacity-50"
+                >
+                  {passwordLoading ? 'ACTUALIZANDO...' : 'ACTUALIZAR CONTRASEÑA'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

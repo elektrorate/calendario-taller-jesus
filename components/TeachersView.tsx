@@ -79,7 +79,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
       alert('ERROR: El nombre es obligatorio.');
@@ -93,8 +93,8 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
       phone: form.phone.trim() || undefined,
       notes: form.notes.trim() || undefined
     };
-    if (editingTeacher) onUpdateTeacher(editingTeacher.id, payload);
-    else onAddTeacher(payload);
+    if (editingTeacher) await onUpdateTeacher(editingTeacher.id, payload);
+    else await onAddTeacher(payload);
     setShowModal(false);
   };
 

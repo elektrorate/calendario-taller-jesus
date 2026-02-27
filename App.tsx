@@ -16,6 +16,7 @@ import GiftCardsPage from './pages/GiftCardsPage';
 import HistoryPage from './pages/HistoryPage';
 import InventoryPage from './pages/InventoryPage';
 import SettingsPage from './pages/SettingsPage';
+import TeamPage from './pages/TeamPage';
 
 // Admin Module (self-contained with its own context + original UI)
 import AdminApp from './admin/AdminApp';
@@ -81,6 +82,7 @@ const App: React.FC = () => {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/team" element={<TeamPage />} />
           </Route>
 
           {/* Admin Routes - Self-contained module with original UI */}

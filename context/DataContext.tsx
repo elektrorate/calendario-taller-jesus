@@ -85,8 +85,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const hasLoadedOnceRef = useRef(false);
 
-    const removeUndefined = (obj: Record<string, unknown>) => {
-        return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined));
+    const removeUndefined = (obj: Record<string, any>) => {
+        const result: Record<string, any> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) result[key] = value;
+        }
+        return result;
+    };
+
+    // Extract HH:MM from ISO timestamp or return as-is if already HH:MM
+    const extractTime = (value: string | null | undefined): string => {
+        if (!value) return '00:00';
+        // Already HH:MM format
+        if (/^\d{2}:\d{2}$/.test(value)) return value;
+        // ISO timestamp like "2026-02-26T10:00:00+00:00" or "2026-02-26T10:00:00"
+        if (value.includes('T')) {
+            const timePart = value.split('T')[1];
+            if (timePart) return timePart.substring(0, 5);
+        }
+        return value.substring(0, 5);
     };
 
     const buildStudentPayload = (student: Partial<Student>) => {
@@ -111,7 +128,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             observations: student.observations,
             price: student.price,
             class_type: student.classType,
-            expiry_date: student.expiryDate
+            expiry_date: student.expiryDate,
+            student_category: student.studentCategory || 'regular',
+            group_name: student.groupName
         });
     };
 
@@ -196,8 +215,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 if (!assignedMap[row.student_id]) assignedMap[row.student_id] = [];
                 assignedMap[row.student_id].push({
                     date: row.date,
-                    startTime: row.start_time,
-                    endTime: row.end_time,
+                    startTime: extractTime(row.start_time),
+                    endTime: extractTime(row.end_time),
                     status: row.status || 'pending'
                 });
             });
@@ -220,7 +239,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 price: row.price || undefined,
                 assignedClasses: assignedMap[row.id] || [],
                 classType: row.class_type || undefined,
-                expiryDate: row.expiry_date || undefined
+                expiryDate: row.expiry_date || undefined,
+                studentCategory: row.student_category || 'regular',
+                groupName: row.group_name || undefined
             }));
 
             const sessionStudentsMap: Record<string, any[]> = {};
@@ -240,8 +261,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 return {
                     id: row.id,
                     date: row.date,
-                    startTime: row.start_time,
-                    endTime: row.end_time,
+                    startTime: extractTime(row.start_time),
+                    endTime: extractTime(row.end_time),
                     classType: row.class_type,
                     students: linked.map((item: any) => item.student_name),
                     attendance: Object.keys(attendance).length ? attendance : undefined,
@@ -261,7 +282,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 glazeType: row.glaze_type || undefined,
                 deliveryDate: row.delivery_date || undefined,
                 notes: row.notes || undefined,
-                extraCommentary: row.extra_commentary || undefined
+                extraCommentary: row.extra_commentary || undefined,
+                createdAt: row.created_at || undefined
             }));
 
             const normalizedGiftCards: GiftCard[] = (giftRes.data || []).map((row: any) => ({
@@ -373,8 +395,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 sessionMatch = {
                     id: data.id,
                     date: data.date,
-                    startTime: data.start_time,
-                    endTime: data.end_time,
+                    startTime: extractTime(data.start_time),
+                    endTime: extractTime(data.end_time),
                     classType: data.class_type,
                     students: []
                 } as ClassSession;
@@ -615,8 +637,32 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deleteTeacher = async (id: string) => {
-        await supabase.from('teachers').delete().eq('id', id);
-        await loadAllData();
+        try {
+            // First, unlink any sessions that reference this teacher
+            const { error: unlinkError1 } = await supabase
+                .from('sessions')
+                .update({ teacher_id: null })
+                .eq('teacher_id', id);
+            if (unlinkError1) console.warn('Unlink teacher_id warning:', unlinkError1.message);
+
+            const { error: unlinkError2 } = await supabase
+                .from('sessions')
+                .update({ teacher_substitute_id: null })
+                .eq('teacher_substitute_id', id);
+            if (unlinkError2) console.warn('Unlink substitute warning:', unlinkError2.message);
+
+            // Now delete the teacher
+            const { error } = await supabase.from('teachers').delete().eq('id', id);
+            if (error) {
+                console.error('deleteTeacher error:', error);
+                alert(`ERROR: No se pudo eliminar el profesor. ${error.message || ''}`);
+                return;
+            }
+            await loadAllData();
+        } catch (err: any) {
+            console.error('deleteTeacher exception:', err);
+            alert(`ERROR: ${err.message || 'Error inesperado al eliminar profesor.'}`);
+        }
     };
 
     // Piece CRUD
@@ -716,11 +762,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     // Inventory CRUD
     const addInventoryItem = async (newItem: InventoryItem) => {
+        // Only send columns that actually exist in the DB table
         const payload: any = removeUndefined({
-            ...newItem,
-            id: undefined,
-            created_at: undefined,
-            updated_at: undefined
+            name: newItem.name,
+            category: newItem.category,
+            code: newItem.code,
+            current_quantity: newItem.current_quantity,
+            unit: newItem.unit,
+            min_quantity: newItem.min_quantity,
+            status: newItem.status,
+            location: newItem.location,
+            supplier_code: newItem.supplier_code,
+            temperature: (newItem as any).temperature || (newItem as any).firing_range || (newItem as any).cone_or_temp,
+            color: newItem.color,
+            color_family: newItem.color_family,
+            finish: newItem.finish,
+            recipe: (newItem as any).formula || (newItem as any).recipe,
+            notes: newItem.notes
         });
         if (sedeId) {
             payload.sede_id = sedeId;
@@ -735,11 +793,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
+        // Only send columns that actually exist in the DB table
         const payload = removeUndefined({
-            ...updates,
-            id: undefined,
-            created_at: undefined,
-            updated_at: undefined
+            name: updates.name,
+            category: updates.category,
+            code: updates.code,
+            current_quantity: updates.current_quantity,
+            unit: updates.unit,
+            min_quantity: updates.min_quantity,
+            status: updates.status,
+            location: updates.location,
+            supplier_code: updates.supplier_code,
+            temperature: (updates as any).temperature || (updates as any).firing_range || (updates as any).cone_or_temp,
+            color: updates.color,
+            color_family: updates.color_family,
+            finish: updates.finish,
+            recipe: (updates as any).formula || (updates as any).recipe,
+            notes: updates.notes
         });
         const { error } = await supabase.from('inventory_items').update(payload).eq('id', id);
         if (error) {

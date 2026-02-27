@@ -8,7 +8,8 @@ export enum AppView {
   SETTINGS = 'settings',
   HISTORY = 'history',
   INVENTORY = 'inventory',
-  TEACHERS = 'teachers'
+  TEACHERS = 'teachers',
+  TEAM = 'team'
 }
 
 export interface AssignedClass {
@@ -37,6 +38,8 @@ export interface Student {
   assignedClasses?: AssignedClass[];
   classType?: string;
   expiryDate?: string;
+  studentCategory?: 'regular' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
+  groupName?: string;
 }
 
 export interface ClassSession {
@@ -75,6 +78,7 @@ export interface CeramicPiece {
   deliveryDate?: string; // ISO date string
   notes?: string;
   extraCommentary?: string;
+  createdAt?: string; // ISO timestamp
 }
 
 export interface GiftCard {

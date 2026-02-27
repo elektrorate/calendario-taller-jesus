@@ -47,6 +47,11 @@ const navItems = [
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
         )
     },
+    {
+        path: '/team', label: 'Equipo', icon: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        )
+    },
 ];
 
 const menuConfig = [
@@ -62,7 +67,7 @@ const menuConfig = [
     },
     { group: 'TALLER', items: [{ path: '/inventory', label: 'Inventario' }] },
     { group: 'COMERCIAL', items: [{ path: '/giftcards', label: 'Bonos Regalo' }] },
-    { group: 'SISTEMA', items: [{ path: '/settings', label: 'Configuración' }] }
+    { group: 'SISTEMA', items: [{ path: '/team', label: 'Equipo' }, { path: '/settings', label: 'Configuración' }] }
 ];
 
 const getViewTitle = (pathname: string) => {
@@ -79,6 +84,7 @@ const getViewTitle = (pathname: string) => {
         case '/history': return <>HISTORIAL <span className="text-brand">MAESTRO</span></>;
         case '/inventory': return <>INVENTARIO <span className="text-brand">ESTUDIO</span></>;
         case '/settings': return <>CONFIGURACIÓN DEL <span className="text-brand">SISTEMA</span></>;
+        case '/team': return <>EQUIPO DE <span className="text-brand">TRABAJO</span></>;
         default: return <>ESTUDIO</>;
     }
 };
@@ -95,6 +101,14 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
     };
 
     const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'Estudio';
+    const isStaff = profile?.role === 'staff';
+
+    // Staff cannot see team management or settings
+    const staffHiddenPaths = ['/team', '/settings'];
+    const filteredNavItems = isStaff ? navItems.filter(item => !staffHiddenPaths.includes(item.path)) : navItems;
+    const filteredMenuConfig = isStaff
+        ? menuConfig.map(g => ({ ...g, items: g.items.filter(i => !staffHiddenPaths.includes(i.path)) })).filter(g => g.items.length > 0)
+        : menuConfig;
 
     return (
         <div className="flex flex-col lg:flex-row h-screen w-full bg-neutral-base overflow-hidden">
@@ -113,7 +127,7 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
                         </div>
 
                         <nav className="space-y-2 md:space-y-3 flex-1 overflow-y-auto no-scrollbar py-2">
-                            {navItems.map((item) => (
+                            {filteredNavItems.map((item) => (
                                 <button
                                     key={item.path}
                                     onClick={() => navigate(item.path)}
@@ -190,7 +204,7 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
                         </div>
 
                         <div className="flex-1 overflow-y-auto no-scrollbar p-6 md:p-10 space-y-10">
-                            {menuConfig.map((group) => (
+                            {filteredMenuConfig.map((group) => (
                                 <div key={group.group} className="space-y-4">
                                     <h4 className="text-[12px] font-semibold text-[#E26D5A] uppercase tracking-[0.1em] px-4">{group.group}</h4>
                                     <div className="space-y-1">

@@ -12,9 +12,35 @@ interface StudentListProps {
 }
 
 type TabType = 'all' | 'active' | 'pending';
+type CategoryFilter = 'todos' | 'regular' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  regular: 'Regular',
+  iniciacion: 'Iniciación',
+  grupal: 'Grupal',
+  temporal: 'Temporal',
+  grupo_temporal: 'Grupo Temporal'
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  regular: 'bg-brand text-white',
+  iniciacion: 'bg-blue-500 text-white',
+  grupal: 'bg-purple-500 text-white',
+  temporal: 'bg-amber-500 text-white',
+  grupo_temporal: 'bg-orange-500 text-white'
+};
+
+const CATEGORY_BADGE_LIGHT: Record<string, string> = {
+  regular: 'bg-brand/10 text-brand border-brand/20',
+  iniciacion: 'bg-blue-50 text-blue-600 border-blue-100',
+  grupal: 'bg-purple-50 text-purple-600 border-purple-100',
+  temporal: 'bg-amber-50 text-amber-700 border-amber-100',
+  grupo_temporal: 'bg-orange-50 text-orange-600 border-orange-100'
+};
 
 const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRenew, onUpdate, onDeleteStudent, selectedStudentId, onClearSelectedStudent }) => {
   const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('todos');
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -32,7 +58,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     paymentStatus: 'paid' as 'paid' | 'pending',
     classType: 'Modelado',
     expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
-    assignedClasses: [] as AssignedClass[]
+    assignedClasses: [] as AssignedClass[],
+    studentCategory: 'regular' as 'regular' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal',
+    groupName: ''
   });
 
   const [newSessionDate, setNewSessionDate] = useState('');
@@ -68,7 +96,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       paymentStatus: (student.status === 'needs_renewal' && student.classesRemaining > 0) ? 'pending' : 'paid',
       classType: student.classType || 'Modelado',
       expiryDate: student.expiryDate || '',
-      assignedClasses: student.assignedClasses || []
+      assignedClasses: student.assignedClasses || [],
+      studentCategory: student.studentCategory || 'regular',
+      groupName: student.groupName || ''
     });
     setShowModal(true);
   };
@@ -78,19 +108,32 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     const nextMonth = new Date();
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     setForm({
-      name: '', surname: '', email: '', phone: '', notes: '', observations: '', classesRemaining: 4, price: 100, paymentStatus: 'paid', classType: 'Modelado', expiryDate: nextMonth.toISOString().split('T')[0], assignedClasses: []
+      name: '', surname: '', email: '', phone: '', notes: '', observations: '',
+      classesRemaining: 4, price: 100, paymentStatus: 'paid', classType: 'Modelado',
+      expiryDate: nextMonth.toISOString().split('T')[0], assignedClasses: [],
+      studentCategory: 'regular', groupName: ''
     });
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim()) {
+      alert('El nombre es obligatorio.');
+      return;
+    }
+    // Require groupName for grupal / grupo_temporal
+    if ((form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') && !form.groupName.trim()) {
+      alert('Debes asignar un nombre de grupo.');
+      return;
+    }
     const data = {
       ...form,
-      status: getCalculatedStatus(form) as 'needs_renewal' | 'regular'
+      status: getCalculatedStatus(form) as 'needs_renewal' | 'regular',
+      groupName: (form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') ? form.groupName : undefined
     };
-    if (editingStudent?.id) onUpdate(editingStudent.id, data);
-    else onAddStudent(data);
+    if (editingStudent?.id) await onUpdate(editingStudent.id, data);
+    else await onAddStudent(data);
     setShowModal(false);
   };
 
@@ -98,7 +141,6 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     if (!newSessionDate) return;
     const [h, m] = newSessionTime.split(':').map(Number);
     const endTime = `${String((h + 2) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-
     setForm(prev => ({
       ...prev,
       assignedClasses: [...prev.assignedClasses, { date: newSessionDate, startTime: newSessionTime, endTime, status: 'pending' }]
@@ -106,17 +148,22 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     setNewSessionDate('');
   };
 
+  const needsGroup = form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal';
+
   const filteredStudents = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return students.filter(s => {
       const isPending = s.status === 'needs_renewal' || s.classesRemaining <= 0 || (s.expiryDate && s.expiryDate < today);
       const fullName = `${s.name} ${s.surname || ''}`.trim().toLowerCase();
       const matchesSearch = !searchQuery.trim() || fullName.includes(searchQuery.trim().toLowerCase());
-      if (activeTab === 'pending') return isPending;
-      if (activeTab === 'active') return !isPending;
-      return matchesSearch;
+      const cat = s.studentCategory || 'regular';
+      const matchesCategory = categoryFilter === 'todos' || cat === categoryFilter;
+
+      if (activeTab === 'pending') return isPending && matchesCategory;
+      if (activeTab === 'active') return !isPending && matchesCategory;
+      return matchesSearch && matchesCategory;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, activeTab, searchQuery]);
+  }, [students, activeTab, searchQuery, categoryFilter]);
 
   const suggestions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -126,6 +173,16 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       .filter(name => name.toLowerCase().includes(query))
       .slice(0, 6);
   }, [students, searchQuery]);
+
+  // Count per category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { todos: students.length, regular: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
+    students.forEach(s => {
+      const cat = s.studentCategory || 'regular';
+      if (counts[cat] !== undefined) counts[cat]++;
+    });
+    return counts;
+  }, [students]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-neutral-base">
@@ -140,6 +197,22 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
             Administra la comunidad del taller, controla asistencias y renovaciones de bonos con precision artesanal.
           </p>
         </header>
+
+        {/* Category pills */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {(['todos', 'regular', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as CategoryFilter[]).map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-4 py-2 rounded-full text-[10px] font-extrabold uppercase tracking-widest border transition-all ${categoryFilter === cat
+                ? (cat === 'todos' ? 'bg-neutral-textMain text-white border-neutral-textMain' : CATEGORY_COLORS[cat] + ' border-transparent')
+                : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
+                }`}
+            >
+              {cat === 'todos' ? 'Todos' : CATEGORY_LABELS[cat]} ({categoryCounts[cat] || 0})
+            </button>
+          ))}
+        </div>
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
           <div className="bg-white p-1.5 rounded-full border border-neutral-border soft-shadow flex items-center w-full md:w-auto overflow-x-auto no-scrollbar">
@@ -191,20 +264,33 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
           {filteredStudents.map((s) => {
             const today = new Date().toISOString().split('T')[0];
             const isPending = s.status === 'needs_renewal' || s.classesRemaining <= 0 || (s.expiryDate && s.expiryDate < today);
+            const cat = s.studentCategory || 'regular';
             return (
               <div
                 key={s.id}
                 onClick={() => handleEditClick(s)}
                 className="p-8 bg-white rounded-[2.5rem] border border-neutral-border soft-shadow hover:border-brand-light hover:scale-[1.02] transition-all cursor-pointer group flex flex-col h-full animate-fade-in"
               >
-                <div className="flex items-center gap-5 mb-8">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-extrabold text-[24px] bg-neutral-alt group-hover:bg-brand transition-colors shrink-0 shadow-inner">
+                <div className="flex items-center gap-5 mb-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white font-extrabold text-[24px] ${CATEGORY_COLORS[cat] || 'bg-neutral-alt'} group-hover:brightness-110 transition-all shrink-0 shadow-inner`}>
                     {s.name.charAt(0)}
                   </div>
                   <div className="overflow-hidden">
                     <h4 className="font-extrabold text-neutral-textMain text-[20px] leading-tight uppercase tracking-tight truncate">{s.name} {s.surname}</h4>
                     <p className="text-[13px] font-light text-neutral-textSec uppercase tracking-widest mt-1">{s.phone}</p>
                   </div>
+                </div>
+
+                {/* Category badge + group */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className={`inline-block px-3 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border ${CATEGORY_BADGE_LIGHT[cat] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
+                    {CATEGORY_LABELS[cat] || cat}
+                  </span>
+                  {s.groupName && (
+                    <span className="inline-block px-3 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-widest bg-neutral-sec text-neutral-textHelper border border-neutral-border">
+                      {s.groupName}
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-auto space-y-4">
@@ -251,9 +337,61 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pb-32">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pb-44">
               <form onSubmit={handleSubmit} className="space-y-12 pt-6">
 
+                {/* ─── 1. INFORMACIÓN PERSONAL (PRIMERO según solicitud) ─── */}
+                <section className="space-y-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-1.5 h-6 bg-brand rounded-full"></div>
+                    <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Información Personal</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="NOMBRE" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
+                    <input value={form.surname} onChange={(e) => setForm({ ...form, surname: e.target.value })} placeholder="APELLIDOS" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
+                  </div>
+                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="EMAIL" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
+                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="TELÉFONO" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
+                </section>
+
+                {/* ─── 2. CATEGORÍA DE ALUMNO ─── */}
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
+                    <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Categoría del Alumno</h4>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {(['regular', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setForm({ ...form, studentCategory: cat, groupName: (cat === 'grupal' || cat === 'grupo_temporal') ? form.groupName : '' })}
+                        className={`py-4 rounded-2xl font-extrabold text-[11px] uppercase tracking-widest border transition-all ${form.studentCategory === cat
+                          ? CATEGORY_COLORS[cat] + ' border-transparent shadow-md scale-[1.02]'
+                          : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textMain'
+                          }`}
+                      >
+                        {CATEGORY_LABELS[cat]}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Group name input — only for grupal / grupo_temporal */}
+                  {needsGroup && (
+                    <div className="mt-4 animate-fade-in">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper mb-2 ml-2">NOMBRE DEL GRUPO</label>
+                      <input
+                        required
+                        value={form.groupName}
+                        onChange={(e) => setForm({ ...form, groupName: e.target.value })}
+                        placeholder="Ej: Grupo de los viernes, Equipo piloto..."
+                        className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-purple-400 outline-none transition-all"
+                      />
+                    </div>
+                  )}
+                </section>
+
+                {/* ─── 3. TIPO DE CLASE Y PAGO ─── */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="p-6 bg-neutral-sec rounded-[2rem] border border-neutral-border group hover:border-brand-light transition-colors">
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper mb-2">TIPO DE CLASE</label>
@@ -264,6 +402,8 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                     >
                       <option>Modelado</option>
                       <option>Torno</option>
+                      <option>Coworking</option>
+                      <option>Iniciación</option>
                     </select>
                   </div>
                   <div className="p-6 bg-neutral-sec rounded-[2rem] border border-neutral-border group hover:border-brand-light transition-colors">
@@ -288,6 +428,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                   </div>
                 </div>
 
+                {/* ─── 4. GESTIÓN DE BONOS ─── */}
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-1.5 h-6 bg-brand rounded-full"></div>
@@ -318,6 +459,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                   </div>
                 </section>
 
+                {/* ─── 5. SEGUIMIENTO ASISTENCIA ─── */}
                 <section>
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
@@ -378,19 +520,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                   </div>
                 </section>
 
-                <section className="space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-1.5 h-6 bg-brand rounded-full"></div>
-                    <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Informacion Personal</h4>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="NOMBRE" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
-                    <input value={form.surname} onChange={(e) => setForm({ ...form, surname: e.target.value })} placeholder="APELLIDOS" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
-                  </div>
-                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="EMAIL" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
-                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="TELEFONO" className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all" />
-                </section>
-
+                {/* ─── 6. OBSERVACIONES ─── */}
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-1.5 h-6 bg-brand rounded-full"></div>
