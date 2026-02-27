@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmModal } from './shared/ConfirmModal';
 
 interface StaffMember {
     id: string;
@@ -18,6 +19,7 @@ const TeamView: React.FC = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [staffToDelete, setStaffToDelete] = useState<{ id: string, name: string } | null>(null);
 
     const [createForm, setCreateForm] = useState({ nombre: '', email: '', password: '' });
 
@@ -89,8 +91,7 @@ const TeamView: React.FC = () => {
         }
     };
 
-    const handleDeleteStaff = async (staffUserId: string, staffName: string) => {
-        if (!confirm(`¿Estás seguro de que deseas eliminar a "${staffName}" del equipo? Esta acción no se puede deshacer.`)) return;
+    const executeStaffDeletion = async (staffUserId: string) => {
         try {
             setActionLoading(true);
             const data = await callManageStaff({ action: 'delete', staffUserId });
@@ -104,7 +105,12 @@ const TeamView: React.FC = () => {
             showFeedback('error', err.message || 'Error de conexión.');
         } finally {
             setActionLoading(false);
+            setStaffToDelete(null);
         }
+    };
+
+    const handleDeleteStaff = (staffUserId: string, staffName: string) => {
+        setStaffToDelete({ id: staffUserId, name: staffName });
     };
 
 
@@ -278,7 +284,14 @@ const TeamView: React.FC = () => {
                 </div>
             )}
 
-
+            <ConfirmModal
+                isOpen={!!staffToDelete}
+                title="¿Eliminar colaborador?"
+                message={`¿Estás seguro de que deseas eliminar a "${staffToDelete?.name}" del equipo? Esta acción no se puede deshacer.`}
+                isDestructive={true}
+                onConfirm={() => { if (staffToDelete) executeStaffDeletion(staffToDelete.id); }}
+                onCancel={() => setStaffToDelete(null)}
+            />
         </div>
     );
 };

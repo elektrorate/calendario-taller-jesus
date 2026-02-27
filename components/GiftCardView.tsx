@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { GiftCard } from '../types';
-
+import { ConfirmModal } from './shared/ConfirmModal';
 interface GiftCardViewProps {
   giftCards: GiftCard[];
   onAddGiftCard: (card: Omit<GiftCard, 'id' | 'createdAt'>) => void;
@@ -90,6 +89,7 @@ const GiftCardItem: React.FC<{
 const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, onUpdateGiftCard, onDeleteGiftCard }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
+  const [cardToDelete, setCardToDelete] = useState<string | null>(null);
 
   const initialFormState = { buyer: '', recipient: '', numClasses: 2, type: 'modelado' as GiftCard['type'], scheduledDate: '', extraCommentary: '' };
   const [form, setForm] = useState(initialFormState);
@@ -115,9 +115,8 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (editingCard?.id && window.confirm('¿Estás seguro de que deseas eliminar esta tarjeta regalo?')) {
-      await onDeleteGiftCard(editingCard.id);
-      setShowModal(false);
+    if (editingCard?.id) {
+      setCardToDelete(editingCard.id);
     }
   };
 
@@ -277,6 +276,21 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!cardToDelete}
+        title="¿Eliminar tarjeta de regalo?"
+        message="¿Estás seguro de que deseas eliminar esta tarjeta regalo? Esta acción no se puede deshacer."
+        isDestructive={true}
+        onConfirm={async () => {
+          if (cardToDelete) {
+            await onDeleteGiftCard(cardToDelete);
+            setCardToDelete(null);
+            setShowModal(false);
+          }
+        }}
+        onCancel={() => setCardToDelete(null)}
+      />
     </div>
   );
 };

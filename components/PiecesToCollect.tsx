@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CeramicPiece, PieceStatus, Student } from '../types';
+import { ConfirmModal } from './shared/ConfirmModal';
 
 // ─── Category visual helpers ───
 const CATEGORY_LABELS: Record<string, string> = {
@@ -160,6 +161,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
   const [dateFilter, setDateFilter] = useState<'all' | 'day' | 'week'>('all');
   const [dateValue, setDateValue] = useState<string>(new Date().toISOString().split('T')[0]);
   const [groupFilter, setGroupFilter] = useState<string>('todos');
+  const [pieceToDelete, setPieceToDelete] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     owner: '',
@@ -737,7 +739,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                   {editingPiece && (
                     <button
                       type="button"
-                      onClick={async () => { if (confirm("¿Eliminar registro de pieza?")) { await onDeletePiece(editingPiece.id); setShowModal(false); } }}
+                      onClick={() => setPieceToDelete(editingPiece.id)}
                       className="px-6 py-4 text-red-400 font-extrabold uppercase text-[11px] tracking-widest"
                     >
                       Eliminar
@@ -752,6 +754,21 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!pieceToDelete}
+        title="¿Eliminar pieza?"
+        message="¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer."
+        isDestructive={true}
+        onConfirm={async () => {
+          if (pieceToDelete) {
+            await onDeletePiece(pieceToDelete);
+            setPieceToDelete(null);
+            setShowModal(false);
+          }
+        }}
+        onCancel={() => setPieceToDelete(null)}
+      />
     </div>
   );
 };
