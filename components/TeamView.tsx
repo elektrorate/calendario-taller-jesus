@@ -91,39 +91,63 @@ const TeamView: React.FC = () => {
             showFeedback('error', 'La contraseña debe tener al menos 6 caracteres.');
             return;
         }
+
+        setActionLoading(true);
+
         try {
-            setActionLoading(true);
             const data = await callManageStaff({ action: 'create', ...createForm });
+
             if (data.success) {
-                showFeedback('success', data.message || 'Colaborador creado exitosamente.');
+                // Close modal immediately for better UX
                 setShowCreateModal(false);
                 setCreateForm({ nombre: '', email: '', password: '' });
-                await loadStaff();
+                setActionLoading(false);
+
+                showFeedback('success', data.message || 'Colaborador creado exitosamente.');
+
+                // Add the new staff to the list optimistically
+                if (data.staff) {
+                    setStaff(prev => [...prev, {
+                        id: data.staff.id,
+                        memberId: '',
+                        email: data.staff.email,
+                        name: data.staff.name,
+                        role: 'staff',
+                        joinedAt: new Date().toISOString(),
+                        createdAt: new Date().toISOString()
+                    }]);
+                } else {
+                    // If no staff data returned, reload the list
+                    await loadStaff();
+                }
             } else {
+                setActionLoading(false);
                 showFeedback('error', data.error || 'Error al crear colaborador.');
             }
         } catch (err: any) {
-            showFeedback('error', err.message || 'Error de conexión.');
-        } finally {
             setActionLoading(false);
+            showFeedback('error', err.message || 'Error de conexión.');
         }
     };
 
     const executeStaffDeletion = async (staffUserId: string) => {
+        // Optimistic UI: close modal and remove from list immediately
+        setStaffToDelete(null);
+        setStaff(prev => prev.filter(s => s.id !== staffUserId));
+
         try {
-            setActionLoading(true);
             const data = await callManageStaff({ action: 'delete', staffUserId });
             if (data.success) {
                 showFeedback('success', data.message || 'Colaborador eliminado.');
-                await loadStaff();
             } else {
+                // Revert on error - reload the list
                 showFeedback('error', data.error || 'Error al eliminar.');
+                await loadStaff();
             }
         } catch (err: any) {
             showFeedback('error', err.message || 'Error de conexión.');
-        } finally {
-            setActionLoading(false);
-            setStaffToDelete(null);
+            // Revert on error - reload the list
+            await loadStaff();
         }
     };
 

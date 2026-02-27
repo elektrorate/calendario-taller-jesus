@@ -240,13 +240,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = async () => {
-    // Clear local state first
-    setCurrentUser(null);
-    setWorkshops([]);
-    setUsers([]);
-    // Sign out from Supabase
-    await authLogout();
-    // Force full page reload to bypass ProtectedRoute interception
+    // CRITICAL: Sign out from Supabase FIRST, then immediately redirect.
+    // Do NOT update React state before redirect - it causes race conditions
+    // with ProtectedRoute that can intercept the navigation.
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error during signOut:', err);
+    }
+    // Force full page reload - this MUST happen regardless of signOut result
     window.location.href = '/login';
   };
 

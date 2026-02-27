@@ -130,10 +130,12 @@ serve(async (req) => {
         // ACTION: LIST
         if (action === "list") {
             if (isTallerista) {
+                // Only fetch staff members, exclude the tallerista (owner) themselves
                 const { data: members } = await supabaseAdmin
                     .from("sede_members")
                     .select(`id, user_id, role, joined_at, profiles:user_id ( id, email, full_name, role, created_at )`)
-                    .eq("sede_id", callerSede.id);
+                    .eq("sede_id", callerSede.id)
+                    .eq("role", "staff");
 
                 const staffList = (members || []).map((m: any) => ({ id: m.user_id, memberId: m.id, email: m.profiles?.email || "", name: m.profiles?.full_name || "", role: m.role, joinedAt: m.joined_at }));
                 return json({ success: true, staff: staffList });
