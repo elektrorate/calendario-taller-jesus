@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryCategory, InventoryItemStatus, MovementType, InventoryMovement, StructuredFormula, FormulaComponent, ColorFamily, GlazeFinish } from '../types';
+import { ConfirmModal } from './shared/ConfirmModal';
 
 interface InventoryViewProps {
   items: InventoryItem[];
@@ -8,12 +9,13 @@ interface InventoryViewProps {
   onAddItem: (item: any) => void;
   onUpdateItem: (id: string, updates: Partial<InventoryItem>) => void;
   onArchiveItem: (id: string) => void;
+  onDeleteItem: (id: string) => Promise<void>;
   onAddMovement: (movement: Omit<InventoryMovement, 'id'>) => void;
 }
 
 type SubView = 'dashboard' | 'list' | 'detail' | 'form';
 
-const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddItem, onUpdateItem, onArchiveItem, onAddMovement }) => {
+const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddItem, onUpdateItem, onArchiveItem, onDeleteItem, onAddMovement }) => {
   const [currentSubView, setCurrentSubView] = useState<SubView>('dashboard');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -21,6 +23,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
   const [searchQuery, setSearchQuery] = useState('');
   const [timeRange, setTimeRange] = useState<7 | 30 | 90>(30);
   const [dashboardFilter, setDashboardFilter] = useState<'ok' | 'low' | 'critical' | 'all'>('all');
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
   const [itemForm, setItemForm] = useState({
     category: 'glaze' as InventoryCategory,
     name: '',
@@ -413,6 +416,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
                 className="px-8 py-4 bg-brand text-white rounded-full text-[11px] font-extrabold uppercase tracking-widest hover:bg-brand-hover"
               >
                 Registrar movimiento
+              </button>
+              <button
+                onClick={() => setItemToDelete({ id: selectedItem.id, name: selectedItem.name })}
+                className="px-8 py-4 bg-red-50 text-red-500 rounded-full text-[11px] font-extrabold uppercase tracking-widest hover:bg-red-100 transition-colors"
+              >
+                Eliminar
               </button>
             </div>
           </div>
@@ -908,6 +917,21 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
         {currentSubView === 'detail' && renderDetail()}
         {currentSubView === 'form' && renderForm()}
       </div>
+
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        title="¿Eliminar item del inventario?"
+        message={`¿Estás seguro de que deseas eliminar "${itemToDelete?.name}"? Se borrarán también todos sus movimientos. Esta acción no se puede deshacer.`}
+        isDestructive={true}
+        onConfirm={async () => {
+          if (itemToDelete) {
+            await onDeleteItem(itemToDelete.id);
+            setItemToDelete(null);
+            setCurrentSubView('list');
+          }
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
     </div>
   );
 };

@@ -53,6 +53,7 @@ interface DataContextType {
     addInventoryItem: (item: InventoryItem) => Promise<void>;
     updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
     archiveInventoryItem: (id: string) => Promise<void>;
+    deleteInventoryItem: (id: string) => Promise<void>;
     addInventoryMovement: (movement: Omit<InventoryMovement, 'id'>) => Promise<void>;
 
     // Refresh
@@ -861,6 +862,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         await updateInventoryItem(id, { status: 'archived' });
     };
 
+    const deleteInventoryItem = async (id: string) => {
+        // First delete associated movements
+        const { error: movError } = await supabase
+            .from('inventory_movements')
+            .delete()
+            .or(`item_id.eq.${id},inventory_item_id.eq.${id}`);
+        if (movError) {
+            console.error('deleteInventoryItem (movements) error:', movError);
+        }
+        // Then delete the item itself
+        const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+        if (error) {
+            console.error('deleteInventoryItem error:', error);
+            alert(`ERROR: No se pudo eliminar el item. ${error.message || ''}`);
+            return;
+        }
+        await loadAllData();
+    };
+
     const addInventoryMovement = async (newMov: Omit<InventoryMovement, 'id'>) => {
         const payload: any = {
             inventory_item_id: newMov.item_id,
@@ -913,6 +933,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         addInventoryItem,
         updateInventoryItem,
         archiveInventoryItem,
+        deleteInventoryItem,
         addInventoryMovement,
         loadAllData
     };
