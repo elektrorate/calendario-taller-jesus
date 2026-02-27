@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { ClassSession, Student, Teacher } from '../types';
-
+import { ConfirmModal } from './shared/ConfirmModal';
 interface CalendarViewProps {
   sessions: ClassSession[];
   onAddSession: (session: Omit<ClassSession, 'id'>) => void;
@@ -22,6 +21,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [attendanceSession, setAttendanceSession] = useState<ClassSession | null>(null);
   const [substituteId, setSubstituteId] = useState('');
 
@@ -664,7 +664,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
             <div className="pt-8 flex gap-3 shrink-0">
               {editingSessionId && (
                 <button
-                  onClick={async () => { if (confirm("¿Eliminar esta sesión de la agenda?")) { await onDeleteSession(editingSessionId); setShowSessionModal(false); } }}
+                  onClick={() => setSessionToDelete(editingSessionId)}
                   className="px-6 py-5 bg-red-50 text-red-400 rounded-2xl font-extrabold uppercase tracking-widest text-[11px]"
                 >
                   ELIMINAR
@@ -676,6 +676,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!sessionToDelete}
+        title="¿Eliminar sesión?"
+        message="¿Estás seguro de que deseas eliminar esta sesión de la agenda? Esta acción no se puede deshacer."
+        isDestructive={true}
+        onConfirm={async () => {
+          if (sessionToDelete) {
+            await onDeleteSession(sessionToDelete);
+            setSessionToDelete(null);
+            setShowSessionModal(false);
+          }
+        }}
+        onCancel={() => setSessionToDelete(null)}
+      />
     </div>
   );
 };
