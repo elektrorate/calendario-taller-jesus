@@ -15,6 +15,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     if (path === '/admin' || path === '/admin/') return 'CONTROL PANEL';
     if (path.startsWith('/admin/talleres')) return 'WORKSHOP NETWORK';
     if (path === '/admin/reportes') return 'MARKET ANALYTICS';
+    if (path === '/admin/equipo') return 'GESTIÓN DEL EQUIPO';
     return 'ADMIN';
   };
 
@@ -22,6 +23,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     { to: '/admin', label: 'INICIO', icon: <Icon.Home /> },
     { to: '/admin/talleres', label: 'TALLERES', icon: <Icon.Workshop /> },
     { to: '/admin/reportes', label: 'REPORTES', icon: <Icon.Chart /> },
+    { to: '/admin/equipo', label: 'EQUIPO', icon: <Icon.IdCard /> },
   ];
 
   const handleRefresh = () => {

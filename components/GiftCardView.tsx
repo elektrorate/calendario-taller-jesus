@@ -113,10 +113,10 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
     setShowModal(true);
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (editingCard?.id && window.confirm('¿Estás seguro de que deseas eliminar esta tarjeta regalo?')) {
-      onDeleteGiftCard(editingCard.id);
+      await onDeleteGiftCard(editingCard.id);
       setShowModal(false);
     }
   };

@@ -8,6 +8,7 @@ import { Workshops } from './pages/Workshops';
 import { WorkshopForm } from './pages/WorkshopForm';
 import { WorkshopDetail } from './pages/WorkshopDetail';
 import { Reports } from './pages/Reports';
+import { TeamManagement } from './pages/TeamManagement';
 
 /**
  * AdminApp - Self-contained admin module with its own context & layout.
@@ -25,6 +26,7 @@ const AdminApp: React.FC = () => {
                     <Route path="talleres/editar/:id" element={<WorkshopForm />} />
                     <Route path="talleres/:id" element={<WorkshopDetail />} />
                     <Route path="reportes" element={<Reports />} />
+                    <Route path="equipo" element={<TeamManagement />} />
                     <Route path="*" element={<Navigate to="" replace />} />
                 </Routes>
             </Layout>

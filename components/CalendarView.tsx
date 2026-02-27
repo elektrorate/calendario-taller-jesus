@@ -171,7 +171,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     setAttendanceSession(updatedSession); // Update local state for modal
   };
 
-  const handleSessionSubmit = () => {
+  const handleSessionSubmit = async () => {
     if (!sessionForm.date) {
       alert("ERROR: Selecciona un d\u00eda en el calendario antes de guardar.");
       return;
@@ -213,8 +213,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       workshopName: sessionForm.workshopName.trim() || undefined,
       privateReason: sessionForm.privateReason.trim() || undefined
     };
-    if (editingSessionId) onUpdateSession(editingSessionId, payload);
-    else onAddSession(payload);
+    if (editingSessionId) await onUpdateSession(editingSessionId, payload);
+    else await onAddSession(payload);
     setShowSessionModal(false);
   };
 
@@ -593,9 +593,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         startTime: option.id === 'feriado' ? '00:00' : sessionForm.startTime,
                         endTime: option.id === 'feriado' ? '24:00' : sessionForm.endTime
                       })}
-                      className={`py-4 rounded-xl font-extrabold text-[12px] md:text-[13px] uppercase tracking-widest border transition-all ${
-                        sessionForm.classType === option.id ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'
-                      }`}
+                      className={`py-4 rounded-xl font-extrabold text-[12px] md:text-[13px] uppercase tracking-widest border transition-all ${sessionForm.classType === option.id ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'
+                        }`}
                     >
                       {option.label}
                     </button>
@@ -665,7 +664,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
             <div className="pt-8 flex gap-3 shrink-0">
               {editingSessionId && (
                 <button
-                  onClick={() => { if (confirm("¿Eliminar esta sesión de la agenda?")) { onDeleteSession(editingSessionId); setShowSessionModal(false); } }}
+                  onClick={async () => { if (confirm("¿Eliminar esta sesión de la agenda?")) { await onDeleteSession(editingSessionId); setShowSessionModal(false); } }}
                   className="px-6 py-5 bg-red-50 text-red-400 rounded-2xl font-extrabold uppercase tracking-widest text-[11px]"
                 >
                   ELIMINAR

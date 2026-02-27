@@ -737,7 +737,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                   {editingPiece && (
                     <button
                       type="button"
-                      onClick={() => { if (confirm("¿Eliminar registro de pieza?")) { onDeletePiece(editingPiece.id); setShowModal(false); } }}
+                      onClick={async () => { if (confirm("¿Eliminar registro de pieza?")) { await onDeletePiece(editingPiece.id); setShowModal(false); } }}
                       className="px-6 py-4 text-red-400 font-extrabold uppercase text-[11px] tracking-widest"
                     >
                       Eliminar

@@ -148,7 +148,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
                     Editar
                   </button>
                   <button
-                    onClick={() => { if (confirm('¿Eliminar este profesor?')) onDeleteTeacher(teacher.id); }}
+                    onClick={async () => { if (confirm('¿Eliminar este profesor?')) await onDeleteTeacher(teacher.id); }}
                     className="px-4 py-2 bg-red-50 text-red-400 rounded-xl text-[10px] font-extrabold uppercase tracking-widest"
                   >
                     Eliminar

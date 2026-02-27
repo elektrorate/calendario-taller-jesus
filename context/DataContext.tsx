@@ -538,8 +538,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deleteStudent = async (id: string) => {
-        await supabase.from('students').delete().eq('id', id);
-        await loadAllData();
+        try {
+            const { error } = await supabase.from('students').delete().eq('id', id);
+            if (error) {
+                console.error('deleteStudent error:', error);
+                alert(`ERROR: No se pudo eliminar el alumno. ${error.message || ''}`);
+                return;
+            }
+            await loadAllData();
+        } catch (err: any) {
+            console.error('deleteStudent exception:', err);
+            alert(`ERROR: ${err.message || 'Error inesperado al eliminar alumno.'}`);
+        }
     };
 
     const renewStudent = async (id: string, numClasses: number = 4) => {
@@ -592,8 +602,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deleteSession = async (id: string) => {
-        await supabase.from('sessions').delete().eq('id', id);
-        await loadAllData();
+        try {
+            // First, remove all student links to prevent FK constraint failures
+            const { error: unlinkError } = await supabase
+                .from('session_students')
+                .delete()
+                .eq('session_id', id);
+            if (unlinkError) console.warn('Unlink session_students warning:', unlinkError.message);
+
+            const { error } = await supabase.from('sessions').delete().eq('id', id);
+            if (error) {
+                console.error('deleteSession error:', error);
+                alert(`ERROR: No se pudo eliminar la sesión. ${error.message || ''}`);
+                return;
+            }
+            await loadAllData();
+        } catch (err: any) {
+            console.error('deleteSession exception:', err);
+            alert(`ERROR: ${err.message || 'Error inesperado al eliminar sesión.'}`);
+        }
     };
 
     // Teacher CRUD
@@ -711,7 +738,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deletePiece = async (id: string) => {
-        await supabase.from('pieces').delete().eq('id', id);
+        const { error } = await supabase.from('pieces').delete().eq('id', id);
+        if (error) {
+            console.error('deletePiece error:', error);
+            alert(`ERROR: No se pudo eliminar la pieza. ${error.message || ''}`);
+            return;
+        }
         await loadAllData();
     };
 
@@ -756,7 +788,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deleteGiftCard = async (id: string) => {
-        await supabase.from('gift_cards').delete().eq('id', id);
+        const { error } = await supabase.from('gift_cards').delete().eq('id', id);
+        if (error) {
+            console.error('deleteGiftCard error:', error);
+            alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${error.message || ''}`);
+            return;
+        }
         await loadAllData();
     };
 

@@ -538,7 +538,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                   <div className="pt-8 border-t border-neutral-border">
                     <button
                       type="button"
-                      onClick={() => { if (confirm("Seguro que deseas eliminar el historial de este alumno?")) { onDeleteStudent(editingStudent.id); setShowModal(false); } }}
+                      onClick={async () => { if (confirm("Seguro que deseas eliminar el historial de este alumno?")) { await onDeleteStudent(editingStudent.id); setShowModal(false); } }}
                       className="w-full text-red-400 hover:text-red-600 font-extrabold uppercase text-[11px] tracking-[0.2em] transition-colors py-4"
                     >
                       Eliminar Alumno Definitivamente
