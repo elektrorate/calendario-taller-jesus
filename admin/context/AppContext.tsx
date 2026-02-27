@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { useAuth } from '../../context/AuthContext';
 import { Workshop, User, WorkshopStatus, UserRole, ActivityLog, Invitation, InvitationStatus } from '../types';
+import { logoutAndRedirect } from '../../utils/logout';
 
 interface AppContextType {
   workshops: Workshop[];
@@ -41,8 +40,6 @@ const hasStoredSession = (): boolean => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const navigate = useNavigate();
-  const { logout: authLogout } = useAuth();
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -240,16 +237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = async () => {
-    // CRITICAL: Sign out from Supabase FIRST, then immediately redirect.
-    // Do NOT update React state before redirect - it causes race conditions
-    // with ProtectedRoute that can intercept the navigation.
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error('Error during signOut:', err);
-    }
-    // Force full page reload - this MUST happen regardless of signOut result
-    window.location.href = '/login';
+    await logoutAndRedirect('/login');
   };
 
   const clearAuthError = () => setAuthError(null);

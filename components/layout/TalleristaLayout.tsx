@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../supabaseClient';
+import { logoutAndRedirect } from '../../utils/logout';
 
 interface TalleristaLayoutProps {
     children: React.ReactNode;
@@ -94,20 +94,10 @@ const TalleristaLayout: React.FC<TalleristaLayoutProps> = ({ children }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
-    const { logout, profile } = useAuth();
+    const { profile } = useAuth();
 
     const handleLogout = async () => {
-        // CRITICAL: Use supabase.auth.signOut() directly and immediately redirect.
-        // Do NOT use the context's logout() because it updates React state,
-        // which triggers re-renders and race conditions with ProtectedRoute.
-        // The full page reload ensures a clean slate.
-        try {
-            await supabase.auth.signOut();
-        } catch (err) {
-            console.error('Error during signOut:', err);
-        }
-        // Force full page navigation - this MUST happen regardless of signOut result
-        window.location.href = '/login';
+        await logoutAndRedirect('/login');
     };
 
     const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'Estudio';
