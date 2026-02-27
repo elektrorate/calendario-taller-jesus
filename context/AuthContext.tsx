@@ -149,9 +149,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         const initializeAuth = async () => {
             try {
-                const { data: { session: currentSession } } = await supabase.auth.getSession();
+                const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
                 if (!isActive) return;
+
+                if (sessionError) {
+                    console.warn('Auth session warning:', sessionError.message);
+                }
 
                 if (currentSession?.user) {
                     await loadUserData(currentSession);

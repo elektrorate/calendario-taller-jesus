@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmModal } from './shared/ConfirmModal';
+import { supabase } from '../supabaseClient';
 
 interface StaffMember {
     id: string;
@@ -22,23 +23,40 @@ const TeamView: React.FC = () => {
     const [staffToDelete, setStaffToDelete] = useState<{ id: string, name: string } | null>(null);
 
     const [createForm, setCreateForm] = useState({ nombre: '', email: '', password: '' });
-
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_PROJECT_URL || '';
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
     const callManageStaff = useCallback(async (body: Record<string, any>) => {
-        const token = session?.access_token;
-        if (!token) throw new Error('No hay sesión activa.');
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        const token = currentSession?.access_token;
+        if (sessionError || !token) {
+            throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
+        }
 
         const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-staff`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'apikey': SUPABASE_ANON_KEY,
             },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
-        return res.json();
-    }, [session, SUPABASE_URL]);
+
+        const responseData = await res.json().catch(() => null);
+        if (!res.ok) {
+            if (res.status === 401) {
+                throw new Error('Sesión no válida. Vuelve a iniciar sesión.');
+            }
+            throw new Error(responseData?.error || `Error del servidor (${res.status}).`);
+        }
+
+        if (responseData?.error) {
+            throw new Error(responseData.error);
+        }
+
+        return responseData;
+    }, [SUPABASE_URL, SUPABASE_ANON_KEY]);
 
     const loadStaff = useCallback(async () => {
         try {

@@ -9,6 +9,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const getTitle = () => {
     const path = location.pathname;
@@ -35,6 +36,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   };
 
   const alertsCount = workshops.filter(w => !w.adminGeneralUserId).length;
+  const displayName = currentUser?.nombre || (isLoggingOut ? 'CERRANDO SESIÓN' : 'ADMIN');
+  const displayStatus = currentUser ? 'ACTIVO' : (isLoggingOut ? 'CERRANDO' : 'SIN SESIÓN');
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F3EDE6] lg:pl-[320px]">
@@ -79,23 +91,24 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           <div className="p-7 bg-[#F7F1EB] rounded-[48px] flex items-center gap-4 border border-[#DDD5CD] shadow-sm">
             <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-sm shrink-0 bg-white">
-              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.nombre || 'Carlos'}`} alt="Admin" />
+              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} alt="Admin" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-[13px] font-extrabold truncate uppercase tracking-tighter text-[#3D3437] leading-none mb-1">{currentUser?.nombre || 'CARLOS RUIZ'}</p>
+              <p className="text-[13px] font-extrabold truncate uppercase tracking-tighter text-[#3D3437] leading-none mb-1">{displayName}</p>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest leading-none">Activo</p>
+                <div className={`w-2 h-2 rounded-full ${currentUser ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                <p className={`text-[10px] font-bold uppercase tracking-widest leading-none ${currentUser ? 'text-emerald-600' : 'text-amber-600'}`}>{displayStatus}</p>
               </div>
             </div>
           </div>
 
           <button
-            onClick={logout}
-            className="w-full flex items-center gap-4 px-8 py-4 eyebrow !text-[12px] hover:text-[#CA7859] transition-all group"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center gap-4 px-8 py-4 eyebrow !text-[12px] hover:text-[#CA7859] transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <span className="opacity-30 group-hover:opacity-100 transition-opacity rotate-180"><Icon.Logout /></span>
-            DESCONECTAR
+            {isLoggingOut ? 'DESCONECTANDO...' : 'DESCONECTAR'}
           </button>
         </div>
       </aside>
