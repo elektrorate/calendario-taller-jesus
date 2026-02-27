@@ -47,6 +47,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -120,6 +121,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!form.name.trim()) {
       alert('El nombre es obligatorio.');
       return;
@@ -129,14 +131,19 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       alert('Debes asignar un nombre de grupo.');
       return;
     }
+    setIsSubmitting(true);
     const data = {
       ...form,
       status: getCalculatedStatus(form) as 'needs_renewal' | 'regular',
       groupName: (form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') ? form.groupName : undefined
     };
-    if (editingStudent?.id) await onUpdate(editingStudent.id, data);
-    else await onAddStudent(data);
-    setShowModal(false);
+    try {
+      if (editingStudent?.id) await onUpdate(editingStudent.id, data);
+      else await onAddStudent(data);
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddSession = () => {
@@ -553,9 +560,10 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
             <div className="absolute bottom-0 left-0 right-0 p-10 bg-white/95 backdrop-blur-md border-t border-neutral-border flex items-center justify-center shrink-0 z-10">
               <button
                 onClick={handleSubmit}
-                className="w-full py-6 bg-brand text-white rounded-full font-black soft-shadow uppercase tracking-[0.2em] text-[16px] hover:bg-brand-hover active:scale-[0.98] transition-all"
+                disabled={isSubmitting}
+                className="w-full py-6 bg-brand text-white rounded-full font-black soft-shadow uppercase tracking-[0.2em] text-[16px] hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {editingStudent ? 'ACTUALIZAR PERFIL' : 'GUARDAR REGISTRO'}
+                {isSubmitting ? 'GUARDANDO...' : (editingStudent ? 'ACTUALIZAR PERFIL' : 'GUARDAR REGISTRO')}
               </button>
             </div>
           </div>

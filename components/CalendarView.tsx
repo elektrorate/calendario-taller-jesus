@@ -24,6 +24,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [attendanceSession, setAttendanceSession] = useState<ClassSession | null>(null);
   const [substituteId, setSubstituteId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const HOUR_HEIGHT = 140;
 
@@ -172,8 +173,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   };
 
   const handleSessionSubmit = async () => {
+    if (isSubmitting) return;
     if (!sessionForm.date) {
-      alert("ERROR: Selecciona un d\u00eda en el calendario antes de guardar.");
+      alert("ERROR: Selecciona un día en el calendario antes de guardar.");
       return;
     }
     if (requiresTeacher(sessionForm.classType) && !sessionForm.teacherId) {
@@ -200,9 +202,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         && s.classType === sessionForm.classType;
     });
     if (duplicate) {
-      alert("ERROR: Ya existe una sesi\u00f3n con el mismo horario y tipo.");
+      alert("ERROR: Ya existe una sesión con el mismo horario y tipo.");
       return;
     }
+    setIsSubmitting(true);
     const payload = {
       date: sessionForm.date,
       startTime: sessionForm.startTime,
@@ -213,9 +216,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       workshopName: sessionForm.workshopName.trim() || undefined,
       privateReason: sessionForm.privateReason.trim() || undefined
     };
-    if (editingSessionId) await onUpdateSession(editingSessionId, payload);
-    else await onAddSession(payload);
-    setShowSessionModal(false);
+    try {
+      if (editingSessionId) await onUpdateSession(editingSessionId, payload);
+      else await onAddSession(payload);
+      setShowSessionModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const weekDays = useMemo(() => {
@@ -670,8 +677,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   ELIMINAR
                 </button>
               )}
-              <button onClick={handleSessionSubmit} className="flex-1 py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest soft-shadow text-[14px]">GUARDAR CAMBIOS</button>
-              <button onClick={() => setShowSessionModal(false)} className="px-6 py-5 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[11px]">CANCELAR</button>
+              <button onClick={handleSessionSubmit} disabled={isSubmitting} className="flex-1 py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest soft-shadow text-[14px] disabled:opacity-60 disabled:cursor-not-allowed">{isSubmitting ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}</button>
+              <button onClick={() => setShowSessionModal(false)} disabled={isSubmitting} className="px-6 py-5 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[11px] disabled:opacity-60">CANCELAR</button>
             </div>
           </div>
         </div>

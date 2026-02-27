@@ -307,8 +307,9 @@ const TeamView: React.FC = () => {
                 title="¿Eliminar colaborador?"
                 message={`¿Estás seguro de que deseas eliminar a "${staffToDelete?.name}" del equipo? Esta acción no se puede deshacer.`}
                 isDestructive={true}
+                loading={actionLoading}
                 onConfirm={() => { if (staffToDelete) executeStaffDeletion(staffToDelete.id); }}
-                onCancel={() => setStaffToDelete(null)}
+                onCancel={() => !actionLoading && setStaffToDelete(null)}
             />
         </div>
     );

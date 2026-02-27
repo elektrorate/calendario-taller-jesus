@@ -79,66 +79,84 @@ export const WorkshopForm: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    // Crear el perfil del administrador REALMENTE
-    const result = await addUser({
-      nombre: adminData.nombre,
-      email: adminData.email,
-      telefono: adminData.telefono,
-      pais: '',
-      ciudad: '',
-      estado: WorkshopStatus.ACTIVE,
-      rolesGlobales: [UserRole.WORKSHOP_ADMIN],
-      rolesPorTaller: [],
-      password: adminData.password
-    });
-    setIsSubmitting(false);
+    try {
+      const result = await addUser({
+        nombre: adminData.nombre,
+        email: adminData.email,
+        telefono: adminData.telefono,
+        pais: '',
+        ciudad: '',
+        estado: WorkshopStatus.ACTIVE,
+        rolesGlobales: [UserRole.WORKSHOP_ADMIN],
+        rolesPorTaller: [],
+        password: adminData.password
+      });
 
-    if (!result) return; // Error happened
-    const { userId, sedeId } = result;
+      if (!result) return; // addUser already showed error toast
 
-    if (sedeId) setAutoCreatedSedeId(sedeId);
+      const { userId, sedeId } = result;
+      if (sedeId) setAutoCreatedSedeId(sedeId);
 
-    setAdminData(prev => ({ ...prev, id: userId }));
-    setWorkshopData(prev => ({ ...prev, adminGeneralUserId: userId }));
-    setAdminConfirmed(true);
-    setCurrentStep(2);
-    // showToast handled in addUser
+      setAdminData(prev => ({ ...prev, id: userId }));
+      setWorkshopData(prev => ({ ...prev, adminGeneralUserId: userId }));
+      setAdminConfirmed(true);
+      setCurrentStep(2);
+    } catch (err: any) {
+      showToast(err?.message || 'Error inesperado al crear el administrador', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFinalizeWorkshop = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!workshopData.nombre || !workshopData.pais || !workshopData.ciudad || !workshopData.direccion) {
       showToast('Por favor, completa los datos de la sede', 'error');
       return;
     }
 
-    if (isEdit && id) {
-      // EDIT MODE: Update existing sede by its ID
-      await updateWorkshop(id, {
-        ...workshopData,
-        adminUserIds: [workshopData.adminGeneralUserId]
-      });
-    } else {
-      // NEW MODE: The Edge Function already auto-created a sede for this user.
-      // Find the auto-created sede by owner_id and UPDATE it with the real details.
-      const autoCreatedSede = workshops.find(w => w.adminGeneralUserId === workshopData.adminGeneralUserId);
-      const targetId = autoCreatedSede?.id || autoCreatedSedeId;
+    setIsSubmitting(true);
+    try {
+      let success = false;
 
-      if (targetId) {
-        // Update the auto-created sede with the real workshop details
-        await updateWorkshop(targetId, {
+      if (isEdit && id) {
+        // EDIT MODE: Update existing sede by its ID
+        success = await updateWorkshop(id, {
           ...workshopData,
           adminUserIds: [workshopData.adminGeneralUserId]
         });
       } else {
-        // Fallback: if for some reason the auto-created sede is not found, create one
-        await addWorkshop({
-          ...workshopData,
-          adminUserIds: [workshopData.adminGeneralUserId]
-        });
+        // NEW MODE: The Edge Function already auto-created a sede for this user.
+        // Find the auto-created sede by owner_id and UPDATE it with the real details.
+        const autoCreatedSede = workshops.find(w => w.adminGeneralUserId === workshopData.adminGeneralUserId);
+        const targetId = autoCreatedSede?.id || autoCreatedSedeId;
+
+        if (targetId) {
+          // Update the auto-created sede with the real workshop details
+          success = await updateWorkshop(targetId, {
+            ...workshopData,
+            adminUserIds: [workshopData.adminGeneralUserId]
+          });
+        } else {
+          // Fallback: if for some reason the auto-created sede is not found, create one
+          success = await addWorkshop({
+            ...workshopData,
+            adminUserIds: [workshopData.adminGeneralUserId]
+          });
+        }
       }
+
+      // Solo navegar si la operación fue exitosa
+      if (success) {
+        navigate('/admin/talleres');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Error inesperado al guardar la sede', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
-    navigate('/admin/talleres');
   };
 
   const labelClass = "block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-4";
@@ -325,8 +343,8 @@ export const WorkshopForm: React.FC = () => {
                     VOLVER AL PASO 1
                   </Button>
                 )}
-                <Button type="submit" variant="primary" size="lg" className="flex-[2] shadow-[0_20px_40px_rgba(244,208,0,0.3)] !py-6 text-xs tracking-widest uppercase">
-                  {isEdit ? 'GUARDAR CAMBIOS' : 'CONFIRMAR Y CREAR TALLER'}
+                <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="flex-[2] shadow-[0_20px_40px_rgba(244,208,0,0.3)] !py-6 text-xs tracking-widest uppercase disabled:opacity-60 disabled:cursor-not-allowed">
+                  {isSubmitting ? 'GUARDANDO...' : (isEdit ? 'GUARDAR CAMBIOS' : 'CONFIRMAR Y CREAR TALLER')}
                 </Button>
               </div>
             </form>

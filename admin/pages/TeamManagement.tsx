@@ -159,6 +159,7 @@ export const TeamManagement: React.FC = () => {
        ──────────────────────────────── */
 
     const handleSaveAdmin = async () => {
+        if (adminSaving) return;
         if (!currentUser) return;
         if (!adminForm.nombre.trim()) {
             showToast('El nombre es obligatorio', 'error');
@@ -181,6 +182,7 @@ export const TeamManagement: React.FC = () => {
     };
 
     const handleChangePassword = async () => {
+        if (pwSaving) return;
         if (pwForm.newPassword !== pwForm.confirmPassword) {
             showToast('Las contraseñas no coinciden', 'error');
             return;
@@ -211,6 +213,7 @@ export const TeamManagement: React.FC = () => {
     };
 
     const handleSaveMember = async () => {
+        if (editSaving) return;
         if (!editMember) return;
         if (!editForm.nombre.trim()) {
             showToast('El nombre es obligatorio', 'error');
@@ -255,6 +258,7 @@ export const TeamManagement: React.FC = () => {
     };
 
     const handleDeleteMember = async () => {
+        if (deleting) return;
         if (!deleteMember) return;
         if (deleteConfirmText !== 'ELIMINAR') {
             showToast('Escribe ELIMINAR para confirmar', 'error');

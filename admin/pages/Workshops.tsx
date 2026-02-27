@@ -60,9 +60,12 @@ export const Workshops: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
-    await deleteWorkshop(deleteTarget.id);
+    const success = await deleteWorkshop(deleteTarget.id);
     setIsDeleting(false);
-    setDeleteTarget(null);
+    // Solo cerrar el modal si la eliminación fue exitosa
+    if (success) {
+      setDeleteTarget(null);
+    }
   };
 
   return (

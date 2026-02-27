@@ -12,9 +12,9 @@ interface AppContextType {
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  addWorkshop: (workshop: Omit<Workshop, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateWorkshop: (id: string, updates: Partial<Workshop>) => Promise<void>;
-  deleteWorkshop: (id: string) => Promise<void>;
+  addWorkshop: (workshop: Omit<Workshop, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
+  updateWorkshop: (id: string, updates: Partial<Workshop>) => Promise<boolean>;
+  deleteWorkshop: (id: string) => Promise<boolean>;
   addUser: (user: Omit<User, 'id'>) => Promise<{ userId: string; sedeId?: string } | null>;
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
   cancelInvitation: (id: string) => Promise<void>;
@@ -252,52 +252,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearAuthError = () => setAuthError(null);
 
-  const addWorkshop = async (workshop: Omit<Workshop, 'id' | 'createdAt' | 'updatedAt'>) => {
-    // Insert into DB
-    const { error } = await supabase.from('sedes').insert({
-      name: workshop.nombre,
-      address: workshop.direccion,
-      city: workshop.ciudad,
-      country: workshop.pais,
-      contact_email: workshop.emailTaller,
-      contact_phone: workshop.telefonoTaller,
-      owner_id: workshop.adminGeneralUserId,
-      slug: workshop.nombre.toLowerCase().replace(/ /g, '-') // Simple slug gen
-    });
+  const addWorkshop = async (workshop: Omit<Workshop, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
+    try {
+      // Insert into DB
+      const { error } = await supabase.from('sedes').insert({
+        name: workshop.nombre,
+        address: workshop.direccion,
+        city: workshop.ciudad,
+        country: workshop.pais,
+        contact_email: workshop.emailTaller,
+        contact_phone: workshop.telefonoTaller,
+        owner_id: workshop.adminGeneralUserId,
+        slug: workshop.nombre.toLowerCase().replace(/ /g, '-') // Simple slug gen
+      });
 
-    if (error) {
-      showToast('Error creando taller: ' + error.message, 'error');
-      return;
+      if (error) {
+        showToast('Error creando taller: ' + error.message, 'error');
+        return false;
+      }
+      showToast('Taller creado con éxito', 'success');
+      await fetchWorkshops();
+      return true;
+    } catch (err: any) {
+      showToast('Error inesperado creando taller: ' + (err.message || ''), 'error');
+      return false;
     }
-    showToast('Taller creado con éxito', 'success');
-    fetchWorkshops();
   };
 
-  const updateWorkshop = async (id: string, updates: Partial<Workshop>) => {
-    const dbPayload: Record<string, unknown> = {};
-    if (updates.nombre !== undefined) {
-      dbPayload.name = updates.nombre;
-      dbPayload.slug = updates.nombre.toLowerCase().replace(/ /g, '-');
-    }
-    if (updates.direccion !== undefined) dbPayload.address = updates.direccion;
-    if (updates.ciudad !== undefined) dbPayload.city = updates.ciudad;
-    if (updates.pais !== undefined) dbPayload.country = updates.pais;
-    if (updates.emailTaller !== undefined) dbPayload.contact_email = updates.emailTaller;
-    if (updates.telefonoTaller !== undefined) dbPayload.contact_phone = updates.telefonoTaller;
-    if (updates.estado !== undefined) dbPayload.is_active = updates.estado === WorkshopStatus.ACTIVE;
-    if (updates.adminGeneralUserId !== undefined) dbPayload.owner_id = updates.adminGeneralUserId;
+  const updateWorkshop = async (id: string, updates: Partial<Workshop>): Promise<boolean> => {
+    try {
+      const dbPayload: Record<string, unknown> = {};
+      if (updates.nombre !== undefined) {
+        dbPayload.name = updates.nombre;
+        dbPayload.slug = updates.nombre.toLowerCase().replace(/ /g, '-');
+      }
+      if (updates.direccion !== undefined) dbPayload.address = updates.direccion;
+      if (updates.ciudad !== undefined) dbPayload.city = updates.ciudad;
+      if (updates.pais !== undefined) dbPayload.country = updates.pais;
+      if (updates.emailTaller !== undefined) dbPayload.contact_email = updates.emailTaller;
+      if (updates.telefonoTaller !== undefined) dbPayload.contact_phone = updates.telefonoTaller;
+      if (updates.estado !== undefined) dbPayload.is_active = updates.estado === WorkshopStatus.ACTIVE;
+      if (updates.adminGeneralUserId !== undefined) dbPayload.owner_id = updates.adminGeneralUserId;
 
-    const { error } = await supabase.from('sedes').update(dbPayload).eq('id', id);
+      const { error } = await supabase.from('sedes').update(dbPayload).eq('id', id);
 
-    if (error) {
-      showToast('Error actualizando taller: ' + error.message, 'error');
-      return;
+      if (error) {
+        showToast('Error actualizando taller: ' + error.message, 'error');
+        return false;
+      }
+      showToast('Taller actualizado', 'success');
+      await fetchWorkshops();
+      return true;
+    } catch (err: any) {
+      showToast('Error inesperado actualizando taller: ' + (err.message || ''), 'error');
+      return false;
     }
-    showToast('Taller actualizado', 'success');
-    fetchWorkshops();
   };
 
-  const deleteWorkshop = async (id: string) => {
+  const deleteWorkshop = async (id: string): Promise<boolean> => {
     try {
       // Find the owner (tallerista) of this sede
       const workshop = workshops.find(w => w.id === id);
@@ -305,7 +317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!ownerId) {
         showToast('No se encontró el propietario del taller', 'error');
-        return;
+        return false;
       }
 
       // Call the Edge Function that deletes EVERYTHING:
@@ -316,18 +328,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) {
         showToast('Error al eliminar: ' + error.message, 'error');
-        return;
+        return false;
       }
 
       if (data?.error) {
         showToast(data.error, 'error');
-        return;
+        return false;
       }
 
       showToast('Taller y usuario eliminados correctamente', 'success');
       await Promise.all([fetchWorkshops(), fetchUsers()]);
+      return true;
     } catch (err: any) {
       showToast('Error inesperado: ' + (err.message || ''), 'error');
+      return false;
     }
   };
 

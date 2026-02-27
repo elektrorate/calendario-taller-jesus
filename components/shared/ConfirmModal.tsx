@@ -7,6 +7,7 @@ interface ConfirmModalProps {
     confirmText?: string;
     cancelText?: string;
     isDestructive?: boolean;
+    loading?: boolean;
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -18,6 +19,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     confirmText = 'Eliminar',
     cancelText = 'Cancelar',
     isDestructive = true,
+    loading = false,
     onConfirm,
     onCancel
 }) => {
@@ -51,17 +53,21 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
                 <div className="flex gap-3">
                     <button
+                        type="button"
                         onClick={onCancel}
-                        className="flex-1 px-4 py-4 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[11px] hover:bg-neutral-border transition-colors outline-none focus:ring-2 focus:ring-neutral-border"
+                        disabled={loading}
+                        className="flex-1 px-4 py-4 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[11px] hover:bg-neutral-border transition-colors outline-none focus:ring-2 focus:ring-neutral-border disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {cancelText}
                     </button>
                     <button
+                        type="button"
                         onClick={onConfirm}
-                        className={`flex-1 px-4 py-4 rounded-2xl font-extrabold uppercase tracking-widest text-[11px] text-white soft-shadow hover:opacity-90 transition-opacity outline-none focus:ring-2 focus:ring-offset-2 ${isDestructive ? 'bg-red-500 focus:ring-red-500' : 'bg-brand focus:ring-brand'
+                        disabled={loading}
+                        className={`flex-1 px-4 py-4 rounded-2xl font-extrabold uppercase tracking-widest text-[11px] text-white soft-shadow hover:opacity-90 transition-opacity outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${isDestructive ? 'bg-red-500 focus:ring-red-500' : 'bg-brand focus:ring-brand'
                             }`}
                     >
-                        {confirmText}
+                        {loading ? 'ELIMINANDO...' : confirmText}
                     </button>
                 </div>
             </div>

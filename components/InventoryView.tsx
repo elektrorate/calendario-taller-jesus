@@ -24,6 +24,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
   const [timeRange, setTimeRange] = useState<7 | 30 | 90>(30);
   const [dashboardFilter, setDashboardFilter] = useState<'ok' | 'low' | 'critical' | 'all'>('all');
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isSubmittingItem, setIsSubmittingItem] = useState(false);
+  const [isSubmittingMovement, setIsSubmittingMovement] = useState(false);
   const [itemForm, setItemForm] = useState({
     category: 'glaze' as InventoryCategory,
     name: '',
@@ -228,11 +230,18 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
 
   const handleSubmitItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitItem();
+    if (isSubmittingItem) return;
+    setIsSubmittingItem(true);
+    try {
+      await submitItem();
+    } finally {
+      setIsSubmittingItem(false);
+    }
   };
 
   const handleSubmitMovement = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingMovement) return;
     if (!selectedItem) return;
     if (!movementForm.reason.trim()) {
       alert('ERROR: El motivo es obligatorio.');
@@ -246,26 +255,31 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       alert('ERROR: La cantidad debe ser mayor que 0.');
       return;
     }
-    await onAddMovement({
-      item_id: selectedItem.id,
-      type: movementForm.type,
-      quantity: movementForm.type === 'adjust' ? undefined : Number(movementForm.quantity),
-      new_quantity: movementForm.type === 'adjust' ? Number(movementForm.new_quantity) : undefined,
-      unit: movementForm.unit || selectedItem.unit,
-      reason: movementForm.reason.trim(),
-      date: movementForm.date || new Date().toISOString(),
-      notes: movementForm.notes || undefined
-    });
-    setShowMovementForm(false);
-    setMovementForm({
-      type: 'in',
-      quantity: 0,
-      new_quantity: 0,
-      unit: selectedItem.unit || 'kg',
-      reason: '',
-      date: new Date().toISOString().split('T')[0],
-      notes: ''
-    });
+    setIsSubmittingMovement(true);
+    try {
+      await onAddMovement({
+        item_id: selectedItem.id,
+        type: movementForm.type,
+        quantity: movementForm.type === 'adjust' ? undefined : Number(movementForm.quantity),
+        new_quantity: movementForm.type === 'adjust' ? Number(movementForm.new_quantity) : undefined,
+        unit: movementForm.unit || selectedItem.unit,
+        reason: movementForm.reason.trim(),
+        date: movementForm.date || new Date().toISOString(),
+        notes: movementForm.notes || undefined
+      });
+      setShowMovementForm(false);
+      setMovementForm({
+        type: 'in',
+        quantity: 0,
+        new_quantity: 0,
+        unit: selectedItem.unit || 'kg',
+        reason: '',
+        date: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
+    } finally {
+      setIsSubmittingMovement(false);
+    }
   };
 
   const updateFormulaRow = (index: number, updates: { name?: string; value?: number }) => {
@@ -503,9 +517,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[14px] soft-shadow hover:bg-brand-hover active:scale-[0.98] transition-all"
+                  disabled={isSubmittingMovement}
+                  className="w-full py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[14px] soft-shadow hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar movimiento
+                  {isSubmittingMovement ? 'GUARDANDO...' : 'Guardar movimiento'}
                 </button>
               </div>
             </form>
@@ -846,9 +861,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
               <button
                 type="button"
                 onClick={submitItem}
-                className="w-full py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[14px] soft-shadow hover:bg-brand-hover active:scale-[0.98] transition-all"
+                disabled={isSubmittingItem}
+                className="w-full py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[14px] soft-shadow hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {editingItem ? 'Guardar cambios' : 'Guardar item'}
+                {isSubmittingItem ? 'GUARDANDO...' : (editingItem ? 'Guardar cambios' : 'Guardar item')}
               </button>
             </div>
           </form>

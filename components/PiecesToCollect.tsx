@@ -162,6 +162,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
   const [dateValue, setDateValue] = useState<string>(new Date().toISOString().split('T')[0]);
   const [groupFilter, setGroupFilter] = useState<string>('todos');
   const [pieceToDelete, setPieceToDelete] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     owner: '',
@@ -272,10 +273,16 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!form.owner) { alert("Por favor selecciona un propietario."); return; }
-    if (editingPiece?.id) await onUpdatePiece(editingPiece.id, form);
-    else await onAddPiece(form);
-    setShowModal(false);
+    setIsSubmitting(true);
+    try {
+      if (editingPiece?.id) await onUpdatePiece(editingPiece.id, form);
+      else await onAddPiece(form);
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ─── Search suggestions ───
@@ -745,8 +752,8 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                       Eliminar
                     </button>
                   )}
-                  <button type="submit" className="flex-1 py-5 bg-brand text-white rounded-2xl font-extrabold soft-shadow uppercase tracking-widest text-[16px] hover:bg-brand-hover active:scale-[0.98] transition-all">
-                    GUARDAR CAMBIOS
+                  <button type="submit" disabled={isSubmitting} className="flex-1 py-5 bg-brand text-white rounded-2xl font-extrabold soft-shadow uppercase tracking-widest text-[16px] hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                    {isSubmitting ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
                   </button>
                 </div>
               </form>

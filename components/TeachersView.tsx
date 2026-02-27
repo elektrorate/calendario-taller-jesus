@@ -23,6 +23,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
     notes: ''
   });
   const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredTeachers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -83,10 +84,12 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!form.name.trim()) {
       alert('ERROR: El nombre es obligatorio.');
       return;
     }
+    setIsSubmitting(true);
     const payload = {
       name: form.name.trim(),
       surname: form.surname.trim() || undefined,
@@ -95,9 +98,13 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
       phone: form.phone.trim() || undefined,
       notes: form.notes.trim() || undefined
     };
-    if (editingTeacher) await onUpdateTeacher(editingTeacher.id, payload);
-    else await onAddTeacher(payload);
-    setShowModal(false);
+    try {
+      if (editingTeacher) await onUpdateTeacher(editingTeacher.id, payload);
+      else await onAddTeacher(payload);
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -249,14 +256,16 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 py-4 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[12px] soft-shadow"
+                  disabled={isSubmitting}
+                  className="flex-1 py-4 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[12px] soft-shadow disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar
+                  {isSubmitting ? 'Guardando...' : 'Guardar'}
                 </button>
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setShowModal(false)}
-                  className="px-6 py-4 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[12px]"
+                  className="px-6 py-4 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[12px] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>
