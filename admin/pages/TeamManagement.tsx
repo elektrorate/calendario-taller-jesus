@@ -19,9 +19,39 @@ interface TeamMember {
 /* ───────────────────────────────────────────────
    Helper: call manage-staff edge function
    ─────────────────────────────────────────────── */
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_PROJECT_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
 async function callManageStaff(body: Record<string, any>): Promise<any> {
-    const { data, error } = await supabase.functions.invoke('manage-staff', { body });
-    if (error) throw new Error(error.message || 'Error de conexión con el servidor.');
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (sessionError || !token) {
+        throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        throw new Error('Configuración incompleta de Supabase en el deploy.');
+    }
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-staff`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new Error('Sesión no válida. Vuelve a iniciar sesión.');
+        }
+        throw new Error(data?.error || `Error del servidor (${response.status}).`);
+    }
+
     if (data?.error) throw new Error(data.error);
     return data;
 }
