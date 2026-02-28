@@ -5,9 +5,9 @@ import { ConfirmModal } from './shared/ConfirmModal';
 interface TeachersViewProps {
   teachers: Teacher[];
   sessions: ClassSession[];
-  onAddTeacher: (teacher: Omit<Teacher, 'id'>) => void;
-  onUpdateTeacher: (id: string, updates: Partial<Teacher>) => void;
-  onDeleteTeacher: (id: string) => void;
+  onAddTeacher: (teacher: Omit<Teacher, 'id'>) => Promise<void>;
+  onUpdateTeacher: (id: string, updates: Partial<Teacher>) => Promise<void>;
+  onDeleteTeacher: (id: string) => Promise<void>;
 }
 
 const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTeacher, onUpdateTeacher, onDeleteTeacher }) => {

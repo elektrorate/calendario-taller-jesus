@@ -313,6 +313,19 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
     }, [session, sedeId, isSuperAdmin]);
 
+    // ★ Safe reload wrapper: prevents CRUD operations from hanging forever
+    // If loadAllData takes more than 10s, unblock the UI anyway
+    const safeReload = useCallback(async () => {
+        try {
+            await Promise.race([
+                loadAllData(),
+                new Promise((resolve) => setTimeout(resolve, 10000))
+            ]);
+        } catch (err) {
+            console.warn('safeReload: background refresh failed', err);
+        }
+    }, [loadAllData]);
+
     useEffect(() => {
         if (session && (isSuperAdmin || sedeId)) {
             loadAllData();
@@ -511,7 +524,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             await persistAssignedClasses(data.id, assignedClasses);
             await syncAssignedClassesToSessions({ ...newStudent, id: data.id } as Student, assignedClasses);
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const updateStudent = async (id: string, updates: Partial<Student>) => {
@@ -535,7 +548,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 await syncAssignedClassesToSessions({ ...student, ...updates } as Student, updates.assignedClasses);
             }
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const deleteStudent = async (id: string) => {
@@ -546,7 +559,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 alert(`ERROR: No se pudo eliminar el alumno. ${error.message || ''}`);
                 return;
             }
-            await loadAllData();
+            await safeReload();
         } catch (err: any) {
             console.error('deleteStudent exception:', err);
             alert(`ERROR: ${err.message || 'Error inesperado al eliminar alumno.'}`);
@@ -575,7 +588,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (newSession.students && newSession.students.length) {
             await syncSessionStudents(data.id, newSession.students, newSession.attendance || undefined);
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const updateSession = async (id: string, updates: Partial<ClassSession>) => {
@@ -599,7 +612,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             await updateSessionAttendance(id, updates.attendance);
         }
 
-        await loadAllData();
+        await safeReload();
     };
 
     const deleteSession = async (id: string) => {
@@ -617,7 +630,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 alert(`ERROR: No se pudo eliminar la sesión. ${error.message || ''}`);
                 return;
             }
-            await loadAllData();
+            await safeReload();
         } catch (err: any) {
             console.error('deleteSession exception:', err);
             alert(`ERROR: ${err.message || 'Error inesperado al eliminar sesión.'}`);
@@ -643,7 +656,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo crear el profesor. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const updateTeacher = async (id: string, updates: Partial<Teacher>) => {
@@ -661,7 +674,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo actualizar el profesor. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const deleteTeacher = async (id: string) => {
@@ -686,7 +699,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 alert(`ERROR: No se pudo eliminar el profesor. ${error.message || ''}`);
                 return;
             }
-            await loadAllData();
+            await safeReload();
         } catch (err: any) {
             console.error('deleteTeacher exception:', err);
             alert(`ERROR: ${err.message || 'Error inesperado al eliminar profesor.'}`);
@@ -716,7 +729,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo crear la pieza. ${error.message || ''}`.trim());
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const updatePiece = async (id: string, updates: Partial<CeramicPiece>) => {
@@ -735,7 +748,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo actualizar la pieza. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const deletePiece = async (id: string) => {
@@ -745,7 +758,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo eliminar la pieza. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     // GiftCard CRUD
@@ -767,7 +780,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo crear la tarjeta regalo. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const updateGiftCard = async (id: string, updates: Partial<GiftCard>) => {
@@ -785,7 +798,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const deleteGiftCard = async (id: string) => {
@@ -795,7 +808,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     // Inventory CRUD
@@ -827,7 +840,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo crear el item. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
@@ -855,7 +868,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo actualizar el item. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const archiveInventoryItem = async (id: string) => {
@@ -878,7 +891,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo eliminar el item. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const addInventoryMovement = async (newMov: Omit<InventoryMovement, 'id'>) => {
@@ -902,7 +915,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             alert(`ERROR: No se pudo registrar el movimiento. ${error.message || ''}`);
             return;
         }
-        await loadAllData();
+        await safeReload();
     };
 
     const value: DataContextType = {

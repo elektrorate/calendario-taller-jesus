@@ -144,9 +144,9 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
 interface PiecesToCollectProps {
   pieces: CeramicPiece[];
   students: Student[];
-  onAddPiece: (piece: Omit<CeramicPiece, 'id'>) => void;
-  onUpdatePiece: (id: string, updates: Partial<CeramicPiece>) => void;
-  onDeletePiece: (id: string) => void;
+  onAddPiece: (piece: Omit<CeramicPiece, 'id'>) => Promise<void>;
+  onUpdatePiece: (id: string, updates: Partial<CeramicPiece>) => Promise<void>;
+  onDeletePiece: (id: string) => Promise<void>;
 }
 
 const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onAddPiece, onUpdatePiece, onDeletePiece }) => {

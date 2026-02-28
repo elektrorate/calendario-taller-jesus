@@ -3,16 +3,17 @@ import { ClassSession, Student, Teacher } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
 interface CalendarViewProps {
   sessions: ClassSession[];
-  onAddSession: (session: Omit<ClassSession, 'id'>) => void;
-  onUpdateSession: (id: string, updates: Partial<ClassSession>) => void;
-  onDeleteSession: (id: string) => void;
+  onAddSession: (session: Omit<ClassSession, 'id'>) => Promise<void>;
+  onUpdateSession: (id: string, updates: Partial<ClassSession>) => Promise<void>;
+  onDeleteSession: (id: string) => Promise<void>;
+  onUpdateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
   students: Student[];
   teachers: Teacher[];
 }
 
 type CalendarMode = 'day' | 'month';
 
-const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onUpdateSession, onDeleteSession, students, teachers }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onUpdateSession, onDeleteSession, onUpdateStudent, students, teachers }) => {
   const [viewMode, setViewMode] = useState<CalendarMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -145,17 +146,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     setShowAttendanceModal(true);
   };
 
-  const finalizeAttendance = () => {
+  const finalizeAttendance = async () => {
     if (!attendanceSession) return;
-    const completedAt = new Date().toISOString();
-    onUpdateSession(attendanceSession.id, {
-      completedAt,
-      teacherSubstituteId: substituteId || undefined
-    });
-    setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
-    setShowAttendanceModal(false);
+    setIsSubmitting(true);
+    try {
+      const completedAt = new Date().toISOString();
+      const finalAttendance = attendanceSession.attendance || {};
+
+      // 1. Save attendance + completedAt to the session
+      await onUpdateSession(attendanceSession.id, {
+        completedAt,
+        attendance: finalAttendance,
+        teacherSubstituteId: substituteId || undefined
+      });
+
+      // 2. Deduct classesRemaining for each student marked 'present'
+      const presentStudentNames = Object.entries(finalAttendance)
+        .filter(([, status]) => status === 'present')
+        .map(([name]) => name);
+
+      for (const studentName of presentStudentNames) {
+        const student = students.find(s => {
+          const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
+          return fullName === studentName.toUpperCase() || fullName === studentName;
+        });
+        if (student && student.classesRemaining > 0) {
+          await onUpdateStudent(student.id, {
+            classesRemaining: student.classesRemaining - 1,
+            status: (student.classesRemaining - 1) <= 0 ? 'needs_renewal' : student.status
+          });
+        }
+      }
+
+      setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
+      setShowAttendanceModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // ★ handleMarkAttendance: ONLY updates local state, does NOT call API
+  // The actual save happens in finalizeAttendance to prevent race conditions
   const handleMarkAttendance = (studentName: string, status: 'present' | 'absent' | 'pending') => {
     if (!attendanceSession) return;
 
@@ -168,8 +199,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     }
 
     const updatedSession = { ...attendanceSession, attendance: currentAttendance };
-    onUpdateSession(attendanceSession.id, { attendance: currentAttendance });
-    setAttendanceSession(updatedSession); // Update local state for modal
+    setAttendanceSession(updatedSession); // Local state only — saved on finalize
   };
 
   const handleSessionSubmit = async () => {
@@ -543,9 +573,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
             <div className="pt-8 shrink-0">
               <button
                 onClick={finalizeAttendance}
-                className="w-full py-6 bg-neutral-textMain text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black active:scale-[0.98] transition-all soft-shadow"
+                disabled={isSubmitting}
+                className="w-full py-6 bg-neutral-textMain text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black active:scale-[0.98] transition-all soft-shadow disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                FINALIZAR CONTROL
+                {isSubmitting ? 'GUARDANDO...' : 'FINALIZAR CONTROL'}
               </button>
             </div>
           </div>

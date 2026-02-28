@@ -6,11 +6,11 @@ import { ConfirmModal } from './shared/ConfirmModal';
 interface InventoryViewProps {
   items: InventoryItem[];
   movements: InventoryMovement[];
-  onAddItem: (item: any) => void;
-  onUpdateItem: (id: string, updates: Partial<InventoryItem>) => void;
-  onArchiveItem: (id: string) => void;
-  onDeleteItem: (id: string) => Promise<void>;
-  onAddMovement: (movement: Omit<InventoryMovement, 'id'>) => void;
+  onAddItem: (item: any) => Promise<void>;
+  onUpdateItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
+  onArchiveItem: (id: string) => Promise<void>;
+  onDeleteItem?: (id: string) => Promise<void>;
+  onAddMovement: (movement: Omit<InventoryMovement, 'id'>) => Promise<void>;
 }
 
 type SubView = 'dashboard' | 'list' | 'detail' | 'form';

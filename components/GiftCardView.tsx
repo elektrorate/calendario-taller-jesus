@@ -3,9 +3,9 @@ import { GiftCard } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
 interface GiftCardViewProps {
   giftCards: GiftCard[];
-  onAddGiftCard: (card: Omit<GiftCard, 'id' | 'createdAt'>) => void;
-  onUpdateGiftCard: (id: string, updates: Partial<GiftCard>) => void;
-  onDeleteGiftCard: (id: string) => void;
+  onAddGiftCard: (card: Omit<GiftCard, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateGiftCard: (id: string, updates: Partial<GiftCard>) => Promise<void>;
+  onDeleteGiftCard: (id: string) => Promise<void>;
 }
 
 const GiftCardItem: React.FC<{

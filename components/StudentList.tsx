@@ -4,10 +4,10 @@ import { ConfirmModal } from './shared/ConfirmModal';
 
 interface StudentListProps {
   students: Student[];
-  onAddStudent: (student: Omit<Student, 'id'>) => void;
-  onRenew: (id: string, numClasses: number) => void;
-  onUpdate: (id: string, updates: Partial<Student>) => void;
-  onDeleteStudent: (id: string) => void;
+  onAddStudent: (student: Omit<Student, 'id'>) => Promise<void>;
+  onRenew: (id: string, numClasses: number) => Promise<void>;
+  onUpdate: (id: string, updates: Partial<Student>) => Promise<void>;
+  onDeleteStudent: (id: string) => Promise<void>;
   selectedStudentId?: string | null;
   onClearSelectedStudent?: () => void;
 }
