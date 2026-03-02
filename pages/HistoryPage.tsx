@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import HistoryView from '../components/HistoryView';
 
 const HistoryPage: React.FC = () => {
-    const { students, sessions, pieces, isLoadingData } = useData();
+    const { students, sessions, pieces, giftCards, isLoadingData } = useData();
 
     if (isLoadingData) {
         return (
@@ -18,6 +18,7 @@ const HistoryPage: React.FC = () => {
             students={students}
             sessions={sessions}
             pieces={pieces}
+            giftCards={giftCards}
         />
     );
 };

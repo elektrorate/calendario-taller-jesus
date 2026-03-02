@@ -87,6 +87,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
+  // BUG 7 FIX: Added timeout safety to prevent infinite loading
+  const ADMIN_LOAD_TIMEOUT_MS = 10000;
+
   const loadInitialData = async (providedSession?: any) => {
     if (isInitializingRef.current) {
       console.log('Skipping loadInitialData: already initializing');
@@ -103,6 +106,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLoading(true);
     }
     setAuthError(null);
+
+    // BUG 7 FIX: Safety timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('loadInitialData: timeout reached, forcing loading=false');
+      setLoading(false);
+      setShowOptimisticUI(false);
+      isInitializingRef.current = false;
+    }, ADMIN_LOAD_TIMEOUT_MS);
 
     try {
       let session = providedSession;
@@ -134,6 +145,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error loading initial data:', error);
       showToast('Error cargando datos del sistema', 'error');
     } finally {
+      clearTimeout(timeoutId);
       console.log('Cleaning up loading state...');
       setLoading(false);
       setShowOptimisticUI(false);
@@ -242,18 +254,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearAuthError = () => setAuthError(null);
 
+  // BUG 14 FIX: Helper to normalize slug (remove accents and special chars)
+  const normalizeSlug = (str: string): string => {
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+      .replace(/\s+/g, '-') // Spaces to hyphens
+      .replace(/-+/g, '-') // Collapse multiple hyphens
+      .trim();
+  };
+
   const addWorkshop = async (workshop: Omit<Workshop, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     try {
-      // Insert into DB
+      // BUG 2 FIX: Include is_active: true and use || null for optional fields
       const { error } = await supabase.from('sedes').insert({
         name: workshop.nombre,
-        address: workshop.direccion,
-        city: workshop.ciudad,
-        country: workshop.pais,
-        contact_email: workshop.emailTaller,
-        contact_phone: workshop.telefonoTaller,
+        address: workshop.direccion || null,
+        city: workshop.ciudad || null,
+        country: workshop.pais || null,
+        contact_email: workshop.emailTaller || null,
+        contact_phone: workshop.telefonoTaller || null,
         owner_id: workshop.adminGeneralUserId,
-        slug: workshop.nombre.toLowerCase().replace(/ /g, '-') // Simple slug gen
+        slug: normalizeSlug(workshop.nombre),
+        is_active: true  // BUG 2 FIX: Explicitly set active
       });
 
       if (error) {
@@ -271,18 +296,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateWorkshop = async (id: string, updates: Partial<Workshop>): Promise<boolean> => {
     try {
+      // BUG 1 FIX: Use || null for optional fields so empty strings clear the DB value
       const dbPayload: Record<string, unknown> = {};
       if (updates.nombre !== undefined) {
         dbPayload.name = updates.nombre;
-        dbPayload.slug = updates.nombre.toLowerCase().replace(/ /g, '-');
+        dbPayload.slug = normalizeSlug(updates.nombre);
       }
-      if (updates.direccion !== undefined) dbPayload.address = updates.direccion;
-      if (updates.ciudad !== undefined) dbPayload.city = updates.ciudad;
-      if (updates.pais !== undefined) dbPayload.country = updates.pais;
-      if (updates.emailTaller !== undefined) dbPayload.contact_email = updates.emailTaller;
-      if (updates.telefonoTaller !== undefined) dbPayload.contact_phone = updates.telefonoTaller;
+      if (updates.direccion !== undefined) dbPayload.address = updates.direccion || null;
+      if (updates.ciudad !== undefined) dbPayload.city = updates.ciudad || null;
+      if (updates.pais !== undefined) dbPayload.country = updates.pais || null;
+      if (updates.emailTaller !== undefined) dbPayload.contact_email = updates.emailTaller || null;
+      if (updates.telefonoTaller !== undefined) dbPayload.contact_phone = updates.telefonoTaller || null;
       if (updates.estado !== undefined) dbPayload.is_active = updates.estado === WorkshopStatus.ACTIVE;
-      if (updates.adminGeneralUserId !== undefined) dbPayload.owner_id = updates.adminGeneralUserId;
+      if (updates.adminGeneralUserId !== undefined) dbPayload.owner_id = updates.adminGeneralUserId || null;
 
       const { error } = await supabase.from('sedes').update(dbPayload).eq('id', id);
 
@@ -397,6 +423,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // BUG 6 FIX: Added await to fetchUsers() so toast appears after data refresh
   const updateUser = async (id: string, updates: Partial<User>) => {
     const { error } = await supabase.from('profiles').update({
       full_name: updates.nombre,
@@ -407,8 +434,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Error actualizando usuario', 'error');
       return;
     }
+    await fetchUsers();
     showToast('Usuario actualizado', 'info');
-    fetchUsers();
   };
 
   const cancelInvitation = async (id: string) => {

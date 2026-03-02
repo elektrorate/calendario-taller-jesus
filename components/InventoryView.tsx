@@ -34,7 +34,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
     current_quantity: 0,
     min_quantity: 0,
     location: '',
-    supplier: '',
+    // BOMBA 6 FIX: Removed 'supplier' field — DB only has 'supplier_code'
     supplier_code: '',
     notes: '',
     color: '',
@@ -158,7 +158,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       current_quantity: selectedItem.current_quantity || 0,
       min_quantity: selectedItem.min_quantity || 0,
       location: selectedItem.location || '',
-      supplier: selectedItem.supplier || '',
+      // BOMBA 6 FIX: Only use supplier_code (no 'supplier' field in DB)
       supplier_code: selectedItem.supplier_code || '',
       notes: selectedItem.notes || '',
       color: selectedItem.color || '',
@@ -377,7 +377,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
             </div>
             <div className="bg-neutral-sec/60 rounded-2xl p-4 border border-neutral-border">
               <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Proveedor</p>
-              <p className="text-[16px] font-extrabold text-neutral-textMain mt-1">{selectedItem.supplier || 'Sin definir'}</p>
+              <p className="text-[16px] font-extrabold text-neutral-textMain mt-1">{selectedItem.supplier_code || 'Sin definir'}</p>
             </div>
           </div>
 
@@ -717,24 +717,24 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">Proveedor</label>
+                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">Proveedor / Codigo</label>
                 <input
-                  value={itemForm.supplier}
-                  onChange={(e) => setItemForm({ ...itemForm, supplier: e.target.value })}
+                  value={itemForm.supplier_code}
+                  onChange={(e) => setItemForm({ ...itemForm, supplier_code: e.target.value })}
                   className="w-full px-5 py-3 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
-                  placeholder="Proveedor"
+                  placeholder="Nombre o código del proveedor"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">Codigo proveedor</label>
+                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">Notas</label>
                 <input
-                  value={itemForm.supplier_code}
-                  onChange={(e) => setItemForm({ ...itemForm, supplier_code: e.target.value })}
+                  value={itemForm.notes}
+                  onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })}
                   className="w-full px-5 py-3 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
-                  placeholder="Ej: SUP-123"
+                  placeholder="Notas adicionales"
                 />
               </div>
               <div>

@@ -85,6 +85,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const hasLoadedOnceRef = useRef(false);
+    const WRITE_TIMEOUT_MS = 15000;
+    const RELOAD_TIMEOUT_MS = 20000;
+
+    const withTimeout = async <T,>(operation: string, promise: Promise<T>, timeoutMs: number = WRITE_TIMEOUT_MS): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+                reject(new Error(`Timeout en ${operation} (${timeoutMs}ms)`));
+            }, timeoutMs);
+        });
+
+        try {
+            return await Promise.race([promise, timeoutPromise]);
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId);
+        }
+    };
 
     const removeUndefined = (obj: Record<string, any>) => {
         const result: Record<string, any> = {};
@@ -112,29 +129,35 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         const fullName = student.name
             ? [student.name, student.surname].filter(Boolean).join(' ')
             : undefined;
-        return removeUndefined({
-            name: student.name,
-            surname: student.surname,
-            full_name: fullName,
-            email: student.email,
-            phone: student.phone,
-            phone_country: student.phoneCountry,
-            birth_day: student.birthDay ? Number(student.birthDay) : undefined,
-            birth_month: student.birthMonth ? Number(student.birthMonth) : undefined,
-            birth_year: student.birthYear ? Number(student.birthYear) : undefined,
-            classes_remaining: student.classesRemaining,
-            status: student.status,
-            payment_method: student.paymentMethod,
-            notes: student.notes,
-            observations: student.observations,
-            price: student.price,
-            class_type: student.classType,
-            expiry_date: student.expiryDate,
-            student_category: student.studentCategory || 'regular',
-            group_name: student.groupName
-        });
+        // CRITICAL FIX: Use null (not undefined) for optional fields in UPDATE payloads.
+        // removeUndefined was stripping fields the user intentionally cleared, so Supabase
+        // would leave the old value in place — causing edits to appear not to save.
+        const payload: Record<string, any> = {};
+        if (student.name !== undefined) payload.name = student.name;
+        if (fullName !== undefined) payload.full_name = fullName;
+        // Optional: always send null to explicitly clear, never skip
+        if (student.surname !== undefined) payload.surname = student.surname || null;
+        if (student.email !== undefined) payload.email = student.email || null;
+        if (student.phone !== undefined) payload.phone = student.phone || null;
+        if (student.phoneCountry !== undefined) payload.phone_country = student.phoneCountry || null;
+        if (student.birthDay !== undefined) payload.birth_day = student.birthDay ? Number(student.birthDay) : null;
+        if (student.birthMonth !== undefined) payload.birth_month = student.birthMonth ? Number(student.birthMonth) : null;
+        if (student.birthYear !== undefined) payload.birth_year = student.birthYear ? Number(student.birthYear) : null;
+        if (student.classesRemaining !== undefined) payload.classes_remaining = student.classesRemaining;
+        if (student.status !== undefined) payload.status = student.status;
+        if (student.paymentMethod !== undefined) payload.payment_method = student.paymentMethod || null;
+        if (student.notes !== undefined) payload.notes = student.notes || null;
+        if (student.observations !== undefined) payload.observations = student.observations || null;
+        if (student.price !== undefined) payload.price = student.price ?? null;
+        if (student.classType !== undefined) payload.class_type = student.classType || null;
+        if (student.expiryDate !== undefined) payload.expiry_date = student.expiryDate || null;
+        if (student.studentCategory !== undefined) payload.student_category = student.studentCategory || 'membresia';
+        if (student.groupName !== undefined) payload.group_name = student.groupName || null;
+        return payload;
     };
 
+    // DT-3 FIX: Don't use removeUndefined for sessions.
+    // Send null for optional fields that were cleared by the user.
     const buildSessionPayload = (data: Partial<ClassSession>) => {
         // Build full timestamps for start_time/end_time (timestamp with time zone NOT NULL in DB)
         // The frontend sends date as "2026-02-26" and startTime/endTime as "10:00"
@@ -146,17 +169,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (data.date && data.endTime) {
             endTimestamp = `${data.date}T${data.endTime}:00`;
         }
-        return removeUndefined({
-            date: data.date,
-            start_time: startTimestamp ?? data.startTime,
-            end_time: endTimestamp ?? data.endTime,
-            class_type: data.classType,
-            teacher_id: data.teacherId,
-            teacher_substitute_id: data.teacherSubstituteId,
-            completed_at: data.completedAt,
-            workshop_name: data.workshopName,
-            private_reason: data.privateReason
-        });
+        const payload: Record<string, any> = {};
+        if (data.date !== undefined) payload.date = data.date;
+        if (data.startTime !== undefined || startTimestamp) payload.start_time = startTimestamp ?? data.startTime;
+        if (data.endTime !== undefined || endTimestamp) payload.end_time = endTimestamp ?? data.endTime;
+        if (data.classType !== undefined) payload.class_type = data.classType;
+        if (data.teacherId !== undefined) payload.teacher_id = data.teacherId || null;
+        if (data.teacherSubstituteId !== undefined) payload.teacher_substitute_id = data.teacherSubstituteId || null;
+        if (data.completedAt !== undefined) payload.completed_at = data.completedAt || null;
+        if (data.workshopName !== undefined) payload.workshop_name = data.workshopName || null;
+        if (data.privateReason !== undefined) payload.private_reason = data.privateReason || null;
+        if (data.sessionAudience !== undefined) payload.session_audience = data.sessionAudience || null;
+        return payload;
     };
 
     const loadAllData = useCallback(async () => {
@@ -222,6 +246,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 });
             });
 
+            // BUG 5 FIX: Use ?? instead of || for numeric fields to preserve 0 values
             const normalizedStudents: Student[] = (studentsRes.data || []).map((row: any) => ({
                 id: row.id,
                 name: row.name,
@@ -232,16 +257,16 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 birthDay: row.birth_day ? String(row.birth_day) : undefined,
                 birthMonth: row.birth_month ? String(row.birth_month) : undefined,
                 birthYear: row.birth_year ? String(row.birth_year) : undefined,
-                classesRemaining: row.classes_remaining || 0,
+                classesRemaining: row.classes_remaining ?? 0,
                 status: row.status,
                 paymentMethod: row.payment_method || undefined,
                 notes: row.notes || undefined,
                 observations: row.observations || undefined,
-                price: row.price || undefined,
+                price: row.price ?? undefined,
                 assignedClasses: assignedMap[row.id] || [],
                 classType: row.class_type || undefined,
                 expiryDate: row.expiry_date || undefined,
-                studentCategory: row.student_category || 'regular',
+                studentCategory: row.student_category || 'membresia',
                 groupName: row.group_name || undefined
             }));
 
@@ -271,7 +296,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                     teacherSubstituteId: row.teacher_substitute_id || undefined,
                     completedAt: row.completed_at || undefined,
                     workshopName: row.workshop_name || undefined,
-                    privateReason: row.private_reason || undefined
+                    privateReason: row.private_reason || undefined,
+                    sessionAudience: row.session_audience || undefined
                 };
             });
 
@@ -291,9 +317,11 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 id: row.id,
                 buyer: row.buyer,
                 recipient: row.recipient,
+                recipientStudentId: row.recipient_student_id || undefined,
                 numClasses: row.num_classes,
                 type: row.type,
                 scheduledDate: row.scheduled_date || undefined,
+                expiryDate: row.expiry_date || undefined,
                 createdAt: row.created_at,
                 extraCommentary: row.extra_commentary || undefined
             }));
@@ -315,16 +343,27 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     // ★ Safe reload wrapper: prevents CRUD operations from hanging forever
     // If loadAllData takes more than 10s, unblock the UI anyway
+    // BUG 11 FIX: Added timeout logging and tracking
     const safeReload = useCallback(async () => {
+        let didTimeout = false;
         try {
             await Promise.race([
                 loadAllData(),
-                new Promise((resolve) => setTimeout(resolve, 10000))
+                new Promise((resolve) => {
+                    setTimeout(() => {
+                        didTimeout = true;
+                        console.warn(`safeReload: timeout reached (${RELOAD_TIMEOUT_MS}ms), data may be stale. loadAllData continues in background.`);
+                        resolve(undefined);
+                    }, RELOAD_TIMEOUT_MS);
+                })
             ]);
+            if (!didTimeout) {
+                console.log('safeReload: completed successfully');
+            }
         } catch (err) {
             console.warn('safeReload: background refresh failed', err);
         }
-    }, [loadAllData]);
+    }, [loadAllData, RELOAD_TIMEOUT_MS]);
 
     useEffect(() => {
         if (session && (isSuperAdmin || sedeId)) {
@@ -342,11 +381,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     const buildAssignedKey = (cls: AssignedClass) => `${cls.date}|${cls.startTime}|${cls.endTime}`;
 
-    const persistAssignedClasses = async (studentId: string, assignedClasses: AssignedClass[]) => {
+    const persistAssignedClasses = async (studentId: string, assignedClasses: AssignedClass[], studentSedeId?: string) => {
         await supabase.from('student_assigned_classes').delete().eq('student_id', studentId);
         if (!assignedClasses.length) return;
+        // Provide sede_id explicitly so super admin inserts (who has no get_owned_sede_id()) pass RLS
+        const effectiveSedeId = studentSedeId || sedeId;
         const rows = assignedClasses.map(cls => ({
             student_id: studentId,
+            ...(effectiveSedeId ? { sede_id: effectiveSedeId } : {}),
             date: cls.date,
             start_time: cls.startTime,
             end_time: cls.endTime,
@@ -430,31 +472,44 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const syncSessionStudents = async (sessionId: string, studentNames: string[], attendance?: Record<string, 'present' | 'absent'>) => {
-        const normalizedNames = studentNames.map(name => name.toUpperCase());
-        const { data: existing, error } = await supabase
-            .from('session_students')
-            .select('student_id, student_name')
-            .eq('session_id', sessionId);
+        const normalizedNames = [...new Set(studentNames.map(name => name.toUpperCase().trim()).filter(Boolean))];
+        const { data: existing, error } = await withTimeout(
+            'session_students.select',
+            supabase
+                .from('session_students')
+                .select('student_id, student_name, sede_id')
+                .eq('session_id', sessionId)
+        );
         if (error) {
-            console.error('Load session students error', error);
-            return;
+            throw new Error(`No se pudo leer session_students: ${error.message}`);
         }
         const existingRows = existing || [];
-        const existingNames = new Set(existingRows.map(row => row.student_name.toUpperCase()));
+        const existingNames = new Set(existingRows.map(row => (row.student_name || '').toUpperCase()));
         const desiredNames = new Set(normalizedNames);
 
         if (normalizedNames.length === 0) {
-            await supabase.from('session_students').delete().eq('session_id', sessionId);
+            const { error: deleteAllError } = await withTimeout(
+                'session_students.delete_all',
+                supabase.from('session_students').delete().eq('session_id', sessionId)
+            );
+            if (deleteAllError) throw new Error(`No se pudo limpiar session_students: ${deleteAllError.message}`);
             return;
         }
 
-        const toDelete = existingRows.filter(row => !desiredNames.has(row.student_name.toUpperCase()));
+        const toDelete = existingRows.filter(row => !desiredNames.has((row.student_name || '').toUpperCase()));
         if (toDelete.length) {
-            await supabase
-                .from('session_students')
-                .delete()
-                .eq('session_id', sessionId)
-                .in('student_id', toDelete.map(row => row.student_id));
+            const studentIdsToDelete = toDelete.map(row => row.student_id).filter(Boolean);
+            if (studentIdsToDelete.length) {
+                const { error: deleteError } = await withTimeout(
+                    'session_students.delete_removed',
+                    supabase
+                        .from('session_students')
+                        .delete()
+                        .eq('session_id', sessionId)
+                        .in('student_id', studentIdsToDelete)
+                );
+                if (deleteError) throw new Error(`No se pudieron eliminar vínculos antiguos: ${deleteError.message}`);
+            }
         }
 
         const toInsert = normalizedNames.filter(name => !existingNames.has(name));
@@ -463,17 +518,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 const student = students.find(s => `${s.name} ${s.surname || ''}`.trim().toUpperCase() === name);
                 if (!student) return null;
                 const status = attendance?.[name] === 'present' || attendance?.[name] === 'absent' ? attendance?.[name] : 'pending';
+                const isTemporary = student.studentCategory === 'temporal' || student.studentCategory === 'grupo_temporal';
                 return {
                     session_id: sessionId,
                     student_id: student.id,
                     student_name: name,
-                    attendance: status
+                    attendance: status,
+                    sede_id: sedeId || undefined,
+                    is_temporary: isTemporary,
+                    temp_group_name: isTemporary ? (student.groupName || null) : null
                 };
             })
             .filter(Boolean);
 
         if (insertRows.length) {
-            await supabase.from('session_students').insert(insertRows);
+            const { error: insertError } = await withTimeout(
+                'session_students.insert',
+                supabase.from('session_students').insert(insertRows)
+            );
+            if (insertError) throw new Error(`No se pudieron vincular alumnos a la sesión: ${insertError.message}`);
         }
 
         if (attendance && existingRows.length) {
@@ -481,17 +544,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 session_id: sessionId,
                 student_id: row.student_id,
                 student_name: row.student_name,
-                attendance: attendance[row.student_name] || 'pending'
+                attendance: attendance[(row.student_name || '').toUpperCase()] || attendance[row.student_name || ''] || 'pending',
+                sede_id: row.sede_id || sedeId || undefined
             }));
-            await supabase.from('session_students').upsert(updates, { onConflict: 'session_id,student_id' });
+            const { error: upsertError } = await withTimeout(
+                'session_students.upsert_attendance',
+                supabase.from('session_students').upsert(updates, { onConflict: 'session_id,student_id' })
+            );
+            if (upsertError) throw new Error(`No se pudo actualizar asistencia en session_students: ${upsertError.message}`);
         }
     };
 
     const updateSessionAttendance = async (sessionId: string, attendance: Record<string, 'present' | 'absent'>) => {
-        const { data: existing, error } = await supabase
-            .from('session_students')
-            .select('student_id, student_name')
-            .eq('session_id', sessionId);
+        const { data: existing, error } = await withTimeout(
+            'session_students.select_for_attendance',
+            supabase
+                .from('session_students')
+                .select('student_id, student_name, sede_id')
+                .eq('session_id', sessionId)
+        );
         if (error) {
             console.error('Load session students error', error);
             return;
@@ -500,10 +571,15 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             session_id: sessionId,
             student_id: row.student_id,
             student_name: row.student_name,
-            attendance: attendance[row.student_name] || 'pending'
+            attendance: attendance[(row.student_name || '').toUpperCase()] || attendance[row.student_name || ''] || 'pending',
+            sede_id: row.sede_id || sedeId || undefined
         }));
         if (updates.length) {
-            await supabase.from('session_students').upsert(updates, { onConflict: 'session_id,student_id' });
+            const { error: upsertError } = await withTimeout(
+                'session_students.upsert_attendance_only',
+                supabase.from('session_students').upsert(updates, { onConflict: 'session_id,student_id' })
+            );
+            if (upsertError) console.error('Session attendance upsert error', upsertError);
         }
     };
 
@@ -566,11 +642,29 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
     };
 
+    // BUG 10 FIX: Added explicit guard with user feedback when student not found
+    // BUG 9 FIX: Also extend expiryDate when renewing
     const renewStudent = async (id: string, numClasses: number = 4) => {
         const student = students.find(s => s.id === id);
-        if (!student) return;
-        const nextClasses = (student.classesRemaining || 0) + numClasses;
-        await updateStudent(id, { classesRemaining: nextClasses, status: 'regular' });
+        if (!student) {
+            alert('ERROR: Alumno no encontrado.');
+            return;
+        }
+        const nextClasses = (student.classesRemaining ?? 0) + numClasses;
+
+        // BUG 9 FIX: Extend expiry date by 1 month from today (or from current expiry if not expired)
+        const today = new Date().toISOString().split('T')[0];
+        const baseDate = student.expiryDate && student.expiryDate > today
+            ? new Date(student.expiryDate)
+            : new Date();
+        baseDate.setMonth(baseDate.getMonth() + 1);
+        const newExpiryDate = baseDate.toISOString().split('T')[0];
+
+        await updateStudent(id, {
+            classesRemaining: nextClasses,
+            status: 'membresia',
+            expiryDate: newExpiryDate
+        });
     };
 
     // Session CRUD
@@ -579,14 +673,22 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (sedeId) {
             payload = { ...payload, sede_id: sedeId };
         }
-        const { data, error } = await supabase.from('sessions').insert(payload).select().single();
+        const { data, error } = await withTimeout(
+            'sessions.insert',
+            supabase.from('sessions').insert(payload).select().single()
+        );
         if (error) {
             console.error('addSession error:', error);
             alert(`ERROR: No se pudo crear la sesión. ${error.message || ''}`);
             return;
         }
         if (newSession.students && newSession.students.length) {
-            await syncSessionStudents(data.id, newSession.students, newSession.attendance || undefined);
+            try {
+                await syncSessionStudents(data.id, newSession.students, newSession.attendance || undefined);
+            } catch (syncErr: any) {
+                console.error('addSession syncSessionStudents error:', syncErr);
+                alert(`ADVERTENCIA: La sesión se creó, pero no se pudieron vincular alumnos. ${syncErr?.message || ''}`);
+            }
         }
         await safeReload();
     };
@@ -594,7 +696,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const updateSession = async (id: string, updates: Partial<ClassSession>) => {
         const payload = buildSessionPayload(updates);
         if (Object.keys(payload).length) {
-            const { error } = await supabase.from('sessions').update(payload).eq('id', id);
+            const { error } = await withTimeout(
+                'sessions.update',
+                supabase.from('sessions').update(payload).eq('id', id)
+            );
             if (error) {
                 console.error('updateSession error:', error);
                 alert(`ERROR: No se pudo actualizar la sesión. ${error.message || ''}`);
@@ -603,11 +708,20 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
 
         if (updates.classType === 'feriado') {
-            await supabase.from('session_students').delete().eq('session_id', id);
+            const { error: clearError } = await withTimeout(
+                'session_students.clear_for_feriado',
+                supabase.from('session_students').delete().eq('session_id', id)
+            );
+            if (clearError) console.error('session_students clear (feriado) error', clearError);
         }
 
         if (updates.students) {
-            await syncSessionStudents(id, updates.students, updates.attendance || undefined);
+            try {
+                await syncSessionStudents(id, updates.students, updates.attendance || undefined);
+            } catch (syncErr: any) {
+                console.error('updateSession syncSessionStudents error:', syncErr);
+                alert(`ADVERTENCIA: La sesión se actualizó, pero falló la vinculación de alumnos. ${syncErr?.message || ''}`);
+            }
         } else if (updates.attendance) {
             await updateSessionAttendance(id, updates.attendance);
         }
@@ -638,14 +752,15 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     // Teacher CRUD
+    // BOMBA 7 FIX: Send null for optional fields to be explicit with Supabase
     const addTeacher = async (newTeacher: Omit<Teacher, 'id'>) => {
         const payload: any = {
             name: newTeacher.name,
-            surname: newTeacher.surname,
-            specialty: newTeacher.specialty,
-            email: newTeacher.email,
-            phone: newTeacher.phone,
-            notes: newTeacher.notes
+            surname: newTeacher.surname || null,
+            specialty: newTeacher.specialty || null,
+            email: newTeacher.email || null,
+            phone: newTeacher.phone || null,
+            notes: newTeacher.notes || null
         };
         if (sedeId) {
             payload.sede_id = sedeId;
@@ -660,21 +775,32 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const updateTeacher = async (id: string, updates: Partial<Teacher>) => {
-        const payload = removeUndefined({
+        // CRITICAL FIX: Do NOT use removeUndefined here.
+        // Send null for optional fields that were cleared by the user.
+        // If we omit a field (undefined), Supabase leaves the old value — causing edits to "not save".
+        const payload: Record<string, any> = {
             name: updates.name,
-            surname: updates.surname,
-            specialty: updates.specialty,
-            email: updates.email,
-            phone: updates.phone,
-            notes: updates.notes
-        });
+            // Use null (not undefined) for optional fields so Supabase clears them when empty
+            surname: updates.surname || null,
+            specialty: updates.specialty || null,
+            email: updates.email || null,
+            phone: updates.phone || null,
+            notes: updates.notes || null
+        };
+        // Always include name; remove it from payload only if truly missing
+        if (!payload.name) {
+            console.error('updateTeacher: name is required');
+            return;
+        }
         const { error } = await supabase.from('teachers').update(payload).eq('id', id);
         if (error) {
             console.error('updateTeacher error:', error);
             alert(`ERROR: No se pudo actualizar el profesor. ${error.message || ''}`);
             return;
         }
-        await safeReload();
+        // BOMBA 8 FIX: Optimistic update for immediate UI feedback
+        setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+        safeReload(); // Background refresh without await
     };
 
     const deleteTeacher = async (id: string) => {
@@ -706,10 +832,141 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
     };
 
+    // BUG 9 FIX: Helper to normalize strings for robust matching (removes accents, extra spaces)
+    const normalizeForMatch = (str: string): string => {
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove accents
+            .replace(/\s+/g, ' ') // Collapse multiple spaces
+            .trim()
+            .toUpperCase();
+    };
+
+    const mapStudentRowToModel = (row: any): Student => ({
+        id: row.id,
+        name: row.name || row.full_name || '',
+        surname: row.surname || undefined,
+        email: row.email || undefined,
+        phone: row.phone || '',
+        phoneCountry: row.phone_country || undefined,
+        birthDay: row.birth_day ? String(row.birth_day) : undefined,
+        birthMonth: row.birth_month ? String(row.birth_month) : undefined,
+        birthYear: row.birth_year ? String(row.birth_year) : undefined,
+        classesRemaining: row.classes_remaining ?? 0,
+        status: row.status || 'new',
+        paymentMethod: row.payment_method || undefined,
+        notes: row.notes || undefined,
+        observations: row.observations || undefined,
+        price: row.price ?? undefined,
+        assignedClasses: [],
+        classType: row.class_type || undefined,
+        expiryDate: row.expiry_date || undefined,
+        studentCategory: row.student_category || 'membresia',
+        groupName: row.group_name || undefined
+    });
+
+    const resolveGiftCardRecipientStudentId = (recipient?: string): string | null => {
+        if (!recipient) return null;
+        const normalizedRecipient = normalizeForMatch(recipient);
+        if (!normalizedRecipient) return null;
+
+        const exactFullNameMatches = students.filter(s => {
+            const fullName = normalizeForMatch(`${s.name} ${s.surname || ''}`);
+            return fullName === normalizedRecipient;
+        });
+        if (exactFullNameMatches.length === 1) return exactFullNameMatches[0].id;
+
+        const exactNameMatches = students.filter(s => normalizeForMatch(s.name) === normalizedRecipient);
+        if (exactNameMatches.length === 1) return exactNameMatches[0].id;
+
+        return null;
+    };
+
+    const createTemporaryStudentFromGiftCard = async (params: {
+        recipient: string;
+        numClasses?: number;
+        type?: GiftCard['type'];
+        expiryDate?: string;
+    }): Promise<string | null> => {
+        if (!sedeId) {
+            console.warn('createTemporaryStudentFromGiftCard skipped: sedeId is not available');
+            return null;
+        }
+
+        const recipient = (params.recipient || '').replace(/\s+/g, ' ').trim();
+        if (!recipient) return null;
+
+        const firstName = recipient.split(' ')[0] || recipient;
+        const surnameRaw = recipient.slice(firstName.length).trim();
+        const studentPayload: Record<string, any> = {
+            sede_id: sedeId,
+            full_name: recipient,
+            name: firstName,
+            surname: surnameRaw || null,
+            phone: '',
+            classes_remaining: Number.isFinite(params.numClasses as number) ? Math.max(0, params.numClasses as number) : 0,
+            status: 'new',
+            student_category: 'temporal',
+            class_type: params.type === 'torno' ? 'Torno' : 'Modelado',
+            expiry_date: params.expiryDate ? `${params.expiryDate}T00:00:00Z` : null,
+            notes: 'Creado automaticamente desde bono regalo'
+        };
+
+        try {
+            const { data, error } = await withTimeout(
+                'students.insert_from_gift_card',
+                supabase.from('students').insert(studentPayload).select('*').single(),
+                5000
+            );
+
+            if (error) {
+                console.error('createTemporaryStudentFromGiftCard error:', error);
+                return null;
+            }
+
+            if (data) {
+                const mappedStudent = mapStudentRowToModel(data);
+                setStudents(prev => (prev.some(s => s.id === mappedStudent.id) ? prev : [mappedStudent, ...prev]));
+                return data.id;
+            }
+        } catch (error) {
+            console.error('createTemporaryStudentFromGiftCard exception:', error);
+            return null;
+        }
+
+        return null;
+    };
+
+    const ensureGiftCardRecipientStudentId = async (params: {
+        recipient?: string;
+        recipientStudentId?: string;
+        numClasses?: number;
+        type?: GiftCard['type'];
+        expiryDate?: string;
+    }): Promise<string | null> => {
+        if (params.recipientStudentId) return params.recipientStudentId;
+
+        const resolvedExisting = resolveGiftCardRecipientStudentId(params.recipient);
+        if (resolvedExisting) return resolvedExisting;
+
+        if (!params.recipient) return null;
+
+        return createTemporaryStudentFromGiftCard({
+            recipient: params.recipient,
+            numClasses: params.numClasses,
+            type: params.type,
+            expiryDate: params.expiryDate
+        });
+    };
+
     // Piece CRUD
     const addPiece = async (newPiece: Omit<CeramicPiece, 'id'>) => {
-        const ownerUpper = newPiece.owner.toUpperCase();
-        const student = students.find(s => `${s.name} ${s.surname || ''}`.trim().toUpperCase() === ownerUpper);
+        // BUG 9 FIX: Normalize both strings for robust matching
+        const ownerNormalized = normalizeForMatch(newPiece.owner);
+        const student = students.find(s => {
+            const fullName = normalizeForMatch(`${s.name} ${s.surname || ''}`);
+            return fullName === ownerNormalized;
+        });
         const payload: any = {
             student_id: student?.id || null,
             owner_name: newPiece.owner,
@@ -733,22 +990,27 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const updatePiece = async (id: string, updates: Partial<CeramicPiece>) => {
-        const payload = removeUndefined({
+        // CRITICAL FIX: always include all fields with null for cleared optional fields
+        const payload: Record<string, any> = {
             owner_name: updates.owner,
             description: updates.description,
             status: updates.status,
-            glaze_type: updates.glazeType,
+            glaze_type: updates.glazeType || null,
             delivery_date: updates.deliveryDate || null,
-            notes: updates.notes,
-            extra_commentary: updates.extraCommentary
-        });
+            notes: updates.notes || null,
+            extra_commentary: updates.extraCommentary || null
+        };
+        // Only include defined fields (avoid overwriting with undefined on partial calls)
+        Object.keys(payload).forEach(k => { if (payload[k] === undefined) delete payload[k]; });
         const { error } = await supabase.from('pieces').update(payload).eq('id', id);
         if (error) {
             console.error('updatePiece error:', error);
             alert(`ERROR: No se pudo actualizar la pieza. ${error.message || ''}`);
             return;
         }
-        await safeReload();
+        // BOMBA 8 FIX: Optimistic update for immediate UI feedback
+        setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+        safeReload(); // Background refresh without await
     };
 
     const deletePiece = async (id: string) => {
@@ -763,77 +1025,175 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     // GiftCard CRUD
     const addGiftCard = async (newCard: Omit<GiftCard, 'id' | 'createdAt'>) => {
+        const resolvedRecipientStudentId = await ensureGiftCardRecipientStudentId({
+            recipient: newCard.recipient,
+            recipientStudentId: newCard.recipientStudentId,
+            numClasses: newCard.numClasses,
+            type: newCard.type,
+            expiryDate: newCard.expiryDate
+        });
         const payload: any = {
             buyer: newCard.buyer,
             recipient: newCard.recipient,
+            recipient_student_id: resolvedRecipientStudentId,
             num_classes: newCard.numClasses,
             type: newCard.type,
             scheduled_date: newCard.scheduledDate || null,
-            extra_commentary: newCard.extraCommentary
+            extra_commentary: newCard.extraCommentary || null
         };
+        if (newCard.expiryDate) payload.expiry_date = newCard.expiryDate;
         if (sedeId) {
             payload.sede_id = sedeId;
         }
-        const { error } = await supabase.from('gift_cards').insert(payload);
-        if (error) {
-            console.error('addGiftCard error:', error);
-            alert(`ERROR: No se pudo crear la tarjeta regalo. ${error.message || ''}`);
-            return;
+        try {
+            const { data, error } = await withTimeout(
+                'gift_cards.insert',
+                supabase.from('gift_cards').insert(payload).select().single()
+            );
+            if (error) {
+                console.error('addGiftCard error:', error);
+                alert(`ERROR: No se pudo crear la tarjeta regalo. ${error.message || ''}`);
+                return;
+            }
+            if (data) {
+                const mapped: GiftCard = {
+                    id: data.id,
+                    buyer: data.buyer,
+                    recipient: data.recipient,
+                    recipientStudentId: data.recipient_student_id || undefined,
+                    numClasses: data.num_classes,
+                    type: data.type,
+                    scheduledDate: data.scheduled_date || undefined,
+                    expiryDate: data.expiry_date || undefined,
+                    createdAt: data.created_at,
+                    extraCommentary: data.extra_commentary || undefined
+                };
+                setGiftCards(prev => [mapped, ...prev]);
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('addGiftCard exception:', err);
+            alert(`ERROR: No se pudo crear la tarjeta regalo. ${err?.message || ''}`);
         }
-        await safeReload();
     };
 
     const updateGiftCard = async (id: string, updates: Partial<GiftCard>) => {
-        const payload = removeUndefined({
-            buyer: updates.buyer,
-            recipient: updates.recipient,
-            num_classes: updates.numClasses,
-            type: updates.type,
-            scheduled_date: updates.scheduledDate,
-            extra_commentary: updates.extraCommentary
-        });
-        const { error } = await supabase.from('gift_cards').update(payload).eq('id', id);
-        if (error) {
-            console.error('updateGiftCard error:', error);
-            alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`);
-            return;
+        // Build patch payload explicitly to avoid sending nulls for untouched fields.
+        const previousCard = giftCards.find(gc => gc.id === id);
+        const payload: Record<string, any> = {};
+        if (updates.buyer !== undefined) payload.buyer = updates.buyer;
+        if (updates.recipient !== undefined) payload.recipient = updates.recipient;
+        let resolvedRecipientStudentId: string | null | undefined = undefined;
+        if (updates.recipientStudentId !== undefined || updates.recipient !== undefined) {
+            resolvedRecipientStudentId = await ensureGiftCardRecipientStudentId({
+                recipient: updates.recipient ?? previousCard?.recipient,
+                recipientStudentId: updates.recipientStudentId,
+                numClasses: updates.numClasses ?? previousCard?.numClasses,
+                type: updates.type ?? previousCard?.type,
+                expiryDate: updates.expiryDate ?? previousCard?.expiryDate
+            });
+            payload.recipient_student_id = resolvedRecipientStudentId;
         }
-        await safeReload();
+        if (updates.numClasses !== undefined) payload.num_classes = updates.numClasses;
+        if (updates.type !== undefined) payload.type = updates.type;
+        if (updates.scheduledDate !== undefined) payload.scheduled_date = updates.scheduledDate || null;
+        if (updates.expiryDate !== undefined) payload.expiry_date = updates.expiryDate || null;
+        if (updates.extraCommentary !== undefined) payload.extra_commentary = updates.extraCommentary || null;
+        if (!Object.keys(payload).length) return;
+
+        const optimisticUpdates: Partial<GiftCard> = { ...updates };
+        if (resolvedRecipientStudentId !== undefined) {
+            optimisticUpdates.recipientStudentId = resolvedRecipientStudentId || undefined;
+        }
+        setGiftCards(prev => prev.map(gc => gc.id === id ? { ...gc, ...optimisticUpdates } : gc));
+
+        const revertOptimisticUpdate = () => {
+            if (!previousCard) return;
+            setGiftCards(prev => prev.map(gc => gc.id === id ? previousCard : gc));
+        };
+
+        try {
+            const { error } = await withTimeout(
+                'gift_cards.update',
+                supabase.from('gift_cards').update(payload).eq('id', id),
+                5000
+            );
+            if (error) {
+                throw error;
+            }
+            safeReload(); // Background refresh without await
+        } catch (err: any) {
+            const isTimeout = typeof err?.message === 'string' && err.message.includes('Timeout en gift_cards.update');
+            if (isTimeout) {
+                console.warn('updateGiftCard timeout: retrying in background', err);
+                void supabase.from('gift_cards').update(payload).eq('id', id).then(({ error }) => {
+                    if (error) {
+                        console.error('updateGiftCard background retry error:', error);
+                        revertOptimisticUpdate();
+                        alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`);
+                        return;
+                    }
+                    safeReload();
+                }).catch((retryErr: any) => {
+                    console.error('updateGiftCard background retry exception:', retryErr);
+                    revertOptimisticUpdate();
+                    alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${retryErr?.message || ''}`);
+                });
+                return;
+            }
+
+            revertOptimisticUpdate();
+            console.error('updateGiftCard exception:', err);
+            alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${err?.message || ''}`);
+        }
     };
 
     const deleteGiftCard = async (id: string) => {
-        const { error } = await supabase.from('gift_cards').delete().eq('id', id);
-        if (error) {
-            console.error('deleteGiftCard error:', error);
-            alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout(
+                'gift_cards.delete',
+                supabase.from('gift_cards').delete().eq('id', id)
+            );
+            if (error) {
+                console.error('deleteGiftCard error:', error);
+                alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${error.message || ''}`);
+                return;
+            }
+            // Optimistic delete: evita quedarse bloqueado esperando reload de toda la app.
+            setGiftCards(prev => prev.filter(gc => gc.id !== id));
+            safeReload(); // Background refresh without await
+        } catch (err: any) {
+            console.error('deleteGiftCard exception:', err);
+            alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${err?.message || ''}`);
         }
-        await safeReload();
     };
 
     // Inventory CRUD
+    // DB columns: id, sede_id, name, category, code, current_quantity, unit, min_quantity,
+    //             status, location, created_at, updated_at, supplier_code, temperature,
+    //             color, color_family, finish, recipe (jsonb), notes
+    // NOTE: there is NO 'supplier' column — only 'supplier_code'
     const addInventoryItem = async (newItem: InventoryItem) => {
-        // Only send columns that actually exist in the DB table
         const payload: any = removeUndefined({
             name: newItem.name,
             category: newItem.category,
             code: newItem.code,
-            current_quantity: newItem.current_quantity,
+            current_quantity: newItem.current_quantity ?? 0,
             unit: newItem.unit,
-            min_quantity: newItem.min_quantity,
-            status: newItem.status,
+            min_quantity: newItem.min_quantity ?? 0,
+            status: newItem.status || 'active',
             location: newItem.location,
             supplier_code: newItem.supplier_code,
-            temperature: (newItem as any).temperature || (newItem as any).firing_range || (newItem as any).cone_or_temp,
+            // firing_range (glazes) and cone_or_temp (clays) both map to 'temperature' column in DB
+            temperature: newItem.firing_range || newItem.cone_or_temp || (newItem as any).temperature || undefined,
             color: newItem.color,
             color_family: newItem.color_family,
             finish: newItem.finish,
-            recipe: (newItem as any).formula || (newItem as any).recipe,
+            // formula in frontend maps to recipe (jsonb) in DB
+            recipe: newItem.formula || (newItem as any).recipe || undefined,
             notes: newItem.notes
         });
-        if (sedeId) {
-            payload.sede_id = sedeId;
-        }
+        if (sedeId) payload.sede_id = sedeId;
         const { error } = await supabase.from('inventory_items').insert(payload);
         if (error) {
             console.error('addInventoryItem error:', error);
@@ -843,32 +1203,39 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         await safeReload();
     };
 
+    // BOMBA 1 FIX: Do NOT use removeUndefined for updates.
+    // Send null for optional fields that were cleared by the user.
     const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
-        // Only send columns that actually exist in the DB table
-        const payload = removeUndefined({
-            name: updates.name,
-            category: updates.category,
-            code: updates.code,
-            current_quantity: updates.current_quantity,
-            unit: updates.unit,
-            min_quantity: updates.min_quantity,
-            status: updates.status,
-            location: updates.location,
-            supplier_code: updates.supplier_code,
-            temperature: (updates as any).temperature || (updates as any).firing_range || (updates as any).cone_or_temp,
-            color: updates.color,
-            color_family: updates.color_family,
-            finish: updates.finish,
-            recipe: (updates as any).formula || (updates as any).recipe,
-            notes: updates.notes
-        });
+        const payload: Record<string, any> = {};
+        if (updates.name !== undefined) payload.name = updates.name;
+        if (updates.category !== undefined) payload.category = updates.category;
+        if (updates.code !== undefined) payload.code = updates.code;
+        if (updates.current_quantity !== undefined) payload.current_quantity = updates.current_quantity;
+        if (updates.unit !== undefined) payload.unit = updates.unit;
+        if (updates.min_quantity !== undefined) payload.min_quantity = updates.min_quantity;
+        if (updates.status !== undefined) payload.status = updates.status;
+        if (updates.location !== undefined) payload.location = updates.location || null;
+        if (updates.supplier_code !== undefined) payload.supplier_code = updates.supplier_code || null;
+        // firing_range (glazes) and cone_or_temp (clays) both map to 'temperature' column in DB
+        const tempValue = updates.firing_range || updates.cone_or_temp || (updates as any).temperature;
+        if (tempValue !== undefined) payload.temperature = tempValue || null;
+        if (updates.color !== undefined) payload.color = updates.color || null;
+        if (updates.color_family !== undefined) payload.color_family = updates.color_family || null;
+        if (updates.finish !== undefined) payload.finish = updates.finish || null;
+        // formula in frontend maps to recipe (jsonb) in DB
+        const recipeValue = updates.formula || (updates as any).recipe;
+        if (recipeValue !== undefined) payload.recipe = recipeValue || null;
+        if (updates.notes !== undefined) payload.notes = updates.notes || null;
+
         const { error } = await supabase.from('inventory_items').update(payload).eq('id', id);
         if (error) {
             console.error('updateInventoryItem error:', error);
             alert(`ERROR: No se pudo actualizar el item. ${error.message || ''}`);
             return;
         }
-        await safeReload();
+        // BOMBA 8 FIX: Optimistic update for immediate UI feedback
+        setInventoryItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+        safeReload(); // Background refresh without await
     };
 
     const archiveInventoryItem = async (id: string) => {
@@ -895,20 +1262,21 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const addInventoryMovement = async (newMov: Omit<InventoryMovement, 'id'>) => {
+        // DB: inventory_item_id (NOT NULL, FK CASCADE), item_id (nullable, FK CASCADE),
+        //     quantity (NOT NULL numeric), new_quantity (nullable), date (text), type (NOT NULL enum)
+        // For 'adjust' type, quantity is NOT NULL so we send 0 as sentinel
         const payload: any = {
-            inventory_item_id: newMov.item_id,
-            item_id: newMov.item_id,
+            inventory_item_id: newMov.item_id,  // NOT NULL FK
+            item_id: newMov.item_id,             // nullable FK (kept for compatibility)
             type: newMov.type,
-            quantity: newMov.quantity,
-            new_quantity: newMov.new_quantity,
+            quantity: newMov.quantity ?? 0,      // NOT NULL — adjustments send 0
+            new_quantity: newMov.new_quantity ?? null,
             unit: newMov.unit,
             reason: newMov.reason,
-            date: newMov.date,
-            notes: newMov.notes
+            date: newMov.date || new Date().toISOString().split('T')[0],
+            notes: newMov.notes || null
         };
-        if (sedeId) {
-            payload.sede_id = sedeId;
-        }
+        if (sedeId) payload.sede_id = sedeId;
         const { error } = await supabase.from('inventory_movements').insert(payload);
         if (error) {
             console.error('addInventoryMovement error:', error);

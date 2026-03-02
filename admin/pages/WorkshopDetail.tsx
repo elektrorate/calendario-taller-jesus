@@ -15,9 +15,14 @@ export const WorkshopDetail: React.FC = () => {
 
     const adminGeneral = users.find(u => u.id === workshop.adminGeneralUserId);
 
-    const toggleStatus = () => {
-        updateWorkshop(workshop.id, { estado: workshop.estado === WorkshopStatus.ACTIVE ? WorkshopStatus.INACTIVE : WorkshopStatus.ACTIVE });
-        showToast('Estado actualizado', 'success');
+    // BUG 6 FIX: Use await and check result before showing success toast
+    const toggleStatus = async () => {
+        const newStatus = workshop.estado === WorkshopStatus.ACTIVE ? WorkshopStatus.INACTIVE : WorkshopStatus.ACTIVE;
+        const success = await updateWorkshop(workshop.id, { estado: newStatus });
+        if (!success) {
+            showToast('Error al cambiar el estado', 'error');
+        }
+        // Success toast is already shown by updateWorkshop
     };
 
     // Build a location query for Google Maps from available data

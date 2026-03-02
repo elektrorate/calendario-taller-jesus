@@ -2,19 +2,19 @@
 import { Student, ClassSession, CeramicPiece, GiftCard, InventoryItem, InventoryMovement, Teacher } from './types';
 
 export const STUDENTS: Student[] = [
-  { id: '1', name: 'Sergi', surname: 'Vidal', phone: '34 607 71 39 26', email: 'sergi.vidal@email.com', classesRemaining: 0, status: 'regular', price: 120, notes: 'Alumno avanzado, prefiere torno.', classType: 'Torno', expiryDate: '2026-02-01' },
+  { id: '1', name: 'Sergi', surname: 'Vidal', phone: '34 607 71 39 26', email: 'sergi.vidal@email.com', classesRemaining: 0, status: 'membresia', price: 120, notes: 'Alumno avanzado, prefiere torno.', classType: 'Torno', expiryDate: '2026-02-01' },
   { id: '2', name: 'Chantal', surname: 'Dupont', phone: '33 6 73 72 14 32', email: 'c.dupont@email.com', classesRemaining: 0, status: 'needs_renewal', paymentMethod: 'Bizum', price: 100, classType: 'Torno', expiryDate: '2026-01-30' },
-  { id: '3', name: 'Elvira', surname: 'Blanco', phone: '34 644 13 50 14', email: 'elvira.b@email.com', classesRemaining: 2, status: 'regular', paymentMethod: 'Bizum', price: 100, classType: 'Modelado', expiryDate: '2026-02-10' },
+  { id: '3', name: 'Elvira', surname: 'Blanco', phone: '34 644 13 50 14', email: 'elvira.b@email.com', classesRemaining: 2, status: 'membresia', paymentMethod: 'Bizum', price: 100, classType: 'Modelado', expiryDate: '2026-02-10' },
   { id: '4', name: 'Juan', surname: 'García', phone: '34 630 91 95 59', email: 'juan.g@email.com', classesRemaining: 0, status: 'needs_renewal', price: 180, classType: 'Torno', expiryDate: '2026-02-20' },
-  { id: '5', name: 'Maria', surname: 'López', phone: '34 611 22 33 44', email: 'm.lopez@email.com', classesRemaining: 4, status: 'regular', price: 100, classType: 'Modelado', expiryDate: '2026-02-15' },
-  { id: '6', name: 'Carlos', surname: 'Ruiz', phone: '34 655 44 33 22', email: 'carlos.r@email.com', classesRemaining: 3, status: 'regular', price: 120, classType: 'Torno', expiryDate: '2026-02-18' },
-  { id: '7', name: 'Ana', surname: 'Martínez', phone: '34 600 00 11 22', email: 'ana.mtz@email.com', classesRemaining: 1, status: 'regular', price: 100, classType: 'Modelado', expiryDate: '2026-02-05' },
+  { id: '5', name: 'Maria', surname: 'López', phone: '34 611 22 33 44', email: 'm.lopez@email.com', classesRemaining: 4, status: 'membresia', price: 100, classType: 'Modelado', expiryDate: '2026-02-15' },
+  { id: '6', name: 'Carlos', surname: 'Ruiz', phone: '34 655 44 33 22', email: 'carlos.r@email.com', classesRemaining: 3, status: 'membresia', price: 120, classType: 'Torno', expiryDate: '2026-02-18' },
+  { id: '7', name: 'Ana', surname: 'Martínez', phone: '34 600 00 11 22', email: 'ana.mtz@email.com', classesRemaining: 1, status: 'membresia', price: 100, classType: 'Modelado', expiryDate: '2026-02-05' },
   { id: '8', name: 'Roberto', surname: 'Sánchez', phone: '34 622 33 44 55', email: 'rober.s@email.com', classesRemaining: 0, status: 'needs_renewal', price: 120, classType: 'Torno', expiryDate: '2026-01-25' },
-  { id: '9', name: 'Lucía', surname: 'Fernández', phone: '34 633 44 55 66', email: 'lucia.f@email.com', classesRemaining: 8, status: 'regular', price: 200, classType: 'Torno', expiryDate: '2026-03-01' },
-  { id: '10', name: 'Sofia', surname: 'Gómez', phone: '34 644 55 66 77', email: 'sofia.g@email.com', classesRemaining: 2, status: 'regular', price: 100, classType: 'Modelado', expiryDate: '2026-02-12' },
-  { id: '11', name: 'Miguel', surname: 'Ángel', phone: '34 655 66 77 88', email: 'miguel.a@email.com', classesRemaining: 4, status: 'regular', price: 120, classType: 'Torno', expiryDate: '2026-02-28' },
+  { id: '9', name: 'Lucía', surname: 'Fernández', phone: '34 633 44 55 66', email: 'lucia.f@email.com', classesRemaining: 8, status: 'membresia', price: 200, classType: 'Torno', expiryDate: '2026-03-01' },
+  { id: '10', name: 'Sofia', surname: 'Gómez', phone: '34 644 55 66 77', email: 'sofia.g@email.com', classesRemaining: 2, status: 'membresia', price: 100, classType: 'Modelado', expiryDate: '2026-02-12' },
+  { id: '11', name: 'Miguel', surname: 'Ángel', phone: '34 655 66 77 88', email: 'miguel.a@email.com', classesRemaining: 4, status: 'membresia', price: 120, classType: 'Torno', expiryDate: '2026-02-28' },
   { id: '12', name: 'Elena', surname: 'Rodríguez', phone: '34 666 77 88 99', email: 'elena.rod@email.com', classesRemaining: 0, status: 'needs_renewal', price: 100, classType: 'Modelado', expiryDate: '2026-01-28' },
-  { id: '13', name: 'David', surname: 'Pérez', phone: '34 677 88 99 00', email: 'david.p@email.com', classesRemaining: 5, status: 'regular', price: 120, classType: 'Torno', expiryDate: '2026-03-10' }
+  { id: '13', name: 'David', surname: 'Pérez', phone: '34 677 88 99 00', email: 'david.p@email.com', classesRemaining: 5, status: 'membresia', price: 120, classType: 'Torno', expiryDate: '2026-03-10' }
 ];
 
 export const TEACHERS: Teacher[] = [

@@ -90,13 +90,15 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
       return;
     }
     setIsSubmitting(true);
+    // CRITICAL FIX: send empty strings (not undefined) for optional fields.
+    // DataContext.updateTeacher converts '' to null so Supabase clears old values.
     const payload = {
       name: form.name.trim(),
-      surname: form.surname.trim() || undefined,
-      specialty: form.specialty.trim() || undefined,
-      email: form.email.trim() || undefined,
-      phone: form.phone.trim() || undefined,
-      notes: form.notes.trim() || undefined
+      surname: form.surname.trim(),
+      specialty: form.specialty.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      notes: form.notes.trim()
     };
     try {
       if (editingTeacher) await onUpdateTeacher(editingTeacher.id, payload);

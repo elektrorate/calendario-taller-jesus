@@ -12,13 +12,15 @@ const GiftCardItem: React.FC<{
   card: GiftCard;
   onEdit: (card: GiftCard) => void;
   formatDateOnly: (isoString: string) => string;
-}> = ({ card, onEdit, formatDateOnly }) => {
+  isExpiredDate: (dateString?: string) => boolean;
+}> = ({ card, onEdit, formatDateOnly, isExpiredDate }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const COMMENT_LIMIT = 60;
   const hasLongComment = (card.extraCommentary?.length || 0) > COMMENT_LIMIT;
   const displayText = isExpanded
     ? card.extraCommentary
     : card.extraCommentary?.slice(0, COMMENT_LIMIT) + (hasLongComment ? '...' : '');
+  const isExpired = isExpiredDate(card.expiryDate);
 
   return (
     <div
@@ -60,7 +62,7 @@ const GiftCardItem: React.FC<{
           </div>
         )}
 
-        <div className="mt-auto flex justify-between items-end pt-6 border-t border-[#DED3CD]">
+        <div className="mt-auto flex justify-between items-end pt-6 border-t border-[#DED3CD] gap-4">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-1.5">
               <span className="text-[32px] md:text-[36px] font-black text-[#3F373A] leading-none">{card.numClasses}</span>
@@ -70,16 +72,24 @@ const GiftCardItem: React.FC<{
               EMITIDO: <span className="font-semibold text-[#3F373A]">{formatDateOnly(card.createdAt)}</span>
             </p>
           </div>
-          {card.scheduledDate ? (
-            <div className="text-right">
-              <p className="text-[9px] text-[#CB7859] font-bold uppercase tracking-widest mb-0.5">CITA ASIGNADA</p>
-              <p className="text-[14px] font-bold text-[#3F373A] uppercase">{new Date(card.scheduledDate).toLocaleDateString()}</p>
-            </div>
-          ) : (
-            <div className="px-4 py-2 bg-[#F6F2EE] text-[#CB7859] rounded-xl text-[10px] font-bold uppercase tracking-widest border border-[#DED3CD] hover:bg-white transition-all">
-              PENDIENTE
-            </div>
-          )}
+          <div className="text-right space-y-2">
+            {card.expiryDate && (
+              <div className="leading-tight">
+                <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isExpired ? 'text-red-500' : 'text-[#CB7859]'}`}>EXPIRA</p>
+                <p className={`text-[13px] font-bold uppercase ${isExpired ? 'text-red-500' : 'text-[#3F373A]'}`}>{formatDateOnly(card.expiryDate)}</p>
+              </div>
+            )}
+            {card.scheduledDate ? (
+              <div>
+                <p className="text-[9px] text-[#CB7859] font-bold uppercase tracking-widest mb-0.5">CITA ASIGNADA</p>
+                <p className="text-[13px] font-bold text-[#3F373A] uppercase">{formatDateOnly(card.scheduledDate)}</p>
+              </div>
+            ) : (
+              <div className="px-4 py-2 bg-[#F6F2EE] text-[#CB7859] rounded-xl text-[10px] font-bold uppercase tracking-widest border border-[#DED3CD] hover:bg-white transition-all">
+                PENDIENTE
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -90,8 +100,18 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
   const [showModal, setShowModal] = useState(false);
   const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
+  // BUG 2 FIX: Add isSubmitting state to prevent double-click
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const initialFormState = { buyer: '', recipient: '', numClasses: 2, type: 'modelado' as GiftCard['type'], scheduledDate: '', extraCommentary: '' };
+  const initialFormState = {
+    buyer: '',
+    recipient: '',
+    numClasses: 2,
+    type: 'modelado' as GiftCard['type'],
+    expiryDate: '',
+    scheduledDate: '',
+    extraCommentary: ''
+  };
   const [form, setForm] = useState(initialFormState);
 
   const handleEditClick = (card: GiftCard) => {
@@ -101,6 +121,7 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
       recipient: card.recipient,
       numClasses: card.numClasses,
       type: card.type,
+      expiryDate: card.expiryDate ? card.expiryDate.split('T')[0] : '',
       scheduledDate: card.scheduledDate ? card.scheduledDate.split('T')[0] : '',
       extraCommentary: card.extraCommentary || ''
     });
@@ -120,17 +141,45 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
     }
   };
 
+  // BUG 2 FIX: Protected submit with isSubmitting guard
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cardData = { ...form, scheduledDate: form.scheduledDate ? `${form.scheduledDate}T10:00:00` : undefined };
-    if (editingCard?.id) await onUpdateGiftCard(editingCard.id, cardData);
-    else await onAddGiftCard(cardData);
-    setShowModal(false);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      if (!form.expiryDate) {
+        alert('La fecha de expiración es obligatoria.');
+        return;
+      }
+      if (!Number.isFinite(form.numClasses) || form.numClasses <= 0) {
+        alert('El número de clases debe ser mayor que 0.');
+        return;
+      }
+      const cardData = {
+        ...form,
+        expiryDate: form.expiryDate || undefined,
+        scheduledDate: form.scheduledDate ? `${form.scheduledDate}T10:00:00` : undefined
+      };
+      if (editingCard?.id) await onUpdateGiftCard(editingCard.id, cardData);
+      else await onAddGiftCard(cardData);
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatDateOnly = (isoString: string) => {
     const d = new Date(isoString);
     return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const isExpiredDate = (dateString?: string) => {
+    if (!dateString) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(dateString);
+    expiry.setHours(0, 0, 0, 0);
+    return expiry < today;
   };
 
   return (
@@ -161,6 +210,7 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
                 card={card}
                 onEdit={handleEditClick}
                 formatDateOnly={formatDateOnly}
+                isExpiredDate={isExpiredDate}
               />
             ))
           )}
@@ -213,7 +263,12 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
                     <input
                       type="number"
                       value={form.numClasses}
-                      onChange={(e) => setForm({ ...form, numClasses: parseInt(e.target.value) })}
+                      min={1}
+                      step={1}
+                      onChange={(e) => {
+                        const parsed = Number.parseInt(e.target.value, 10);
+                        setForm({ ...form, numClasses: Number.isFinite(parsed) ? parsed : 0 });
+                      }}
                       className="w-full px-4 h-[48px] bg-[#F6F2EE] border border-[#DED3CD] rounded-[14px] text-[15px] font-medium text-[#3F373A] focus:outline-none focus:border-[#CB7859]"
                     />
                   </div>
@@ -228,6 +283,17 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
                       <option value="torno">Torno</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#CB7859] uppercase tracking-[0.08em] mb-2">FECHA DE EXPIRACIÓN</label>
+                  <input
+                    required
+                    type="date"
+                    value={form.expiryDate}
+                    onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+                    className="w-full px-4 h-[48px] bg-[#F6F2EE] border border-[#DED3CD] rounded-[14px] text-[15px] font-medium text-[#3F373A] focus:outline-none focus:border-[#CB7859]"
+                  />
                 </div>
 
                 <div>
@@ -256,9 +322,10 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
             <div className="px-6 md:px-10 py-8 border-t border-[#DED3CD] bg-white sticky bottom-0">
               <button
                 onClick={handleSubmit}
-                className="w-full h-[60px] bg-[#CB7859] text-white rounded-[24px] font-bold text-[16px] uppercase tracking-[0.06em] shadow-lg shadow-[#CB7859]/20 hover:brightness-110 active:scale-[0.98] transition-all"
+                disabled={isSubmitting}
+                className="w-full h-[60px] bg-[#CB7859] text-white rounded-[24px] font-bold text-[16px] uppercase tracking-[0.06em] shadow-lg shadow-[#CB7859]/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {editingCard ? 'GUARDAR CAMBIOS' : 'CREAR TARJETA'}
+                {isSubmitting ? 'GUARDANDO...' : (editingCard ? 'GUARDAR CAMBIOS' : 'CREAR TARJETA')}
               </button>
               {editingCard && (
                 <>
@@ -266,7 +333,8 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="w-full flex items-center justify-center gap-2 text-[#CB7859] font-bold text-[13px] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-center gap-2 text-[#CB7859] font-bold text-[13px] uppercase tracking-widest hover:opacity-70 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Eliminar Tarjeta
                   </button>
@@ -282,14 +350,20 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
         title="¿Eliminar tarjeta de regalo?"
         message="¿Estás seguro de que deseas eliminar esta tarjeta regalo? Esta acción no se puede deshacer."
         isDestructive={true}
+        loading={isSubmitting}
         onConfirm={async () => {
-          if (cardToDelete) {
-            await onDeleteGiftCard(cardToDelete);
-            setCardToDelete(null);
-            setShowModal(false);
+          if (cardToDelete && !isSubmitting) {
+            setIsSubmitting(true);
+            try {
+              await onDeleteGiftCard(cardToDelete);
+              setCardToDelete(null);
+              setShowModal(false);
+            } finally {
+              setIsSubmitting(false);
+            }
           }
         }}
-        onCancel={() => setCardToDelete(null)}
+        onCancel={() => !isSubmitting && setCardToDelete(null)}
       />
     </div>
   );

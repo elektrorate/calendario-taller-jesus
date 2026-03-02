@@ -13,10 +13,10 @@ interface StudentListProps {
 }
 
 type TabType = 'all' | 'active' | 'pending';
-type CategoryFilter = 'todos' | 'regular' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
+type CategoryFilter = 'todos' | 'membresia' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  regular: 'Regular',
+  membresia: 'Membresía',
   iniciacion: 'Iniciación',
   grupal: 'Grupal',
   temporal: 'Temporal',
@@ -24,7 +24,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  regular: 'bg-brand text-white',
+  membresia: 'bg-brand text-white',
   iniciacion: 'bg-blue-500 text-white',
   grupal: 'bg-purple-500 text-white',
   temporal: 'bg-amber-500 text-white',
@@ -32,7 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const CATEGORY_BADGE_LIGHT: Record<string, string> = {
-  regular: 'bg-brand/10 text-brand border-brand/20',
+  membresia: 'bg-brand/10 text-brand border-brand/20',
   iniciacion: 'bg-blue-50 text-blue-600 border-blue-100',
   grupal: 'bg-purple-50 text-purple-600 border-purple-100',
   temporal: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -62,7 +62,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     classType: 'Modelado',
     expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
     assignedClasses: [] as AssignedClass[],
-    studentCategory: 'regular' as 'regular' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal',
+    studentCategory: 'membresia' as 'membresia' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal',
     groupName: ''
   });
 
@@ -82,7 +82,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     if (studentData.classesRemaining <= 0 || (studentData.expiryDate && studentData.expiryDate < today) || studentData.paymentStatus === 'pending') {
       return 'needs_renewal';
     }
-    return 'regular';
+    return 'membresia';
   };
 
   const handleEditClick = (student: Student) => {
@@ -100,7 +100,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       classType: student.classType || 'Modelado',
       expiryDate: student.expiryDate || '',
       assignedClasses: student.assignedClasses || [],
-      studentCategory: student.studentCategory || 'regular',
+      studentCategory: student.studentCategory || 'membresia',
       groupName: student.groupName || ''
     });
     setShowModal(true);
@@ -114,7 +114,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       name: '', surname: '', email: '', phone: '', notes: '', observations: '',
       classesRemaining: 4, price: 100, paymentStatus: 'paid', classType: 'Modelado',
       expiryDate: nextMonth.toISOString().split('T')[0], assignedClasses: [],
-      studentCategory: 'regular', groupName: ''
+      studentCategory: 'membresia', groupName: ''
     });
     setShowModal(true);
   };
@@ -134,8 +134,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     setIsSubmitting(true);
     const data = {
       ...form,
-      status: getCalculatedStatus(form) as 'needs_renewal' | 'regular',
-      groupName: (form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') ? form.groupName : undefined
+      status: getCalculatedStatus(form) as 'needs_renewal' | 'membresia',
+      // BOMBA 2 FIX: Send '' (not undefined) so buildStudentPayload passes null to DB and clears the field
+      groupName: (form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') ? form.groupName : ''
     };
     try {
       if (editingStudent?.id) await onUpdate(editingStudent.id, data);
@@ -165,7 +166,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       const isPending = s.status === 'needs_renewal' || s.classesRemaining <= 0 || (s.expiryDate && s.expiryDate < today);
       const fullName = `${s.name} ${s.surname || ''}`.trim().toLowerCase();
       const matchesSearch = !searchQuery.trim() || fullName.includes(searchQuery.trim().toLowerCase());
-      const cat = s.studentCategory || 'regular';
+      const cat = s.studentCategory || 'membresia';
       const matchesCategory = categoryFilter === 'todos' || cat === categoryFilter;
 
       if (activeTab === 'pending') return isPending && matchesCategory;
@@ -185,9 +186,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
 
   // Count per category
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { todos: students.length, regular: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
+    const counts: Record<string, number> = { todos: students.length, membresia: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
     students.forEach(s => {
-      const cat = s.studentCategory || 'regular';
+      const cat = s.studentCategory || 'membresia';
       if (counts[cat] !== undefined) counts[cat]++;
     });
     return counts;
@@ -209,7 +210,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
 
         {/* Category pills */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {(['todos', 'regular', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as CategoryFilter[]).map(cat => (
+          {(['todos', 'membresia', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as CategoryFilter[]).map(cat => (
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat)}
@@ -273,7 +274,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
           {filteredStudents.map((s) => {
             const today = new Date().toISOString().split('T')[0];
             const isPending = s.status === 'needs_renewal' || s.classesRemaining <= 0 || (s.expiryDate && s.expiryDate < today);
-            const cat = s.studentCategory || 'regular';
+            const cat = s.studentCategory || 'membresia';
             return (
               <div
                 key={s.id}
@@ -370,7 +371,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                     <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Categoría del Alumno</h4>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {(['regular', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
+                    {(['membresia', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
                       <button
                         key={cat}
                         type="button"

@@ -4,14 +4,14 @@ import { ConfirmModal } from './shared/ConfirmModal';
 
 // ─── Category visual helpers ───
 const CATEGORY_LABELS: Record<string, string> = {
-  regular: 'Regular',
+  membresia: 'Membresía',
   iniciacion: 'Iniciación',
   grupal: 'Grupal',
   temporal: 'Temporal',
   grupo_temporal: 'Grupo Temporal'
 };
 const CATEGORY_BADGE: Record<string, string> = {
-  regular: 'bg-brand/10 text-brand border-brand/20',
+  membresia: 'bg-brand/10 text-brand border-brand/20',
   iniciacion: 'bg-blue-50 text-blue-600 border-blue-100',
   grupal: 'bg-purple-50 text-purple-600 border-purple-100',
   temporal: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -24,7 +24,7 @@ interface PieceCardProps {
   studentCategory?: string;
   groupName?: string;
   onEdit: (piece: CeramicPiece) => void;
-  onUpdateStatus: (id: string, nextStatus: PieceStatus) => void;
+  onUpdateStatus: (id: string, nextStatus: PieceStatus) => Promise<void>;
   getStatusAction: (status: PieceStatus) => { label: string; next: PieceStatus } | null;
   getStatusLabel: (status: PieceStatus) => string;
   getStatusColor: (status: PieceStatus) => string;
@@ -34,14 +34,26 @@ interface PieceCardProps {
 
 const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName, onEdit, onUpdateStatus, getStatusAction, getStatusLabel, getStatusColor, getPercentage, isHistory }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  // BOMBA 9 FIX: Guard against double-click on status update
+  const [isUpdating, setIsUpdating] = useState(false);
   const action = getStatusAction(piece.status);
+
+  const handleStatusUpdate = async () => {
+    if (!action || isUpdating) return;
+    setIsUpdating(true);
+    try {
+      await onUpdateStatus(piece.id, action.next);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
   const COMMENT_LIMIT = 80;
   const hasLongComment = (piece.extraCommentary?.length || 0) > COMMENT_LIMIT;
   const displayText = isExpanded
     ? piece.extraCommentary
     : piece.extraCommentary?.slice(0, COMMENT_LIMIT) + (hasLongComment ? '...' : '');
   const progress = getPercentage(piece.status);
-  const cat = studentCategory || 'regular';
+  const cat = studentCategory || 'membresia';
 
   return (
     <div className={`bg-white rounded-[2rem] p-6 md:p-8 soft-shadow border border-neutral-border hover:border-brand-light transition-all relative flex flex-col group h-full overflow-hidden ${isHistory ? 'opacity-75' : ''}`}>
@@ -126,14 +138,14 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
 
       <div className="pt-1">
         <button
-          disabled={!action}
-          onClick={() => action && onUpdateStatus(piece.id, action.next)}
-          className={`w-full py-4 rounded-xl text-[12px] font-extrabold uppercase tracking-widest transition-all ${!action
+          disabled={!action || isUpdating}
+          onClick={handleStatusUpdate}
+          className={`w-full py-4 rounded-xl text-[12px] font-extrabold uppercase tracking-widest transition-all ${!action || isUpdating
             ? 'bg-neutral-alt text-neutral-textHelper cursor-not-allowed border border-neutral-border shadow-none opacity-50'
             : 'bg-neutral-textMain text-white hover:bg-black active:scale-[0.98] soft-shadow'
             }`}
         >
-          {action ? action.label : 'FINALIZADO'}
+          {isUpdating ? 'PROCESANDO...' : (action ? action.label : 'FINALIZADO')}
         </button>
       </div>
     </div>
@@ -314,7 +326,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
       }
       if (categoryFilter !== 'todos') {
         const student = getStudentForPiece(p);
-        const cat = student?.studentCategory || 'regular';
+        const cat = student?.studentCategory || 'membresia';
         if (cat !== categoryFilter) return false;
       }
       if (groupFilter !== 'todos') {
@@ -336,7 +348,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
       }
       if (categoryFilter !== 'todos') {
         const student = getStudentForPiece(p);
-        const cat = student?.studentCategory || 'regular';
+        const cat = student?.studentCategory || 'membresia';
         if (cat !== categoryFilter) return false;
       }
       if (groupFilter !== 'todos') {
@@ -373,7 +385,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
     const counts: Record<string, number> = { todos: activePieces.length, regular: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
     activePieces.forEach(p => {
       const student = getStudentForPiece(p);
-      const cat = student?.studentCategory || 'regular';
+      const cat = student?.studentCategory || 'membresia';
       if (counts[cat] !== undefined) counts[cat]++;
     });
     return counts;
@@ -421,7 +433,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
               <div className="absolute left-0 right-0 mt-2 bg-white border border-neutral-border rounded-2xl soft-shadow z-30 overflow-hidden max-h-64 overflow-y-auto">
                 {suggestions.map((name) => {
                   const student = ownerStudentMap[name.toUpperCase()];
-                  const cat = student?.studentCategory || 'regular';
+                  const cat = student?.studentCategory || 'membresia';
                   const pieceCount = pieces.filter(p => p.owner.toUpperCase() === name.toUpperCase()).length;
                   return (
                     <button
@@ -435,7 +447,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                         </div>
                         <div className="overflow-hidden">
                           <p className="text-[12px] font-extrabold text-neutral-textMain uppercase tracking-widest truncate">{name}</p>
-                          <span className={`text-[8px] font-extrabold uppercase tracking-widest`} style={{ color: cat === 'regular' ? '#B7A67B' : cat === 'iniciacion' ? '#2563eb' : cat === 'grupal' ? '#9333ea' : cat === 'temporal' ? '#d97706' : '#ea580c' }}>
+                          <span className={`text-[8px] font-extrabold uppercase tracking-widest`} style={{ color: cat === 'membresia' ? '#B7A67B' : cat === 'iniciacion' ? '#2563eb' : cat === 'grupal' ? '#9333ea' : cat === 'temporal' ? '#d97706' : '#ea580c' }}>
                             {CATEGORY_LABELS[cat] || 'Regular'}
                           </span>
                         </div>
@@ -469,8 +481,8 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                 <h3 className="text-[18px] font-black text-neutral-textMain uppercase tracking-tight">{selectedOwner}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   {selectedStudent && (
-                    <span className={`inline-block px-2.5 py-0.5 rounded-lg text-[8px] font-extrabold uppercase tracking-widest border ${CATEGORY_BADGE[selectedStudent.studentCategory || 'regular'] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
-                      {CATEGORY_LABELS[selectedStudent.studentCategory || 'regular']}
+                    <span className={`inline-block px-2.5 py-0.5 rounded-lg text-[8px] font-extrabold uppercase tracking-widest border ${CATEGORY_BADGE[selectedStudent.studentCategory || 'membresia'] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
+                      {CATEGORY_LABELS[selectedStudent.studentCategory || 'membresia']}
                     </span>
                   )}
                   {selectedStudent?.groupName && (
@@ -495,7 +507,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
 
         {/* Row 2: Category filter + Group filter */}
         <div className="flex flex-wrap gap-2 items-center">
-          {(['todos', 'regular', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
+          {(['todos', 'membresia', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat)}
@@ -702,7 +714,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                       <option value="" disabled>Seleccionar Alumno</option>
                       {sortedStudents.map(student => (
                         <option key={student.id} value={`${student.name} ${student.surname || ''}`.trim()}>
-                          {`${student.name} ${student.surname || ''}`.trim()} — {CATEGORY_LABELS[student.studentCategory || 'regular']}
+                          {`${student.name} ${student.surname || ''}`.trim()} — {CATEGORY_LABELS[student.studentCategory || 'membresia']}
                         </option>
                       ))}
                     </select>

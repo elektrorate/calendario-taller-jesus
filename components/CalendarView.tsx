@@ -26,6 +26,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const [attendanceSession, setAttendanceSession] = useState<ClassSession | null>(null);
   const [substituteId, setSubstituteId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   const HOUR_HEIGHT = 140;
 
@@ -37,7 +38,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     selectedStudents: [] as string[],
     teacherId: '',
     workshopName: '',
-    privateReason: ''
+    privateReason: '',
+    sessionAudience: 'membresia' as 'membresia' | 'temporal'
   });
 
   const formatDateKey = (date: Date) => {
@@ -111,6 +113,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
   // Abrir modal de Edición/Creación de Sesión
   const handleOpenSessionModal = (session?: ClassSession) => {
+    setStudentSearchQuery(''); // Limpiar búsqueda al abrir modal
     if (session) {
       setEditingSessionId(session.id);
       setSessionForm({
@@ -121,7 +124,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         selectedStudents: [...session.students],
         teacherId: session.teacherId || '',
         workshopName: session.workshopName || '',
-        privateReason: session.privateReason || ''
+        privateReason: session.privateReason || '',
+        sessionAudience: session.sessionAudience || 'membresia'
       });
     } else {
       setEditingSessionId(null);
@@ -133,7 +137,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         selectedStudents: [],
         teacherId: '',
         workshopName: '',
-        privateReason: ''
+        privateReason: '',
+        sessionAudience: 'membresia'
       });
     }
     setShowSessionModal(true);
@@ -148,6 +153,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
   const finalizeAttendance = async () => {
     if (!attendanceSession) return;
+    // BUG 13 FIX: Prevent double-finalization if session already completed
+    if (attendanceSession.completedAt) {
+      alert('Esta sesión ya fue finalizada.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const completedAt = new Date().toISOString();
@@ -244,12 +254,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       students: sessionForm.classType === 'feriado' ? [] : sessionForm.selectedStudents,
       teacherId: sessionForm.teacherId || undefined,
       workshopName: sessionForm.workshopName.trim() || undefined,
-      privateReason: sessionForm.privateReason.trim() || undefined
+      privateReason: sessionForm.privateReason.trim() || undefined,
+      sessionAudience: sessionForm.sessionAudience
     };
     try {
       if (editingSessionId) await onUpdateSession(editingSessionId, payload);
       else await onAddSession(payload);
       setShowSessionModal(false);
+    } catch (err) {
+      console.error('Error guardando sesión:', err);
+      alert('Error al guardar la sesión. Revisa la consola para más detalles.');
     } finally {
       setIsSubmitting(false);
     }
@@ -402,12 +416,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         )}
                       </div>
                       <div className="space-y-2 w-full flex-1 mb-10 overflow-hidden">
-                        {session.students.map((s, idx) => {
-                          const att = session.attendance?.[s];
+                        {session.students.map((studentName, idx) => {
+                          const att = session.attendance?.[studentName];
+                          // Buscar el alumno para obtener su categoría
+                          const studentObj = students.find(st => {
+                            const fullName = `${st.name} ${st.surname || ''}`.trim().toUpperCase();
+                            return fullName === studentName.toUpperCase() || st.name.toUpperCase() === studentName.toUpperCase();
+                          });
+                          const cat = studentObj?.studentCategory || 'membresia';
+                          const isTemporary = cat === 'temporal' || cat === 'grupo_temporal';
+                          // Color de bolita: presente=verde, ausente=rojo, pendiente=según categoría
+                          const dotColor = att === 'absent'
+                            ? 'bg-red-500'
+                            : att === 'present'
+                              ? 'bg-green-500'
+                              : isTemporary
+                                ? 'bg-amber-500'
+                                : 'bg-[#C88B6A]';
                           return (
                             <div key={idx} className="flex items-center gap-2.5">
-                              <div className={`w-2 h-2 rounded-full shrink-0 ${att === 'absent' ? 'bg-red-500' : (att === 'present' ? 'bg-green-500' : 'bg-[#C88B6A]')}`}></div>
-                              <span className={`text-[12px] md:text-[13px] font-medium truncate ${att === 'absent' ? 'text-red-400 line-through opacity-60' : (att === 'present' ? 'text-green-600' : 'text-neutral-textMain')}`}>{s.toLowerCase()}</span>
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`}></div>
+                              <span className={`text-[12px] md:text-[13px] font-medium truncate ${att === 'absent' ? 'text-red-400 line-through opacity-60' : (att === 'present' ? 'text-green-600' : 'text-neutral-textMain')}`}>{studentName.toLowerCase()}</span>
                             </div>
                           );
                         })}
@@ -679,22 +708,98 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                 </div>
               )}
               {sessionForm.classType !== 'feriado' && (
-                <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-4">ALUMNOS ASIGNADOS</label>
-                  <div className="flex flex-wrap gap-2">
-                    {students.map(s => {
-                      const fullName = `${s.name} ${s.surname || ''}`.trim();
-                      const studentKey = fullName.toUpperCase();
-                      const isSelected = sessionForm.selectedStudents.includes(studentKey);
-                      return (
-                        <button key={s.id} onClick={() => {
-                          const newList = isSelected
-                            ? sessionForm.selectedStudents.filter(n => n !== studentKey)
-                            : [...sessionForm.selectedStudents, studentKey];
-                          setSessionForm({ ...sessionForm, selectedStudents: newList });
-                        }} className={`px-3 py-2 rounded-lg text-[10px] font-extrabold uppercase border transition-all ${isSelected ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'}`}>{fullName}</button>
-                      );
-                    })}
+                <div className="space-y-4">
+                  {/* Selector de audiencia */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">TIPO DE ALUMNOS</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'membresia', selectedStudents: [] }); setStudentSearchQuery(''); }}
+                        className={`py-3 rounded-xl font-extrabold text-[11px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'membresia' ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                      >
+                        Membresía
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'temporal', selectedStudents: [] }); setStudentSearchQuery(''); }}
+                        className={`py-3 rounded-xl font-extrabold text-[11px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'temporal' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                      >
+                        Temporales
+                      </button>
+                    </div>
+                  </div>
+                  {/* Lista de alumnos filtrada por audiencia */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">
+                      ALUMNOS ASIGNADOS ({sessionForm.sessionAudience === 'membresia' ? 'MEMBRESÍA' : 'TEMPORALES'})
+                    </label>
+                    {/* Buscador de alumnos */}
+                    <input
+                      type="text"
+                      placeholder="Buscar alumno por nombre o grupo..."
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2.5 mb-3 bg-neutral-sec border border-neutral-border rounded-xl text-[11px] font-medium focus:border-brand outline-none transition-all"
+                    />
+                    <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto custom-scrollbar">
+                      {(() => {
+                        const filtered = students
+                          .filter(s => {
+                            const cat = s.studentCategory || 'membresia';
+                            // Filtro por audiencia
+                            const matchesAudience = sessionForm.sessionAudience === 'membresia'
+                              ? (cat === 'membresia' || cat === 'iniciacion' || cat === 'grupal')
+                              : (cat === 'temporal' || cat === 'grupo_temporal');
+                            // Filtro por búsqueda
+                            const fullName = `${s.name} ${s.surname || ''}`.trim().toLowerCase();
+                            const groupName = (s.groupName || '').toLowerCase();
+                            const query = studentSearchQuery.trim().toLowerCase();
+                            const matchesSearch = !query || fullName.includes(query) || groupName.includes(query);
+                            return matchesAudience && matchesSearch;
+                          });
+
+                        if (filtered.length === 0) {
+                          return <p className="text-[11px] text-neutral-textHelper italic py-4">
+                            {studentSearchQuery ? 'No se encontraron alumnos con ese nombre' : 'No hay alumnos en esta categoría'}
+                          </p>;
+                        }
+
+                        return filtered.map(s => {
+                          const fullName = `${s.name} ${s.surname || ''}`.trim();
+                          const studentKey = fullName.toUpperCase();
+                          const isSelected = sessionForm.selectedStudents.includes(studentKey);
+                          const cat = s.studentCategory || 'membresia';
+                          const isTemporary = cat === 'temporal' || cat === 'grupo_temporal';
+                          return (
+                            <button key={s.id} onClick={() => {
+                              const newList = isSelected
+                                ? sessionForm.selectedStudents.filter(n => n !== studentKey)
+                                : [...sessionForm.selectedStudents, studentKey];
+                              setSessionForm({ ...sessionForm, selectedStudents: newList });
+                            }} className={`px-3 py-2 rounded-lg text-[10px] font-extrabold uppercase border transition-all ${isSelected ? (isTemporary ? 'bg-amber-500 text-white border-amber-500' : 'bg-brand text-white border-brand') : 'bg-white text-neutral-textHelper border-neutral-border'}`}>
+                              {fullName}
+                              {s.groupName && <span className="ml-1 opacity-70">({s.groupName})</span>}
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {/* Mostrar alumnos seleccionados */}
+                    {sessionForm.selectedStudents.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-neutral-border">
+                        <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase mb-2">
+                          SELECCIONADOS ({sessionForm.selectedStudents.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {sessionForm.selectedStudents.map(name => (
+                            <span key={name} className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${sessionForm.sessionAudience === 'temporal' ? 'bg-amber-100 text-amber-700' : 'bg-brand/10 text-brand'}`}>
+                              {name.toLowerCase()}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

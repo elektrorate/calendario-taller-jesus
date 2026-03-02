@@ -30,7 +30,7 @@ export interface Student {
   birthMonth?: string;
   birthYear?: string;
   classesRemaining: number;
-  status: 'regular' | 'needs_renewal' | 'new';
+  status: 'membresia' | 'needs_renewal' | 'new';
   paymentMethod?: string;
   notes?: string;
   observations?: string;
@@ -38,7 +38,7 @@ export interface Student {
   assignedClasses?: AssignedClass[];
   classType?: string;
   expiryDate?: string;
-  studentCategory?: 'regular' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
+  studentCategory?: 'membresia' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
   groupName?: string;
 }
 
@@ -55,6 +55,7 @@ export interface ClassSession {
   completedAt?: string;
   workshopName?: string;
   privateReason?: string;
+  sessionAudience?: 'membresia' | 'temporal'; // Audiencia: membresía (permanentes) o temporal
 }
 
 export interface Teacher {
@@ -85,9 +86,11 @@ export interface GiftCard {
   id: string;
   buyer: string;
   recipient: string;
+  recipientStudentId?: string;
   numClasses: number;
   type: 'modelado' | 'torno';
   scheduledDate?: string;
+  expiryDate?: string;
   createdAt: string; // ISO format
   extraCommentary?: string;
 }

@@ -1,18 +1,23 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { Student, ClassSession, CeramicPiece, AppView } from '../types';
 
 interface DashboardViewProps {
   students: Student[];
   sessions: ClassSession[];
   pieces: CeramicPiece[];
-  onUpdateSession: (id: string, updates: Partial<ClassSession>) => void;
+  onUpdateSession: (id: string, updates: Partial<ClassSession>) => Promise<void>;
   onNavigate: (view: AppView) => void;
   onOpenStudentProfile: (studentId: string) => void;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, pieces, onUpdateSession, onNavigate, onOpenStudentProfile }) => {
   const [searchQuery, setSearchQuery] = useState('');
+
+  // BUG 1 FIX: Local attendance state + debounce to prevent race conditions
+  const [localAttendance, setLocalAttendance] = useState<Record<string, Record<string, 'present' | 'absent' | undefined>>>({});
+  const debounceTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingUpdatesRef = useRef<Record<string, Record<string, 'present' | 'absent' | undefined>>>({});
 
   const DEFAULT_CAPACITY_TORNO = 5;
   const DEFAULT_CAPACITY_MESA = 8;
@@ -53,9 +58,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, piece
     const totalSessions = sessions.length;
 
     // Students by category
-    const byCategory: Record<string, number> = { regular: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
+    const byCategory: Record<string, number> = { membresia: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
     students.forEach(s => {
-      const cat = s.studentCategory || 'regular';
+      const cat = s.studentCategory || 'membresia';
       if (byCategory[cat] !== undefined) byCategory[cat]++;
     });
 
@@ -120,28 +125,59 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, piece
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [students, searchQuery]);
 
-  // Today's student list for attendance
+  // Today's student list for attendance - uses localAttendance for immediate UI feedback
   const todayStudentList = useMemo(() => {
-    const list: { name: string; time: string; type: string; status?: string }[] = [];
+    const list: { name: string; time: string; type: string; status?: string; sessionId: string }[] = [];
     todaySessions.forEach(s => {
       s.students.forEach(st => {
-        list.push({ name: st, time: s.startTime, type: s.classType, status: s.attendance?.[st] || 'pending' });
+        // BUG 1 FIX: Prefer local state for immediate feedback, fallback to session state
+        const currentAtt = localAttendance[s.id] ?? s.attendance;
+        list.push({ name: st, time: s.startTime, type: s.classType, status: currentAtt?.[st] || 'pending', sessionId: s.id });
       });
     });
     return list;
-  }, [todaySessions]);
+  }, [todaySessions, localAttendance]);
 
-  const handleAttendance = (session: ClassSession, studentName: string, status: 'present' | 'absent') => {
-    const currentAtt = session.attendance || {};
+  // BUG 1 FIX: Debounced attendance handler - accumulates clicks for 2 seconds before sending
+  const handleAttendance = useCallback((session: ClassSession, studentName: string, status: 'present' | 'absent') => {
+    const sessionId = session.id;
+
+    // Get current attendance (merge session data with local pending changes)
+    const baseAtt = session.attendance || {};
+    const pendingAtt = pendingUpdatesRef.current[sessionId] || {};
+    const currentAtt = { ...baseAtt, ...pendingAtt };
+
+    // Toggle logic
     const newStatus = currentAtt[studentName] === status ? undefined : status;
     const nextAtt = { ...currentAtt };
     if (newStatus) nextAtt[studentName] = newStatus;
     else delete nextAtt[studentName];
-    onUpdateSession(session.id, { attendance: nextAtt });
-  };
 
-  const CATEGORY_LABELS: Record<string, string> = { regular: 'Regular', iniciacion: 'Iniciación', grupal: 'Grupal', temporal: 'Temporal', grupo_temporal: 'Grupo T.' };
-  const CATEGORY_COLORS: Record<string, string> = { regular: 'bg-brand', iniciacion: 'bg-blue-500', grupal: 'bg-purple-500', temporal: 'bg-amber-500', grupo_temporal: 'bg-orange-500' };
+    // Store pending update
+    pendingUpdatesRef.current[sessionId] = nextAtt;
+
+    // Update local state for immediate UI feedback
+    setLocalAttendance(prev => ({ ...prev, [sessionId]: nextAtt }));
+
+    // Clear existing timer for this session
+    if (debounceTimerRef.current[sessionId]) {
+      clearTimeout(debounceTimerRef.current[sessionId]);
+    }
+
+    // Set new debounce timer (2 seconds)
+    debounceTimerRef.current[sessionId] = setTimeout(async () => {
+      const finalAtt = pendingUpdatesRef.current[sessionId];
+      if (finalAtt) {
+        await onUpdateSession(sessionId, { attendance: finalAtt });
+        // Clear pending after successful save
+        delete pendingUpdatesRef.current[sessionId];
+        delete debounceTimerRef.current[sessionId];
+      }
+    }, 2000);
+  }, [onUpdateSession]);
+
+  const CATEGORY_LABELS: Record<string, string> = { membresia: 'Membresía', iniciacion: 'Iniciación', grupal: 'Grupal', temporal: 'Temporal', grupo_temporal: 'Grupo T.' };
+  const CATEGORY_COLORS: Record<string, string> = { membresia: 'bg-brand', iniciacion: 'bg-blue-500', grupal: 'bg-purple-500', temporal: 'bg-amber-500', grupo_temporal: 'bg-orange-500' };
 
   return (
     <div className="h-full flex flex-col bg-neutral-base overflow-hidden animate-fade-in">
@@ -363,7 +399,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, piece
                     filteredStudents.map((student) => {
                       const fullName = `${student.name} ${student.surname || ''}`.trim();
                       const isPending = student.status === 'needs_renewal' || student.classesRemaining <= 0;
-                      const cat = student.studentCategory || 'regular';
+                      const cat = student.studentCategory || 'membresia';
                       return (
                         <div
                           key={student.id}

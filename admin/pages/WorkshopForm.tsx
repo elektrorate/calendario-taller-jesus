@@ -5,10 +5,11 @@ import { Card, Button, Badge, Icon, Input } from '../components/UI';
 import { WorkshopStatus, UserRole } from '../types';
 import { useNavigate, useParams } from 'react-router-dom';
 import { countryList, countriesData } from '../data/locations';
+import { supabase } from '../../supabaseClient';
 
 export const WorkshopForm: React.FC = () => {
   const { id } = useParams();
-  const { addWorkshop, updateWorkshop, addUser, users, workshops, showToast } = useAppContext();
+  const { addWorkshop, updateWorkshop, addUser, updateUser, users, workshops, showToast } = useAppContext();
   const navigate = useNavigate();
 
   const isEdit = !!id;
@@ -80,6 +81,15 @@ export const WorkshopForm: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      // BUG 4 FIX: In edit mode, update existing admin instead of creating new one
+      if (isEdit && adminData.id) {
+        await updateUser(adminData.id, { nombre: adminData.nombre, telefono: adminData.telefono });
+        setAdminConfirmed(true);
+        setCurrentStep(2);
+        return;
+      }
+
+      // CREATE MODE: Create new user
       const result = await addUser({
         nombre: adminData.nombre,
         email: adminData.email,
@@ -131,7 +141,19 @@ export const WorkshopForm: React.FC = () => {
         // NEW MODE: The Edge Function already auto-created a sede for this user.
         // Find the auto-created sede by owner_id and UPDATE it with the real details.
         const autoCreatedSede = workshops.find(w => w.adminGeneralUserId === workshopData.adminGeneralUserId);
-        const targetId = autoCreatedSede?.id || autoCreatedSedeId;
+        let targetId = autoCreatedSede?.id || autoCreatedSedeId;
+
+        // BUG 5 FIX: If not found in local state, query DB directly (more reliable)
+        if (!targetId && workshopData.adminGeneralUserId) {
+          const { data: sedeData } = await supabase
+            .from('sedes')
+            .select('id')
+            .eq('owner_id', workshopData.adminGeneralUserId)
+            .single();
+          if (sedeData?.id) {
+            targetId = sedeData.id;
+          }
+        }
 
         if (targetId) {
           // Update the auto-created sede with the real workshop details
