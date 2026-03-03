@@ -231,12 +231,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
   const handleSubmitItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingItem) return;
-    setIsSubmittingItem(true);
-    try {
-      await submitItem();
-    } finally {
-      setIsSubmittingItem(false);
-    }
+    // Close form immediately — Supabase operations run in background
+    setCurrentSubView('list');
+    submitItem();
   };
 
   const handleSubmitMovement = async (e: React.FormEvent) => {
@@ -255,31 +252,27 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       alert('ERROR: La cantidad debe ser mayor que 0.');
       return;
     }
-    setIsSubmittingMovement(true);
-    try {
-      await onAddMovement({
-        item_id: selectedItem.id,
-        type: movementForm.type,
-        quantity: movementForm.type === 'adjust' ? undefined : Number(movementForm.quantity),
-        new_quantity: movementForm.type === 'adjust' ? Number(movementForm.new_quantity) : undefined,
-        unit: movementForm.unit || selectedItem.unit,
-        reason: movementForm.reason.trim(),
-        date: movementForm.date || new Date().toISOString(),
-        notes: movementForm.notes || undefined
-      });
-      setShowMovementForm(false);
-      setMovementForm({
-        type: 'in',
-        quantity: 0,
-        new_quantity: 0,
-        unit: selectedItem.unit || 'kg',
-        reason: '',
-        date: new Date().toISOString().split('T')[0],
-        notes: ''
-      });
-    } finally {
-      setIsSubmittingMovement(false);
-    }
+    // Close form immediately — Supabase operations run in background
+    setShowMovementForm(false);
+    setMovementForm({
+      type: 'in',
+      quantity: 0,
+      new_quantity: 0,
+      unit: selectedItem.unit || 'kg',
+      reason: '',
+      date: new Date().toISOString().split('T')[0],
+      notes: ''
+    });
+    onAddMovement({
+      item_id: selectedItem.id,
+      type: movementForm.type,
+      quantity: movementForm.type === 'adjust' ? undefined : Number(movementForm.quantity),
+      new_quantity: movementForm.type === 'adjust' ? Number(movementForm.new_quantity) : undefined,
+      unit: movementForm.unit || selectedItem.unit,
+      reason: movementForm.reason.trim(),
+      date: movementForm.date || new Date().toISOString(),
+      notes: movementForm.notes || undefined
+    });
   };
 
   const updateFormulaRow = (index: number, updates: { name?: string; value?: number }) => {

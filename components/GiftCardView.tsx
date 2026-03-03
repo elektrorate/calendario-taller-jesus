@@ -145,10 +145,12 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
     try {
       if (!form.expiryDate) {
         alert('La fecha de expiración es obligatoria.');
+        setIsSubmitting(false);
         return;
       }
       if (!Number.isFinite(form.numClasses) || form.numClasses <= 0) {
         alert('El número de clases debe ser mayor que 0.');
+        setIsSubmitting(false);
         return;
       }
       const cardData = {
@@ -156,10 +158,15 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
         expiryDate: form.expiryDate || undefined,
         scheduledDate: form.scheduledDate ? `${form.scheduledDate}T10:00:00` : undefined
       };
-      if (editingCard?.id) await onUpdateGiftCard(editingCard.id, cardData);
-      else await onAddGiftCard(cardData);
+      // Close modal immediately — Supabase operations run in background
       setShowModal(false);
-    } finally {
+      setIsSubmitting(false);
+      if (editingCard?.id) {
+        onUpdateGiftCard(editingCard.id, cardData);
+      } else {
+        onAddGiftCard(cardData);
+      }
+    } catch {
       setIsSubmitting(false);
     }
   };

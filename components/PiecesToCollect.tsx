@@ -282,12 +282,13 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
     if (isSubmitting) return;
     if (!form.owner) { alert("Por favor selecciona un propietario."); return; }
     setIsSubmitting(true);
-    try {
-      if (editingPiece?.id) await onUpdatePiece(editingPiece.id, form);
-      else await onAddPiece(form);
-      setShowModal(false);
-    } finally {
-      setIsSubmitting(false);
+    // Close modal immediately — Supabase operations run in background
+    setShowModal(false);
+    setIsSubmitting(false);
+    if (editingPiece?.id) {
+      onUpdatePiece(editingPiece.id, form);
+    } else {
+      onAddPiece(form);
     }
   };
 

@@ -181,44 +181,45 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     }
 
     setIsSubmitting(true);
-    try {
-      const completedAt = new Date().toISOString();
+    const completedAt = new Date().toISOString();
 
-      // 1. Save attendance + completedAt to the session
-      await onUpdateSession(attendanceSession.id, {
-        completedAt,
-        attendance: finalAttendance,
-        teacherSubstituteId: substituteId || undefined
-      });
+    // Close modal immediately
+    setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
+    setShowAttendanceModal(false);
+    setIsSubmitting(false);
 
-      // 2. Deduct classesRemaining for each membership student marked 'present'
-      const updatePromises = presentStudentNames.map(async (studentName) => {
-        const student = students.find(s => {
-          const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
-          return fullName === studentName.toUpperCase() || fullName === studentName;
+    // Fire Supabase operations in background
+    (async () => {
+      try {
+        await onUpdateSession(attendanceSession.id, {
+          completedAt,
+          attendance: finalAttendance,
+          teacherSubstituteId: substituteId || undefined
         });
-        if (student && student.classesRemaining > 0 && student.studentCategory === 'membresia') {
-          try {
-            await onUpdateStudent(student.id, {
-              classesRemaining: student.classesRemaining - 1,
-              status: (student.classesRemaining - 1) <= 0 ? 'needs_renewal' : student.status
-            });
-          } catch (err) {
-            console.error(`Error actualizando clases de ${studentName}:`, err);
+
+        const updatePromises = presentStudentNames.map(async (studentName) => {
+          const student = students.find(s => {
+            const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
+            return fullName === studentName.toUpperCase() || fullName === studentName;
+          });
+          if (student && student.classesRemaining > 0 && student.studentCategory === 'membresia') {
+            try {
+              await onUpdateStudent(student.id, {
+                classesRemaining: student.classesRemaining - 1,
+                status: (student.classesRemaining - 1) <= 0 ? 'needs_renewal' : student.status
+              });
+            } catch (err) {
+              console.error(`Error actualizando clases de ${studentName}:`, err);
+            }
           }
-        }
-      });
+        });
 
-      await Promise.all(updatePromises);
-
-      setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
-      setShowAttendanceModal(false);
-    } catch (err: any) {
-      console.error('Error finalizando control de asistencia:', err);
-      alert(`ERROR: No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+        await Promise.all(updatePromises);
+      } catch (err: any) {
+        console.error('Error finalizando control de asistencia:', err);
+        alert(`ERROR: No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
+      }
+    })();
   };
 
   // ★ handleMarkAttendance: ONLY updates local state, does NOT call API
@@ -283,15 +284,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       privateReason: sessionForm.privateReason.trim() || undefined,
       sessionAudience: sessionForm.sessionAudience
     };
-    try {
-      if (editingSessionId) await onUpdateSession(editingSessionId, payload);
-      else await onAddSession(payload);
-      setShowSessionModal(false);
-    } catch (err) {
-      console.error('Error guardando sesión:', err);
-      alert('Error al guardar la sesión. Revisa la consola para más detalles.');
-    } finally {
-      setIsSubmitting(false);
+    // Close modal immediately — Supabase operations run in background
+    setShowSessionModal(false);
+    setIsSubmitting(false);
+    if (editingSessionId) {
+      onUpdateSession(editingSessionId, payload);
+    } else {
+      onAddSession(payload);
     }
   };
 

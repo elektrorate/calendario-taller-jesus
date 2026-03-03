@@ -100,12 +100,13 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
       phone: form.phone.trim(),
       notes: form.notes.trim()
     };
-    try {
-      if (editingTeacher) await onUpdateTeacher(editingTeacher.id, payload);
-      else await onAddTeacher(payload);
-      setShowModal(false);
-    } finally {
-      setIsSubmitting(false);
+    // Close modal immediately — Supabase operations run in background
+    setShowModal(false);
+    setIsSubmitting(false);
+    if (editingTeacher) {
+      onUpdateTeacher(editingTeacher.id, payload);
+    } else {
+      onAddTeacher(payload);
     }
   };
 

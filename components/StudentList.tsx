@@ -122,18 +122,18 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       alert('El nombre es obligatorio.');
       return;
     }
-    setIsSubmitting(true);
     const data = {
       ...form,
       status: getCalculatedStatus(form) as 'needs_renewal' | 'membresia',
       groupName: ''
     };
-    try {
-      if (editingStudent?.id) await onUpdate(editingStudent.id, data);
-      else await onAddStudent(data);
-      setShowModal(false);
-    } finally {
-      setIsSubmitting(false);
+    // Close modal immediately — Supabase operations run in background
+    setShowModal(false);
+    setEditingStudent(null);
+    if (editingStudent?.id) {
+      onUpdate(editingStudent.id, data);
+    } else {
+      onAddStudent(data);
     }
   };
 
