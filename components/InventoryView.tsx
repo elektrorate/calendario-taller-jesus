@@ -939,11 +939,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
         title="¿Eliminar item del inventario?"
         message={`¿Estás seguro de que deseas eliminar "${itemToDelete?.name}"? Se borrarán también todos sus movimientos. Esta acción no se puede deshacer.`}
         isDestructive={true}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (itemToDelete) {
-            await onDeleteItem(itemToDelete.id);
+            const id = itemToDelete.id;
             setItemToDelete(null);
             setCurrentSubView('list');
+            onDeleteItem(id);
           }
         }}
         onCancel={() => setItemToDelete(null)}

@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Workshop, User, WorkshopStatus, UserRole, ActivityLog, Invitation, InvitationStatus } from '../types';
+import { Workshop, User, WorkshopStatus, UserRole, ActivityLog, Invitation, InvitationStatus, WorkshopDataMetrics } from '../types';
 import { logoutAndRedirect } from '../../utils/logout';
 
 interface AppContextType {
   workshops: Workshop[];
   users: User[];
+  workshopMetrics: Record<string, WorkshopDataMetrics>;
+  globalMetrics: WorkshopDataMetrics;
   activityLogs: ActivityLog[];
   invitations: Invitation[];
   currentUser: User | null;
@@ -39,9 +41,26 @@ const hasStoredSession = (): boolean => {
   }
 };
 
+const createEmptyMetrics = (): WorkshopDataMetrics => ({
+  totalStudents: 0,
+  membershipStudents: 0,
+  temporaryStudents: 0,
+  totalGiftCards: 0,
+  activeGiftCards: 0,
+  expiredGiftCards: 0,
+  unlinkedGiftCards: 0,
+  missingExpiryGiftCards: 0,
+  totalSessions: 0,
+  temporalSessions: 0,
+  membershipSessions: 0,
+  nullAudienceSessions: 0
+});
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [workshopMetrics, setWorkshopMetrics] = useState<Record<string, WorkshopDataMetrics>>({});
+  const [globalMetrics, setGlobalMetrics] = useState<WorkshopDataMetrics>(createEmptyMetrics());
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -130,9 +149,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.log('User profile loaded, setting context...');
           setCurrentUser(user);
 
-          console.log('Fetching workshops and users in parallel...');
+          console.log('Fetching workshops, users and operational metrics in parallel...');
           // Execute fetches in parallel
-          await Promise.all([fetchWorkshops(), fetchUsers()]);
+          await Promise.all([fetchWorkshops(), fetchUsers(), fetchOperationalMetrics()]);
           console.log('Initial data loaded successfully.');
         } else {
           console.warn('No profile found for user');
@@ -204,6 +223,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers(mapped);
   };
 
+  const fetchOperationalMetrics = async () => {
+    try {
+      const todayIso = new Date().toISOString().split('T')[0];
+      const [studentsRes, sessionsRes, giftCardsRes] = await Promise.all([
+        supabase.from('students').select('id, sede_id, student_category'),
+        supabase.from('sessions').select('id, sede_id, session_audience'),
+        supabase.from('gift_cards').select('id, sede_id, expiry_date, recipient_student_id')
+      ]);
+
+      if (studentsRes.error) throw studentsRes.error;
+      if (sessionsRes.error) throw sessionsRes.error;
+      if (giftCardsRes.error) throw giftCardsRes.error;
+
+      const byWorkshop: Record<string, WorkshopDataMetrics> = {};
+      const ensureMetrics = (sedeId?: string | null) => {
+        if (!sedeId) return null;
+        if (!byWorkshop[sedeId]) {
+          byWorkshop[sedeId] = createEmptyMetrics();
+        }
+        return byWorkshop[sedeId];
+      };
+
+      (studentsRes.data || []).forEach((student: any) => {
+        const target = ensureMetrics(student.sede_id);
+        if (!target) return;
+        target.totalStudents += 1;
+        const category = student.student_category || 'membresia';
+        if (category === 'membresia') target.membershipStudents += 1;
+        if (category === 'temporal') target.temporaryStudents += 1;
+      });
+
+      (sessionsRes.data || []).forEach((session: any) => {
+        const target = ensureMetrics(session.sede_id);
+        if (!target) return;
+        target.totalSessions += 1;
+        if (session.session_audience === 'temporal') target.temporalSessions += 1;
+        else if (session.session_audience === 'membresia') target.membershipSessions += 1;
+        else target.nullAudienceSessions += 1;
+      });
+
+      (giftCardsRes.data || []).forEach((card: any) => {
+        const target = ensureMetrics(card.sede_id);
+        if (!target) return;
+        target.totalGiftCards += 1;
+
+        if (!card.recipient_student_id) {
+          target.unlinkedGiftCards += 1;
+        }
+
+        if (!card.expiry_date) {
+          target.missingExpiryGiftCards += 1;
+          return;
+        }
+
+        if (card.expiry_date < todayIso) target.expiredGiftCards += 1;
+        else target.activeGiftCards += 1;
+      });
+
+      const global = Object.values(byWorkshop).reduce((acc, current) => ({
+        totalStudents: acc.totalStudents + current.totalStudents,
+        membershipStudents: acc.membershipStudents + current.membershipStudents,
+        temporaryStudents: acc.temporaryStudents + current.temporaryStudents,
+        totalGiftCards: acc.totalGiftCards + current.totalGiftCards,
+        activeGiftCards: acc.activeGiftCards + current.activeGiftCards,
+        expiredGiftCards: acc.expiredGiftCards + current.expiredGiftCards,
+        unlinkedGiftCards: acc.unlinkedGiftCards + current.unlinkedGiftCards,
+        missingExpiryGiftCards: acc.missingExpiryGiftCards + current.missingExpiryGiftCards,
+        totalSessions: acc.totalSessions + current.totalSessions,
+        temporalSessions: acc.temporalSessions + current.temporalSessions,
+        membershipSessions: acc.membershipSessions + current.membershipSessions,
+        nullAudienceSessions: acc.nullAudienceSessions + current.nullAudienceSessions
+      }), createEmptyMetrics());
+
+      setWorkshopMetrics(byWorkshop);
+      setGlobalMetrics(global);
+    } catch (error) {
+      console.error('Error fetching operational metrics:', error);
+    }
+  };
+
   useEffect(() => {
     loadInitialData();
 
@@ -220,6 +319,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser(null);
         setWorkshops([]);
         setUsers([]);
+        setWorkshopMetrics({});
+        setGlobalMetrics(createEmptyMetrics());
         isInitializingRef.current = false;
       }
     });
@@ -286,7 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
       showToast('Taller creado con éxito', 'success');
-      await fetchWorkshops();
+      await Promise.all([fetchWorkshops(), fetchOperationalMetrics()]);
       return true;
     } catch (err: any) {
       showToast('Error inesperado creando taller: ' + (err.message || ''), 'error');
@@ -317,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
       showToast('Taller actualizado', 'success');
-      await fetchWorkshops();
+      await Promise.all([fetchWorkshops(), fetchOperationalMetrics()]);
       return true;
     } catch (err: any) {
       showToast('Error inesperado actualizando taller: ' + (err.message || ''), 'error');
@@ -353,7 +454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       showToast('Taller y usuario eliminados correctamente', 'success');
-      await Promise.all([fetchWorkshops(), fetchUsers()]);
+      await Promise.all([fetchWorkshops(), fetchUsers(), fetchOperationalMetrics()]);
       return true;
     } catch (err: any) {
       showToast('Error inesperado: ' + (err.message || ''), 'error');
@@ -396,7 +497,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('User created but no ID returned immediately', data);
         if (data.email) {
           showToast(`Usuario ${user.nombre} creado correctamente`, 'success');
-          await Promise.all([fetchUsers(), fetchWorkshops()]);
+          await Promise.all([fetchUsers(), fetchWorkshops(), fetchOperationalMetrics()]);
           return { userId: data.id };
         }
         throw new Error('El servidor no devolvió el ID del usuario');
@@ -413,7 +514,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       showToast(`Usuario ${user.nombre} creado correctamente`, 'success');
       // Refresh both users AND workshops since Edge Function now auto-creates a sede
-      await Promise.all([fetchUsers(), fetchWorkshops()]);
+      await Promise.all([fetchUsers(), fetchWorkshops(), fetchOperationalMetrics()]);
       return { userId, sedeId: data.sede?.id };
 
     } catch (err: any) {
@@ -449,7 +550,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ workshops, users, activityLogs, invitations, currentUser, login, logout, addWorkshop, updateWorkshop, deleteWorkshop, addUser, updateUser, cancelInvitation, loading, showOptimisticUI, toast, showToast, authError, clearAuthError }}>
+    <AppContext.Provider value={{ workshops, users, workshopMetrics, globalMetrics, activityLogs, invitations, currentUser, login, logout, addWorkshop, updateWorkshop, deleteWorkshop, addUser, updateUser, cancelInvitation, loading, showOptimisticUI, toast, showToast, authError, clearAuthError }}>
       {children}
     </AppContext.Provider>
   );

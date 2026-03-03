@@ -38,8 +38,11 @@ export interface Student {
   assignedClasses?: AssignedClass[];
   classType?: string;
   expiryDate?: string;
-  studentCategory?: 'membresia' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
+  studentCategory?: 'membresia' | 'temporal';
   groupName?: string;
+  bonosAsignados?: number;
+  repetirMensualmente?: boolean;
+  createdAt?: string;
 }
 
 export interface ClassSession {
@@ -55,7 +58,7 @@ export interface ClassSession {
   completedAt?: string;
   workshopName?: string;
   privateReason?: string;
-  sessionAudience?: 'membresia' | 'temporal'; // Audiencia: membresía (permanentes) o temporal
+  sessionAudience?: 'membresia' | 'temporal' | 'ambos'; // Audiencia: membresía (permanentes), temporal, o ambos
 }
 
 export interface Teacher {

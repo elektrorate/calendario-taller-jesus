@@ -39,7 +39,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     teacherId: '',
     workshopName: '',
     privateReason: '',
-    sessionAudience: 'membresia' as 'membresia' | 'temporal'
+    sessionAudience: 'membresia' as 'membresia' | 'temporal' | 'ambos'
   });
 
   const formatDateKey = (date: Date) => {
@@ -153,15 +153,36 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
   const finalizeAttendance = async () => {
     if (!attendanceSession) return;
-    // BUG 13 FIX: Prevent double-finalization if session already completed
     if (attendanceSession.completedAt) {
       alert('Esta sesión ya fue finalizada.');
       return;
     }
+
+    const finalAttendance = attendanceSession.attendance || {};
+
+    // Check for membership students with 0 bonos
+    const presentStudentNames = Object.entries(finalAttendance)
+      .filter(([, status]) => status === 'present')
+      .map(([name]) => name);
+
+    const studentsWithNoBonos = presentStudentNames.filter(studentName => {
+      const student = students.find(s => {
+        const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
+        return fullName === studentName.toUpperCase() || fullName === studentName;
+      });
+      return student && student.studentCategory === 'membresia' && student.classesRemaining <= 0;
+    });
+
+    if (studentsWithNoBonos.length > 0) {
+      const proceed = confirm(
+        `⚠️ Los siguientes alumnos no tienen bonos disponibles:\n\n${studentsWithNoBonos.join('\n')}\n\n¿Deseas continuar igualmente?`
+      );
+      if (!proceed) return;
+    }
+
     setIsSubmitting(true);
     try {
       const completedAt = new Date().toISOString();
-      const finalAttendance = attendanceSession.attendance || {};
 
       // 1. Save attendance + completedAt to the session
       await onUpdateSession(attendanceSession.id, {
@@ -170,26 +191,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         teacherSubstituteId: substituteId || undefined
       });
 
-      // 2. Deduct classesRemaining for each student marked 'present'
-      const presentStudentNames = Object.entries(finalAttendance)
-        .filter(([, status]) => status === 'present')
-        .map(([name]) => name);
-
-      for (const studentName of presentStudentNames) {
+      // 2. Deduct classesRemaining for each membership student marked 'present'
+      const updatePromises = presentStudentNames.map(async (studentName) => {
         const student = students.find(s => {
           const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
           return fullName === studentName.toUpperCase() || fullName === studentName;
         });
-        if (student && student.classesRemaining > 0) {
-          await onUpdateStudent(student.id, {
-            classesRemaining: student.classesRemaining - 1,
-            status: (student.classesRemaining - 1) <= 0 ? 'needs_renewal' : student.status
-          });
+        if (student && student.classesRemaining > 0 && student.studentCategory === 'membresia') {
+          try {
+            await onUpdateStudent(student.id, {
+              classesRemaining: student.classesRemaining - 1,
+              status: (student.classesRemaining - 1) <= 0 ? 'needs_renewal' : student.status
+            });
+          } catch (err) {
+            console.error(`Error actualizando clases de ${studentName}:`, err);
+          }
         }
-      }
+      });
+
+      await Promise.all(updatePromises);
 
       setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
       setShowAttendanceModal(false);
+    } catch (err: any) {
+      console.error('Error finalizando control de asistencia:', err);
+      alert(`ERROR: No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -424,7 +450,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                             return fullName === studentName.toUpperCase() || st.name.toUpperCase() === studentName.toUpperCase();
                           });
                           const cat = studentObj?.studentCategory || 'membresia';
-                          const isTemporary = cat === 'temporal' || cat === 'grupo_temporal';
+                          const isTemporary = cat === 'temporal';
                           // Color de bolita: presente=verde, ausente=rojo, pendiente=según categoría
                           const dotColor = att === 'absent'
                             ? 'bg-red-500'
@@ -510,11 +536,42 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
       {/* MODAL DE CONTROL DE ASISTENCIA (EXCLUSIVO) */}
       {showAttendanceModal && attendanceSession && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4"
+          onClick={(e) => {
+            // Cerrar al hacer click en el backdrop (fuera del modal)
+            if (e.target === e.currentTarget && !isSubmitting) {
+              setShowAttendanceModal(false);
+            }
+          }}
+        >
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 md:p-12 soft-shadow relative animate-fade-in border border-neutral-border flex flex-col max-h-[85dvh]">
+            {/* Botón X para cerrar */}
+            <button
+              onClick={() => setShowAttendanceModal(false)}
+              disabled={isSubmitting}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-neutral-sec/80 hover:bg-neutral-sec flex items-center justify-center text-neutral-textHelper hover:text-neutral-textMain transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Cerrar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             <div className="mb-8">
               <span className="text-[10px] font-extrabold text-brand uppercase tracking-[0.2em] mb-2 block">CHECK-IN DIARIO</span>
               <h3 className="text-[24px] md:text-[28px] font-black text-neutral-textMain uppercase tracking-tight leading-none">Control Asistencia</h3>
+              {/* Indicador visual de sesión ya completada */}
+              {attendanceSession.completedAt && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-[11px] font-extrabold text-green-600 uppercase tracking-widest flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                    SESIÓN YA FINALIZADA
+                  </p>
+                  <p className="text-[10px] text-green-500 mt-1">
+                    Completada el {new Date(attendanceSession.completedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              )}
               <p className="text-[13px] font-light text-neutral-textHelper mt-4 uppercase tracking-widest">
                 {formatSessionDate(attendanceSession.date)} <br />
                 <span className="text-neutral-textSec font-bold">{attendanceSession.startTime} - {attendanceSession.endTime} • {getSessionLabel(attendanceSession).toUpperCase()}</span>
@@ -542,7 +599,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                 <select
                   value={substituteId}
                   onChange={(e) => setSubstituteId(e.target.value)}
-                  className="w-full px-4 py-3 bg-neutral-sec border border-neutral-border rounded-xl text-[13px] font-light appearance-none"
+                  disabled={!!attendanceSession.completedAt}
+                  className="w-full px-4 py-3 bg-neutral-sec border border-neutral-border rounded-xl text-[13px] font-light appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="">Sin reemplazo</option>
                   {teachers.map(t => (
@@ -560,30 +618,51 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
               ) : (
                 attendanceSession.students.map((studentName, idx) => {
                   const status = attendanceSession.attendance?.[studentName] || 'pending';
+                  // Find student object to show bonos info
+                  const studentObj = students.find(s => {
+                    const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
+                    return fullName === studentName.toUpperCase() || fullName === studentName;
+                  });
+                  const isMembership = studentObj?.studentCategory === 'membresia';
+                  const bonos = studentObj?.classesRemaining ?? 0;
+                  const bonosTotal = studentObj?.bonosAsignados ?? 4;
                   return (
                     <div key={idx} className="bg-neutral-sec/50 p-5 rounded-[2rem] border border-neutral-border flex items-center justify-between group transition-all">
                       <div className="flex flex-col overflow-hidden mr-4">
-                        <p className="text-[16px] font-black text-neutral-textMain uppercase tracking-tight truncate">{studentName.toLowerCase()}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[16px] font-black text-neutral-textMain uppercase tracking-tight truncate">{studentName.toLowerCase()}</p>
+                          {isMembership && (
+                            <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider border ${bonos <= 0 ? 'bg-red-50 text-red-500 border-red-200'
+                              : bonos <= Math.ceil(bonosTotal * 0.25) ? 'bg-amber-50 text-amber-600 border-amber-200'
+                                : 'bg-green-50 text-green-600 border-green-200'
+                              }`}>
+                              {bonos}/{bonosTotal}
+                            </span>
+                          )}
+                        </div>
                         <span className={`text-[10px] font-extrabold uppercase tracking-widest mt-1 ${status === 'present' ? 'text-green-500' : status === 'absent' ? 'text-red-400' : 'text-neutral-textHelper'}`}>
                           {status === 'present' ? 'Asiste' : status === 'absent' ? 'No asiste' : 'Pendiente'}
                         </span>
                       </div>
                       <div className="flex gap-2 shrink-0">
+                        {/* Botones deshabilitados si la sesión ya fue finalizada */}
                         <button
                           onClick={() => handleMarkAttendance(studentName, 'present')}
-                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm ${status === 'present' ? 'bg-green-500 text-white scale-110' : 'bg-white text-neutral-textHelper hover:bg-green-100 hover:text-green-600'}`}
-                          title="Marcar Asistencia"
+                          disabled={!!attendanceSession.completedAt}
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${status === 'present' ? 'bg-green-500 text-white scale-110' : 'bg-white text-neutral-textHelper hover:bg-green-100 hover:text-green-600 disabled:hover:bg-white disabled:hover:text-neutral-textHelper'}`}
+                          title={attendanceSession.completedAt ? "Sesión ya finalizada" : "Marcar Asistencia"}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
                         </button>
                         <button
                           onClick={() => handleMarkAttendance(studentName, 'absent')}
-                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm ${status === 'absent' ? 'bg-red-400 text-white scale-110' : 'bg-white text-neutral-textHelper hover:bg-red-100 hover:text-red-400'}`}
-                          title="Marcar Falta"
+                          disabled={!!attendanceSession.completedAt}
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${status === 'absent' ? 'bg-red-400 text-white scale-110' : 'bg-white text-neutral-textHelper hover:bg-red-100 hover:text-red-400 disabled:hover:bg-white disabled:hover:text-neutral-textHelper'}`}
+                          title={attendanceSession.completedAt ? "Sesión ya finalizada" : "Marcar Falta"}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-                        {status !== 'pending' && (
+                        {status !== 'pending' && !attendanceSession.completedAt && (
                           <button
                             onClick={() => handleMarkAttendance(studentName, 'pending')}
                             className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white text-neutral-textHelper hover:text-brand transition-all shadow-sm"
@@ -600,13 +679,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
             </div>
 
             <div className="pt-8 shrink-0">
-              <button
-                onClick={finalizeAttendance}
-                disabled={isSubmitting}
-                className="w-full py-6 bg-neutral-textMain text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black active:scale-[0.98] transition-all soft-shadow disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'GUARDANDO...' : 'FINALIZAR CONTROL'}
-              </button>
+              {attendanceSession.completedAt ? (
+                <button
+                  onClick={() => setShowAttendanceModal(false)}
+                  className="w-full py-6 bg-neutral-textHelper text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-neutral-textMain active:scale-[0.98] transition-all soft-shadow"
+                >
+                  CERRAR
+                </button>
+              ) : (
+                <button
+                  onClick={finalizeAttendance}
+                  disabled={isSubmitting}
+                  className="w-full py-6 bg-neutral-textMain text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black active:scale-[0.98] transition-all soft-shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'GUARDANDO...' : 'FINALIZAR CONTROL'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -712,27 +800,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   {/* Selector de audiencia */}
                   <div>
                     <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">TIPO DE ALUMNOS</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
-                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'membresia', selectedStudents: [] }); setStudentSearchQuery(''); }}
-                        className={`py-3 rounded-xl font-extrabold text-[11px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'membresia' ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'membresia' }); setStudentSearchQuery(''); }}
+                        className={`py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'membresia' ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
                       >
                         Membresía
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'temporal', selectedStudents: [] }); setStudentSearchQuery(''); }}
-                        className={`py-3 rounded-xl font-extrabold text-[11px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'temporal' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'temporal' }); setStudentSearchQuery(''); }}
+                        className={`py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'temporal' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
                       >
                         Temporales
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'ambos' }); setStudentSearchQuery(''); }}
+                        className={`py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'ambos' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                      >
+                        Ambos
                       </button>
                     </div>
                   </div>
                   {/* Lista de alumnos filtrada por audiencia */}
                   <div>
                     <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">
-                      ALUMNOS ASIGNADOS ({sessionForm.sessionAudience === 'membresia' ? 'MEMBRESÍA' : 'TEMPORALES'})
+                      ALUMNOS ASIGNADOS ({sessionForm.sessionAudience === 'membresia' ? 'MEMBRESÍA' : sessionForm.sessionAudience === 'temporal' ? 'TEMPORALES' : 'TODOS'})
                     </label>
                     {/* Buscador de alumnos */}
                     <input
@@ -747,10 +842,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         const filtered = students
                           .filter(s => {
                             const cat = s.studentCategory || 'membresia';
-                            // Filtro por audiencia
-                            const matchesAudience = sessionForm.sessionAudience === 'membresia'
-                              ? (cat === 'membresia' || cat === 'iniciacion' || cat === 'grupal')
-                              : (cat === 'temporal' || cat === 'grupo_temporal');
+                            // Filtro por audiencia - 'ambos' muestra todos los tipos
+                            const matchesAudience = sessionForm.sessionAudience === 'ambos'
+                              ? true
+                              : sessionForm.sessionAudience === 'membresia'
+                                ? (cat === 'membresia')
+                                : (cat === 'temporal');
                             // Filtro por búsqueda
                             const fullName = `${s.name} ${s.surname || ''}`.trim().toLowerCase();
                             const groupName = (s.groupName || '').toLowerCase();
@@ -770,7 +867,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           const studentKey = fullName.toUpperCase();
                           const isSelected = sessionForm.selectedStudents.includes(studentKey);
                           const cat = s.studentCategory || 'membresia';
-                          const isTemporary = cat === 'temporal' || cat === 'grupo_temporal';
+                          const isTemporary = cat === 'temporal';
                           return (
                             <button key={s.id} onClick={() => {
                               const newList = isSelected
@@ -792,11 +889,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           SELECCIONADOS ({sessionForm.selectedStudents.length})
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {sessionForm.selectedStudents.map(name => (
-                            <span key={name} className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${sessionForm.sessionAudience === 'temporal' ? 'bg-amber-100 text-amber-700' : 'bg-brand/10 text-brand'}`}>
-                              {name.toLowerCase()}
-                            </span>
-                          ))}
+                          {sessionForm.selectedStudents.map(name => {
+                            // Determinar el color basado en la categoría del estudiante
+                            const studentObj = students.find(st => {
+                              const fullName = `${st.name} ${st.surname || ''}`.trim().toUpperCase();
+                              return fullName === name.toUpperCase() || st.name.toUpperCase() === name.toUpperCase();
+                            });
+                            const cat = studentObj?.studentCategory || 'membresia';
+                            const isTemporary = cat === 'temporal';
+                            return (
+                              <span key={name} className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${isTemporary ? 'bg-amber-100 text-amber-700' : 'bg-brand/10 text-brand'}`}>
+                                {name.toLowerCase()}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -825,11 +931,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         title="¿Eliminar sesión?"
         message="¿Estás seguro de que deseas eliminar esta sesión de la agenda? Esta acción no se puede deshacer."
         isDestructive={true}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (sessionToDelete) {
-            await onDeleteSession(sessionToDelete);
+            const id = sessionToDelete;
             setSessionToDelete(null);
             setShowSessionModal(false);
+            onDeleteSession(id);
           }
         }}
         onCancel={() => setSessionToDelete(null)}

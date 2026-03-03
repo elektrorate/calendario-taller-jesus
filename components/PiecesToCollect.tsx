@@ -5,17 +5,11 @@ import { ConfirmModal } from './shared/ConfirmModal';
 // ─── Category visual helpers ───
 const CATEGORY_LABELS: Record<string, string> = {
   membresia: 'Membresía',
-  iniciacion: 'Iniciación',
-  grupal: 'Grupal',
-  temporal: 'Temporal',
-  grupo_temporal: 'Grupo Temporal'
+  temporal: 'Temporal'
 };
 const CATEGORY_BADGE: Record<string, string> = {
   membresia: 'bg-brand/10 text-brand border-brand/20',
-  iniciacion: 'bg-blue-50 text-blue-600 border-blue-100',
-  grupal: 'bg-purple-50 text-purple-600 border-purple-100',
-  temporal: 'bg-amber-50 text-amber-700 border-amber-100',
-  grupo_temporal: 'bg-orange-50 text-orange-600 border-orange-100'
+  temporal: 'bg-amber-50 text-amber-700 border-amber-100'
 };
 
 // ─── PieceCard ───
@@ -382,7 +376,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
 
   // Category counts for ACTIVE pieces only
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { todos: activePieces.length, regular: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
+    const counts: Record<string, number> = { todos: activePieces.length, membresia: 0, temporal: 0 };
     activePieces.forEach(p => {
       const student = getStudentForPiece(p);
       const cat = student?.studentCategory || 'membresia';
@@ -447,7 +441,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                         </div>
                         <div className="overflow-hidden">
                           <p className="text-[12px] font-extrabold text-neutral-textMain uppercase tracking-widest truncate">{name}</p>
-                          <span className={`text-[8px] font-extrabold uppercase tracking-widest`} style={{ color: cat === 'membresia' ? '#B7A67B' : cat === 'iniciacion' ? '#2563eb' : cat === 'grupal' ? '#9333ea' : cat === 'temporal' ? '#d97706' : '#ea580c' }}>
+                          <span className={`text-[8px] font-extrabold uppercase tracking-widest`} style={{ color: cat === 'membresia' ? '#B7A67B' : '#d97706' }}>
                             {CATEGORY_LABELS[cat] || 'Regular'}
                           </span>
                         </div>
@@ -507,7 +501,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
 
         {/* Row 2: Category filter + Group filter */}
         <div className="flex flex-wrap gap-2 items-center">
-          {(['todos', 'membresia', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
+          {(['todos', 'membresia', 'temporal'] as const).map(cat => (
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat)}
@@ -779,11 +773,12 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
         title="¿Eliminar pieza?"
         message="¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer."
         isDestructive={true}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (pieceToDelete) {
-            await onDeletePiece(pieceToDelete);
+            const id = pieceToDelete;
             setPieceToDelete(null);
             setShowModal(false);
+            onDeletePiece(id);
           }
         }}
         onCancel={() => setPieceToDelete(null)}

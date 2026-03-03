@@ -85,21 +85,28 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const hasLoadedOnceRef = useRef(false);
-    const WRITE_TIMEOUT_MS = 15000;
-    const RELOAD_TIMEOUT_MS = 20000;
+    const WRITE_TIMEOUT_MS = 30000;
+    const RELOAD_TIMEOUT_MS = 30000;
 
-    const withTimeout = async <T,>(operation: string, promise: Promise<T>, timeoutMs: number = WRITE_TIMEOUT_MS): Promise<T> => {
-        let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => {
-                reject(new Error(`Timeout en ${operation} (${timeoutMs}ms)`));
-            }, timeoutMs);
-        });
+    // withTimeout: NON-DESTRUCTIVE timeout wrapper.
+    // If the operation takes longer than timeoutMs, it logs a warning but does NOT
+    // reject or kill the operation. The Supabase call always completes naturally.
+    // This prevents false "Timeout" errors that scared users when the operation actually succeeded.
+    const withTimeout = async <T,>(operation: string, queryOrPromise: T | Promise<T>, timeoutMs: number = WRITE_TIMEOUT_MS): Promise<Awaited<T>> => {
+        let didWarn = false;
+        const warnTimer = setTimeout(() => {
+            didWarn = true;
+            console.warn(`⚠️ ${operation} is taking longer than ${timeoutMs}ms — still waiting...`);
+        }, timeoutMs);
 
         try {
-            return await Promise.race([promise, timeoutPromise]);
+            const result = await Promise.resolve(queryOrPromise);
+            return result as Awaited<T>;
         } finally {
-            if (timeoutId) clearTimeout(timeoutId);
+            clearTimeout(warnTimer);
+            if (didWarn) {
+                console.log(`✅ ${operation} completed (was slow but succeeded)`);
+            }
         }
     };
 
@@ -153,6 +160,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (student.expiryDate !== undefined) payload.expiry_date = student.expiryDate || null;
         if (student.studentCategory !== undefined) payload.student_category = student.studentCategory || 'membresia';
         if (student.groupName !== undefined) payload.group_name = student.groupName || null;
+        if (student.bonosAsignados !== undefined) payload.bonos_asignados = student.bonosAsignados;
+        if (student.repetirMensualmente !== undefined) payload.repetir_mensualmente = student.repetirMensualmente;
         return payload;
     };
 
@@ -265,9 +274,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 price: row.price ?? undefined,
                 assignedClasses: assignedMap[row.id] || [],
                 classType: row.class_type || undefined,
-                expiryDate: row.expiry_date || undefined,
+                expiryDate: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : undefined,
                 studentCategory: row.student_category || 'membresia',
-                groupName: row.group_name || undefined
+                groupName: row.group_name || undefined,
+                bonosAsignados: row.bonos_asignados ?? 4,
+                repetirMensualmente: row.repetir_mensualmente ?? false,
+                createdAt: row.created_at || undefined
             }));
 
             const sessionStudentsMap: Record<string, any[]> = {};
@@ -327,6 +339,50 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             }));
 
             setStudents(normalizedStudents);
+
+            // ★ AUTO-RENEWAL: renew expired memberships with repetir_mensualmente = true
+            const today = new Date().toISOString().split('T')[0];
+            const studentsToRenew = normalizedStudents.filter(s =>
+                s.repetirMensualmente &&
+                s.studentCategory === 'membresia' &&
+                s.expiryDate &&
+                s.expiryDate < today // Now safe: expiryDate is always YYYY-MM-DD from normalizer
+            );
+            if (studentsToRenew.length > 0) {
+                // Fire-and-forget: don't block the UI
+                (async () => {
+                    for (const st of studentsToRenew) {
+                        const currentExpiry = new Date(st.expiryDate!);
+                        const newExpiry = new Date(currentExpiry);
+                        newExpiry.setMonth(newExpiry.getMonth() + 1);
+                        // If still in the past, jump to next month from today
+                        if (newExpiry.toISOString().split('T')[0] < today) {
+                            const fromToday = new Date();
+                            fromToday.setMonth(fromToday.getMonth() + 1);
+                            newExpiry.setTime(fromToday.getTime());
+                        }
+                        const newExpiryStr = newExpiry.toISOString().split('T')[0];
+                        const renewedBonos = st.bonosAsignados ?? 4;
+                        try {
+                            await withTimeout('students.auto_renew', supabase.from('students').update({
+                                classes_remaining: renewedBonos,
+                                expiry_date: newExpiryStr,
+                                status: 'membresia'
+                            }).eq('id', st.id));
+                            // Update local state
+                            setStudents(prev => prev.map(s => s.id === st.id ? {
+                                ...s,
+                                classesRemaining: renewedBonos,
+                                expiryDate: newExpiryStr,
+                                status: 'membresia' as const
+                            } : s));
+                            console.log(`Auto-renewed membership for ${st.name}: ${renewedBonos} bonos, expires ${newExpiryStr}`);
+                        } catch (err) {
+                            console.error(`Auto-renewal failed for ${st.name}:`, err);
+                        }
+                    }
+                })();
+            }
             setTeachers((teachersRes.data || []) as Teacher[]);
             setSessions(normalizedSessions);
             setPieces(normalizedPieces);
@@ -382,9 +438,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const buildAssignedKey = (cls: AssignedClass) => `${cls.date}|${cls.startTime}|${cls.endTime}`;
 
     const persistAssignedClasses = async (studentId: string, assignedClasses: AssignedClass[], studentSedeId?: string) => {
-        await supabase.from('student_assigned_classes').delete().eq('student_id', studentId);
+        await withTimeout('assigned_classes.delete', supabase.from('student_assigned_classes').delete().eq('student_id', studentId));
         if (!assignedClasses.length) return;
-        // Provide sede_id explicitly so super admin inserts (who has no get_owned_sede_id()) pass RLS
         const effectiveSedeId = studentSedeId || sedeId;
         const rows = assignedClasses.map(cls => ({
             student_id: studentId,
@@ -394,7 +449,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             end_time: cls.endTime,
             status: cls.status || 'pending'
         }));
-        const { error } = await supabase.from('student_assigned_classes').insert(rows);
+        const { error } = await withTimeout('assigned_classes.insert', supabase.from('student_assigned_classes').insert(rows));
         if (error) console.error('Assigned classes insert error', error);
     };
 
@@ -405,24 +460,33 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 s.date === cls.date && s.startTime === cls.startTime && s.endTime === cls.endTime
             );
             if (!sessionMatch) {
-                const { data, error } = await supabase
-                    .from('sessions')
-                    .select('id')
-                    .eq('date', cls.date)
-                    .eq('start_time', cls.startTime)
-                    .eq('end_time', cls.endTime)
-                    .limit(1)
-                    .single();
-                if (error) {
+                try {
+                    const { data, error } = await withTimeout(
+                        'sessions.select_for_unlink',
+                        supabase.from('sessions').select('id')
+                            .eq('date', cls.date)
+                            .eq('start_time', cls.startTime)
+                            .eq('end_time', cls.endTime)
+                            .limit(1)
+                            .single()
+                    );
+                    if (error) continue;
+                    sessionMatch = { id: data.id } as ClassSession;
+                } catch (err) {
+                    console.error('Session lookup timeout in removeAssigned', err);
                     continue;
                 }
-                sessionMatch = { id: data.id } as ClassSession;
             }
-            await supabase
-                .from('session_students')
-                .delete()
-                .eq('session_id', sessionMatch.id)
-                .eq('student_id', student.id);
+            try {
+                await withTimeout(
+                    'session_students.delete_unassigned',
+                    supabase.from('session_students').delete()
+                        .eq('session_id', sessionMatch.id)
+                        .eq('student_id', student.id)
+                );
+            } catch (err) {
+                console.error('Session student delete timeout in removeAssigned', err);
+            }
         }
     };
 
@@ -434,40 +498,49 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         for (const cls of assignedClasses) {
             let sessionMatch = sessions.find(s => s.date === cls.date && s.startTime === cls.startTime);
             if (!sessionMatch) {
-                const { data, error } = await supabase
-                    .from('sessions')
-                    .insert({
-                        date: cls.date,
-                        start_time: cls.startTime,
-                        end_time: cls.endTime,
-                        class_type: inferredType
-                    })
-                    .select()
-                    .single();
-                if (error) {
-                    console.error('Session insert error', error);
+                try {
+                    const { data, error } = await withTimeout(
+                        'sessions.insert_for_assigned',
+                        supabase.from('sessions').insert({
+                            date: cls.date,
+                            start_time: cls.startTime,
+                            end_time: cls.endTime,
+                            class_type: inferredType
+                        }).select().single()
+                    );
+                    if (error) {
+                        console.error('Session insert error', error);
+                        continue;
+                    }
+                    sessionMatch = {
+                        id: data.id,
+                        date: data.date,
+                        startTime: extractTime(data.start_time),
+                        endTime: extractTime(data.end_time),
+                        classType: data.class_type,
+                        students: []
+                    } as ClassSession;
+                } catch (err) {
+                    console.error('Session insert timeout', err);
                     continue;
                 }
-                sessionMatch = {
-                    id: data.id,
-                    date: data.date,
-                    startTime: extractTime(data.start_time),
-                    endTime: extractTime(data.end_time),
-                    classType: data.class_type,
-                    students: []
-                } as ClassSession;
             }
 
             const attendance = cls.status === 'present' || cls.status === 'absent' ? cls.status : 'pending';
-            const { error } = await supabase
-                .from('session_students')
-                .upsert({
-                    session_id: sessionMatch.id,
-                    student_id: student.id,
-                    student_name: studentName,
-                    attendance
-                }, { onConflict: 'session_id,student_id' });
-            if (error) console.error('Session student upsert error', error);
+            try {
+                const { error } = await withTimeout(
+                    'session_students.upsert_assigned',
+                    supabase.from('session_students').upsert({
+                        session_id: sessionMatch.id,
+                        student_id: student.id,
+                        student_name: studentName,
+                        attendance
+                    }, { onConflict: 'session_id,student_id' })
+                );
+                if (error) console.error('Session student upsert error', error);
+            } catch (err) {
+                console.error('Session student upsert timeout', err);
+            }
         }
     };
 
@@ -518,7 +591,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 const student = students.find(s => `${s.name} ${s.surname || ''}`.trim().toUpperCase() === name);
                 if (!student) return null;
                 const status = attendance?.[name] === 'present' || attendance?.[name] === 'absent' ? attendance?.[name] : 'pending';
-                const isTemporary = student.studentCategory === 'temporal' || student.studentCategory === 'grupo_temporal';
+                const isTemporary = student.studentCategory === 'temporal';
                 return {
                     session_id: sessionId,
                     student_id: student.id,
@@ -589,56 +662,92 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (sedeId) {
             payload = { ...payload, sede_id: sedeId };
         }
-        const { data, error } = await supabase.from('students').insert(payload).select().single();
-        if (error) {
-            console.error('addStudent error:', error);
-            alert(`ERROR: No se pudo crear el alumno. ${error.message || ''}`);
-            return;
+        try {
+            const { data, error } = await withTimeout(
+                'students.insert',
+                supabase.from('students').insert(payload).select().single()
+            );
+            if (error) {
+                console.error('addStudent error:', error);
+                alert(`ERROR: No se pudo crear el alumno. ${error.message || ''}`);
+                return;
+            }
+            const assignedClasses = newStudent.assignedClasses || [];
+            if (assignedClasses.length) {
+                await persistAssignedClasses(data.id, assignedClasses);
+                await syncAssignedClassesToSessions({ ...newStudent, id: data.id } as Student, assignedClasses);
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('addStudent exception:', err);
+            alert(`ERROR: No se pudo crear el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        const assignedClasses = newStudent.assignedClasses || [];
-        if (assignedClasses.length) {
-            await persistAssignedClasses(data.id, assignedClasses);
-            await syncAssignedClassesToSessions({ ...newStudent, id: data.id } as Student, assignedClasses);
-        }
-        await safeReload();
     };
 
     const updateStudent = async (id: string, updates: Partial<Student>) => {
         const payload = buildStudentPayload(updates);
-        const { error } = await supabase.from('students').update(payload).eq('id', id);
-        if (error) {
-            console.error('updateStudent error:', error);
-            alert(`ERROR: No se pudo actualizar el alumno. ${error.message || ''}`);
-            return;
-        }
-        if (updates.assignedClasses) {
-            const student = students.find(s => s.id === id);
-            if (student) {
-                const prevAssigned = student.assignedClasses || [];
-                const prevSet = new Set(prevAssigned.map(buildAssignedKey));
-                const nextSet = new Set(updates.assignedClasses.map(buildAssignedKey));
-                const removed = prevAssigned.filter(cls => !nextSet.has(buildAssignedKey(cls)));
-
-                await persistAssignedClasses(id, updates.assignedClasses);
-                await removeAssignedClassesFromSessions({ ...student, ...updates } as Student, removed);
-                await syncAssignedClassesToSessions({ ...student, ...updates } as Student, updates.assignedClasses);
+        try {
+            const { error } = await withTimeout(
+                'students.update',
+                supabase.from('students').update(payload).eq('id', id)
+            );
+            if (error) {
+                console.error('updateStudent error:', error);
+                alert(`ERROR: No se pudo actualizar el alumno. ${error.message || ''}`);
+                return;
             }
+            if (updates.assignedClasses) {
+                const student = students.find(s => s.id === id);
+                if (student) {
+                    const prevAssigned = student.assignedClasses || [];
+                    const prevSet = new Set(prevAssigned.map(buildAssignedKey));
+                    const nextSet = new Set(updates.assignedClasses.map(buildAssignedKey));
+                    const removed = prevAssigned.filter(cls => !nextSet.has(buildAssignedKey(cls)));
+
+                    await persistAssignedClasses(id, updates.assignedClasses);
+                    await removeAssignedClassesFromSessions({ ...student, ...updates } as Student, removed);
+                    await syncAssignedClassesToSessions({ ...student, ...updates } as Student, updates.assignedClasses);
+                }
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('updateStudent exception:', err);
+            alert(`ERROR: No se pudo actualizar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        await safeReload();
     };
 
     const deleteStudent = async (id: string) => {
+        // Optimistic UI update — remove from UI immediately
+        setStudents(prev => prev.filter(s => s.id !== id));
+
         try {
-            const { error } = await supabase.from('students').delete().eq('id', id);
+            // Step 1: Best-effort cleanup of dependent rows (silent — no alerts)
+            // If these timeout, Supabase cascade deletes will clean up anyway
+            await Promise.allSettled([
+                supabase.from('session_students').delete().eq('student_id', id),
+                supabase.from('student_assigned_classes').delete().eq('student_id', id),
+                supabase.from('packages').delete().eq('student_id', id),
+            ]);
+
+            // Step 2: Delete the student itself — this is the only critical operation
+            const { error } = await withTimeout(
+                'students.delete',
+                supabase.from('students').delete().eq('id', id)
+            );
+
             if (error) {
                 console.error('deleteStudent error:', error);
                 alert(`ERROR: No se pudo eliminar el alumno. ${error.message || ''}`);
+                safeReload(); // Re-fetch to restore if delete failed
                 return;
             }
-            await safeReload();
+
+            console.log('deleteStudent: alumno eliminado correctamente');
         } catch (err: any) {
             console.error('deleteStudent exception:', err);
-            alert(`ERROR: ${err.message || 'Error inesperado al eliminar alumno.'}`);
+            // Only alert if the student delete itself fails
+            alert(`ERROR: No se pudo eliminar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+            safeReload(); // Re-fetch to restore if delete failed
         }
     };
 
@@ -673,15 +782,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (sedeId) {
             payload = { ...payload, sede_id: sedeId };
         }
-        const { data, error } = await withTimeout(
-            'sessions.insert',
-            supabase.from('sessions').insert(payload).select().single()
-        );
-        if (error) {
-            console.error('addSession error:', error);
-            alert(`ERROR: No se pudo crear la sesión. ${error.message || ''}`);
+
+        let data: any;
+        try {
+            const res = await withTimeout(
+                'sessions.insert',
+                supabase.from('sessions').insert(payload).select().single()
+            );
+            if (res.error) {
+                console.error('addSession error:', res.error);
+                alert(`ERROR: No se pudo crear la sesión. ${res.error.message || ''}`);
+                return;
+            }
+            data = res.data;
+        } catch (error: any) {
+            console.error('addSession exception:', error);
+            alert(`ERROR: No se pudo crear la sesión. ${error.message || 'Conexión lenta, intenta de nuevo.'}`);
             return;
         }
+
         if (newSession.students && newSession.students.length) {
             try {
                 await syncSessionStudents(data.id, newSession.students, newSession.attendance || undefined);
@@ -690,19 +809,26 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 alert(`ADVERTENCIA: La sesión se creó, pero no se pudieron vincular alumnos. ${syncErr?.message || ''}`);
             }
         }
-        await safeReload();
+        safeReload();
     };
 
     const updateSession = async (id: string, updates: Partial<ClassSession>) => {
         const payload = buildSessionPayload(updates);
+
         if (Object.keys(payload).length) {
-            const { error } = await withTimeout(
-                'sessions.update',
-                supabase.from('sessions').update(payload).eq('id', id)
-            );
-            if (error) {
-                console.error('updateSession error:', error);
-                alert(`ERROR: No se pudo actualizar la sesión. ${error.message || ''}`);
+            try {
+                const { error } = await withTimeout(
+                    'sessions.update',
+                    supabase.from('sessions').update(payload).eq('id', id)
+                );
+                if (error) {
+                    console.error('updateSession error:', error);
+                    alert(`ERROR: No se pudo actualizar la sesión. ${error.message || ''}`);
+                    return;
+                }
+            } catch (error: any) {
+                console.error('updateSession exception:', error);
+                alert(`ERROR: No se pudo actualizar la sesión. ${error.message || 'Conexión lenta, intenta de nuevo.'}`);
                 return;
             }
         }
@@ -717,7 +843,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
         if (updates.students) {
             try {
-                await syncSessionStudents(id, updates.students, updates.attendance || undefined);
+                await syncSessionStudents(id, updates.students!, updates.attendance || undefined);
             } catch (syncErr: any) {
                 console.error('updateSession syncSessionStudents error:', syncErr);
                 alert(`ADVERTENCIA: La sesión se actualizó, pero falló la vinculación de alumnos. ${syncErr?.message || ''}`);
@@ -726,28 +852,34 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             await updateSessionAttendance(id, updates.attendance);
         }
 
-        await safeReload();
+        safeReload();
     };
 
     const deleteSession = async (id: string) => {
-        try {
-            // First, remove all student links to prevent FK constraint failures
-            const { error: unlinkError } = await supabase
-                .from('session_students')
-                .delete()
-                .eq('session_id', id);
-            if (unlinkError) console.warn('Unlink session_students warning:', unlinkError.message);
+        // Optimistic UI update
+        setSessions(prev => prev.filter(s => s.id !== id));
 
-            const { error } = await supabase.from('sessions').delete().eq('id', id);
+        try {
+            // Best-effort cleanup — silent, no alerts
+            await Promise.allSettled([
+                supabase.from('session_students').delete().eq('session_id', id),
+            ]);
+
+            const { error } = await withTimeout(
+                'sessions.delete',
+                supabase.from('sessions').delete().eq('id', id)
+            );
             if (error) {
                 console.error('deleteSession error:', error);
                 alert(`ERROR: No se pudo eliminar la sesión. ${error.message || ''}`);
+                safeReload();
                 return;
             }
-            await safeReload();
+            console.log('deleteSession: sesión eliminada correctamente');
         } catch (err: any) {
             console.error('deleteSession exception:', err);
             alert(`ERROR: ${err.message || 'Error inesperado al eliminar sesión.'}`);
+            safeReload();
         }
     };
 
@@ -765,70 +897,71 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (sedeId) {
             payload.sede_id = sedeId;
         }
-        const { error } = await supabase.from('teachers').insert(payload);
-        if (error) {
-            console.error('addTeacher error:', error);
-            alert(`ERROR: No se pudo crear el profesor. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout('teachers.insert', supabase.from('teachers').insert(payload));
+            if (error) {
+                console.error('addTeacher error:', error);
+                alert(`ERROR: No se pudo crear el profesor. ${error.message || ''}`);
+                return;
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('addTeacher exception:', err);
+            alert(`ERROR: No se pudo crear el profesor. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        await safeReload();
     };
 
     const updateTeacher = async (id: string, updates: Partial<Teacher>) => {
-        // CRITICAL FIX: Do NOT use removeUndefined here.
-        // Send null for optional fields that were cleared by the user.
-        // If we omit a field (undefined), Supabase leaves the old value — causing edits to "not save".
         const payload: Record<string, any> = {
             name: updates.name,
-            // Use null (not undefined) for optional fields so Supabase clears them when empty
             surname: updates.surname || null,
             specialty: updates.specialty || null,
             email: updates.email || null,
             phone: updates.phone || null,
             notes: updates.notes || null
         };
-        // Always include name; remove it from payload only if truly missing
         if (!payload.name) {
             console.error('updateTeacher: name is required');
             return;
         }
-        const { error } = await supabase.from('teachers').update(payload).eq('id', id);
-        if (error) {
-            console.error('updateTeacher error:', error);
-            alert(`ERROR: No se pudo actualizar el profesor. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout('teachers.update', supabase.from('teachers').update(payload).eq('id', id));
+            if (error) {
+                console.error('updateTeacher error:', error);
+                alert(`ERROR: No se pudo actualizar el profesor. ${error.message || ''}`);
+                return;
+            }
+            setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+            safeReload();
+        } catch (err: any) {
+            console.error('updateTeacher exception:', err);
+            alert(`ERROR: No se pudo actualizar el profesor. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        // BOMBA 8 FIX: Optimistic update for immediate UI feedback
-        setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-        safeReload(); // Background refresh without await
     };
 
     const deleteTeacher = async (id: string) => {
+        // Optimistic UI update
+        setTeachers(prev => prev.filter(t => t.id !== id));
+
         try {
-            // First, unlink any sessions that reference this teacher
-            const { error: unlinkError1 } = await supabase
-                .from('sessions')
-                .update({ teacher_id: null })
-                .eq('teacher_id', id);
-            if (unlinkError1) console.warn('Unlink teacher_id warning:', unlinkError1.message);
+            // Best-effort unlink from sessions — silent
+            await Promise.allSettled([
+                supabase.from('sessions').update({ teacher_id: null }).eq('teacher_id', id),
+                supabase.from('sessions').update({ teacher_substitute_id: null }).eq('teacher_substitute_id', id),
+            ]);
 
-            const { error: unlinkError2 } = await supabase
-                .from('sessions')
-                .update({ teacher_substitute_id: null })
-                .eq('teacher_substitute_id', id);
-            if (unlinkError2) console.warn('Unlink substitute warning:', unlinkError2.message);
-
-            // Now delete the teacher
-            const { error } = await supabase.from('teachers').delete().eq('id', id);
+            const { error } = await withTimeout('teachers.delete', supabase.from('teachers').delete().eq('id', id));
             if (error) {
                 console.error('deleteTeacher error:', error);
                 alert(`ERROR: No se pudo eliminar el profesor. ${error.message || ''}`);
+                safeReload();
                 return;
             }
-            await safeReload();
+            console.log('deleteTeacher: profesor eliminado correctamente');
         } catch (err: any) {
             console.error('deleteTeacher exception:', err);
             alert(`ERROR: ${err.message || 'Error inesperado al eliminar profesor.'}`);
+            safeReload();
         }
     };
 
@@ -860,9 +993,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         price: row.price ?? undefined,
         assignedClasses: [],
         classType: row.class_type || undefined,
-        expiryDate: row.expiry_date || undefined,
+        expiryDate: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : undefined,
         studentCategory: row.student_category || 'membresia',
-        groupName: row.group_name || undefined
+        groupName: row.group_name || undefined,
+        bonosAsignados: row.bonos_asignados ?? 4,
+        repetirMensualmente: row.repetir_mensualmente ?? false,
+        createdAt: row.created_at || undefined
     });
 
     const resolveGiftCardRecipientStudentId = (recipient?: string): string | null => {
@@ -980,13 +1116,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (sedeId) {
             payload.sede_id = sedeId;
         }
-        const { error } = await supabase.from('pieces').insert(payload);
-        if (error) {
-            console.error('addPiece error:', error);
-            alert(`ERROR: No se pudo crear la pieza. ${error.message || ''}`.trim());
-            return;
+        try {
+            const { error } = await withTimeout('pieces.insert', supabase.from('pieces').insert(payload));
+            if (error) {
+                console.error('addPiece error:', error);
+                alert(`ERROR: No se pudo crear la pieza. ${error.message || ''}`.trim());
+                return;
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('addPiece exception:', err);
+            alert(`ERROR: No se pudo crear la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        await safeReload();
     };
 
     const updatePiece = async (id: string, updates: Partial<CeramicPiece>) => {
@@ -1002,25 +1143,39 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         };
         // Only include defined fields (avoid overwriting with undefined on partial calls)
         Object.keys(payload).forEach(k => { if (payload[k] === undefined) delete payload[k]; });
-        const { error } = await supabase.from('pieces').update(payload).eq('id', id);
-        if (error) {
-            console.error('updatePiece error:', error);
-            alert(`ERROR: No se pudo actualizar la pieza. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout('pieces.update', supabase.from('pieces').update(payload).eq('id', id));
+            if (error) {
+                console.error('updatePiece error:', error);
+                alert(`ERROR: No se pudo actualizar la pieza. ${error.message || ''}`);
+                return;
+            }
+            setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+            safeReload();
+        } catch (err: any) {
+            console.error('updatePiece exception:', err);
+            alert(`ERROR: No se pudo actualizar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        // BOMBA 8 FIX: Optimistic update for immediate UI feedback
-        setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-        safeReload(); // Background refresh without await
     };
 
     const deletePiece = async (id: string) => {
-        const { error } = await supabase.from('pieces').delete().eq('id', id);
-        if (error) {
-            console.error('deletePiece error:', error);
-            alert(`ERROR: No se pudo eliminar la pieza. ${error.message || ''}`);
-            return;
+        // Optimistic UI update
+        setPieces(prev => prev.filter(p => p.id !== id));
+
+        try {
+            const { error } = await withTimeout('pieces.delete', supabase.from('pieces').delete().eq('id', id));
+            if (error) {
+                console.error('deletePiece error:', error);
+                alert(`ERROR: No se pudo eliminar la pieza. ${error.message || ''}`);
+                safeReload();
+                return;
+            }
+            console.log('deletePiece: pieza eliminada correctamente');
+        } catch (err: any) {
+            console.error('deletePiece exception:', err);
+            alert(`ERROR: No se pudo eliminar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+            safeReload();
         }
-        await safeReload();
     };
 
     // GiftCard CRUD
@@ -1126,19 +1281,22 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             const isTimeout = typeof err?.message === 'string' && err.message.includes('Timeout en gift_cards.update');
             if (isTimeout) {
                 console.warn('updateGiftCard timeout: retrying in background', err);
-                void supabase.from('gift_cards').update(payload).eq('id', id).then(({ error }) => {
-                    if (error) {
-                        console.error('updateGiftCard background retry error:', error);
+                void (async () => {
+                    try {
+                        const { error } = await supabase.from('gift_cards').update(payload).eq('id', id);
+                        if (error) {
+                            console.error('updateGiftCard background retry error:', error);
+                            revertOptimisticUpdate();
+                            alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`);
+                            return;
+                        }
+                        safeReload();
+                    } catch (retryErr: any) {
+                        console.error('updateGiftCard background retry exception:', retryErr);
                         revertOptimisticUpdate();
-                        alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`);
-                        return;
+                        alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${retryErr?.message || ''}`);
                     }
-                    safeReload();
-                }).catch((retryErr: any) => {
-                    console.error('updateGiftCard background retry exception:', retryErr);
-                    revertOptimisticUpdate();
-                    alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${retryErr?.message || ''}`);
-                });
+                })();
                 return;
             }
 
@@ -1149,6 +1307,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deleteGiftCard = async (id: string) => {
+        // Optimistic UI update
+        setGiftCards(prev => prev.filter(gc => gc.id !== id));
+
         try {
             const { error } = await withTimeout(
                 'gift_cards.delete',
@@ -1157,14 +1318,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             if (error) {
                 console.error('deleteGiftCard error:', error);
                 alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${error.message || ''}`);
+                safeReload();
                 return;
             }
-            // Optimistic delete: evita quedarse bloqueado esperando reload de toda la app.
-            setGiftCards(prev => prev.filter(gc => gc.id !== id));
-            safeReload(); // Background refresh without await
+            console.log('deleteGiftCard: tarjeta eliminada correctamente');
         } catch (err: any) {
             console.error('deleteGiftCard exception:', err);
             alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${err?.message || ''}`);
+            safeReload();
         }
     };
 
@@ -1194,13 +1355,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             notes: newItem.notes
         });
         if (sedeId) payload.sede_id = sedeId;
-        const { error } = await supabase.from('inventory_items').insert(payload);
-        if (error) {
-            console.error('addInventoryItem error:', error);
-            alert(`ERROR: No se pudo crear el item. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout('inventory_items.insert', supabase.from('inventory_items').insert(payload));
+            if (error) {
+                console.error('addInventoryItem error:', error);
+                alert(`ERROR: No se pudo crear el item. ${error.message || ''}`);
+                return;
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('addInventoryItem exception:', err);
+            alert(`ERROR: No se pudo crear el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        await safeReload();
     };
 
     // BOMBA 1 FIX: Do NOT use removeUndefined for updates.
@@ -1227,15 +1393,19 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (recipeValue !== undefined) payload.recipe = recipeValue || null;
         if (updates.notes !== undefined) payload.notes = updates.notes || null;
 
-        const { error } = await supabase.from('inventory_items').update(payload).eq('id', id);
-        if (error) {
-            console.error('updateInventoryItem error:', error);
-            alert(`ERROR: No se pudo actualizar el item. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout('inventory_items.update', supabase.from('inventory_items').update(payload).eq('id', id));
+            if (error) {
+                console.error('updateInventoryItem error:', error);
+                alert(`ERROR: No se pudo actualizar el item. ${error.message || ''}`);
+                return;
+            }
+            setInventoryItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+            safeReload();
+        } catch (err: any) {
+            console.error('updateInventoryItem exception:', err);
+            alert(`ERROR: No se pudo actualizar el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        // BOMBA 8 FIX: Optimistic update for immediate UI feedback
-        setInventoryItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
-        safeReload(); // Background refresh without await
     };
 
     const archiveInventoryItem = async (id: string) => {
@@ -1243,33 +1413,36 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     };
 
     const deleteInventoryItem = async (id: string) => {
-        // First delete associated movements
-        const { error: movError } = await supabase
-            .from('inventory_movements')
-            .delete()
-            .or(`item_id.eq.${id},inventory_item_id.eq.${id}`);
-        if (movError) {
-            console.error('deleteInventoryItem (movements) error:', movError);
+        // Optimistic UI update
+        setInventoryItems(prev => prev.filter(i => i.id !== id));
+
+        try {
+            // Best-effort cleanup of movements — silent
+            await Promise.allSettled([
+                supabase.from('inventory_movements').delete().or(`item_id.eq.${id},inventory_item_id.eq.${id}`),
+            ]);
+
+            const { error } = await withTimeout('inventory_items.delete', supabase.from('inventory_items').delete().eq('id', id));
+            if (error) {
+                console.error('deleteInventoryItem error:', error);
+                alert(`ERROR: No se pudo eliminar el item. ${error.message || ''}`);
+                safeReload();
+                return;
+            }
+            console.log('deleteInventoryItem: item eliminado correctamente');
+        } catch (err: any) {
+            console.error('deleteInventoryItem exception:', err);
+            alert(`ERROR: No se pudo eliminar el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+            safeReload();
         }
-        // Then delete the item itself
-        const { error } = await supabase.from('inventory_items').delete().eq('id', id);
-        if (error) {
-            console.error('deleteInventoryItem error:', error);
-            alert(`ERROR: No se pudo eliminar el item. ${error.message || ''}`);
-            return;
-        }
-        await safeReload();
     };
 
     const addInventoryMovement = async (newMov: Omit<InventoryMovement, 'id'>) => {
-        // DB: inventory_item_id (NOT NULL, FK CASCADE), item_id (nullable, FK CASCADE),
-        //     quantity (NOT NULL numeric), new_quantity (nullable), date (text), type (NOT NULL enum)
-        // For 'adjust' type, quantity is NOT NULL so we send 0 as sentinel
         const payload: any = {
-            inventory_item_id: newMov.item_id,  // NOT NULL FK
-            item_id: newMov.item_id,             // nullable FK (kept for compatibility)
+            inventory_item_id: newMov.item_id,
+            item_id: newMov.item_id,
             type: newMov.type,
-            quantity: newMov.quantity ?? 0,      // NOT NULL — adjustments send 0
+            quantity: newMov.quantity ?? 0,
             new_quantity: newMov.new_quantity ?? null,
             unit: newMov.unit,
             reason: newMov.reason,
@@ -1277,13 +1450,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             notes: newMov.notes || null
         };
         if (sedeId) payload.sede_id = sedeId;
-        const { error } = await supabase.from('inventory_movements').insert(payload);
-        if (error) {
-            console.error('addInventoryMovement error:', error);
-            alert(`ERROR: No se pudo registrar el movimiento. ${error.message || ''}`);
-            return;
+        try {
+            const { error } = await withTimeout('inventory_movements.insert', supabase.from('inventory_movements').insert(payload));
+            if (error) {
+                console.error('addInventoryMovement error:', error);
+                alert(`ERROR: No se pudo registrar el movimiento. ${error.message || ''}`);
+                return;
+            }
+            safeReload();
+        } catch (err: any) {
+            console.error('addInventoryMovement exception:', err);
+            alert(`ERROR: No se pudo registrar el movimiento. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         }
-        await safeReload();
     };
 
     const value: DataContextType = {

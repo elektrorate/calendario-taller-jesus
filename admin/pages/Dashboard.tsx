@@ -1,14 +1,21 @@
 
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Card, Button, Icon, ActivityPill, DaySelector } from '../components/UI';
+import { Card, Button, Icon, ActivityPill } from '../components/UI';
 import { useNavigate } from 'react-router-dom';
+import { WorkshopStatus } from '../types';
 
 export const Dashboard: React.FC = () => {
-  const { workshops, users } = useAppContext();
+  const { workshops, users, globalMetrics } = useAppContext();
   const navigate = useNavigate();
 
-
+  const activeWorkshops = workshops.filter(w => w.estado === WorkshopStatus.ACTIVE).length;
+  const adminUsers = users.length;
+  const totalStudents = globalMetrics.totalStudents;
+  const temporaryStudents = globalMetrics.temporaryStudents;
+  const activeGiftCards = globalMetrics.activeGiftCards;
+  const totalGiftCards = globalMetrics.totalGiftCards;
+  const expiredGiftCards = globalMetrics.expiredGiftCards;
 
   return (
     <div className="animate-fade-in max-w-7xl mx-auto">
@@ -42,23 +49,23 @@ export const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 gap-6 max-w-2xl">
             <ActivityPill
               label="Talleres Activos"
-              value={`${workshops.filter(w => w.estado === 'active').length} / ${workshops.length}`}
+              value={`${activeWorkshops} / ${workshops.length}`}
               status="Operativo"
-              percentage={`${workshops.length > 0 ? Math.round((workshops.filter(w => w.estado === 'active').length / workshops.length) * 100) : 0}%`}
+              percentage={`${workshops.length > 0 ? Math.round((activeWorkshops / workshops.length) * 100) : 0}%`}
               iconBg="#C17D5C"
             />
             <ActivityPill
               label="Usuarios"
-              value={`${users.length}`}
-              status="Total Registrados"
-              percentage="100%"
+              value={`${adminUsers} / ${totalStudents}`}
+              status="Admins / Alumnos"
+              percentage={`${temporaryStudents} TEMP`}
               iconBg="#8B6452"
             />
             <ActivityPill
-              label="Sistema"
-              value="En Línea"
-              status="Estado del Servicio"
-              percentage="100%"
+              label="Bonos"
+              value={`${activeGiftCards} / ${totalGiftCards}`}
+              status="Vigentes / Total"
+              percentage={`${expiredGiftCards} VENC`}
               iconBg="#312A2C"
             />
           </div>

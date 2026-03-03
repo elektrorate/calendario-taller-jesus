@@ -79,14 +79,10 @@ const GiftCardItem: React.FC<{
                 <p className={`text-[13px] font-bold uppercase ${isExpired ? 'text-red-500' : 'text-[#3F373A]'}`}>{formatDateOnly(card.expiryDate)}</p>
               </div>
             )}
-            {card.scheduledDate ? (
+            {card.scheduledDate && (
               <div>
                 <p className="text-[9px] text-[#CB7859] font-bold uppercase tracking-widest mb-0.5">CITA ASIGNADA</p>
                 <p className="text-[13px] font-bold text-[#3F373A] uppercase">{formatDateOnly(card.scheduledDate)}</p>
-              </div>
-            ) : (
-              <div className="px-4 py-2 bg-[#F6F2EE] text-[#CB7859] rounded-xl text-[10px] font-bold uppercase tracking-widest border border-[#DED3CD] hover:bg-white transition-all">
-                PENDIENTE
               </div>
             )}
           </div>
@@ -351,16 +347,12 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
         message="¿Estás seguro de que deseas eliminar esta tarjeta regalo? Esta acción no se puede deshacer."
         isDestructive={true}
         loading={isSubmitting}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (cardToDelete && !isSubmitting) {
-            setIsSubmitting(true);
-            try {
-              await onDeleteGiftCard(cardToDelete);
-              setCardToDelete(null);
-              setShowModal(false);
-            } finally {
-              setIsSubmitting(false);
-            }
+            const id = cardToDelete;
+            setCardToDelete(null);
+            setShowModal(false);
+            onDeleteGiftCard(id);
           }
         }}
         onCancel={() => !isSubmitting && setCardToDelete(null)}

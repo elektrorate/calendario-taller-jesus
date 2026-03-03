@@ -64,3 +64,18 @@ export interface Invitation {
   fechaEnvio: string;
   estado: InvitationStatus;
 }
+
+export interface WorkshopDataMetrics {
+  totalStudents: number;
+  membershipStudents: number;
+  temporaryStudents: number;
+  totalGiftCards: number;
+  activeGiftCards: number;
+  expiredGiftCards: number;
+  unlinkedGiftCards: number;
+  missingExpiryGiftCards: number;
+  totalSessions: number;
+  temporalSessions: number;
+  membershipSessions: number;
+  nullAudienceSessions: number;
+}

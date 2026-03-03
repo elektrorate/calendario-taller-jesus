@@ -4,15 +4,50 @@ import { useAppContext } from '../context/AppContext';
 import { Card, Button } from '../components/UI';
 
 export const Reports: React.FC = () => {
-    const { workshops, users, showToast } = useAppContext();
+    const { workshops, users, workshopMetrics, globalMetrics, showToast } = useAppContext();
 
     const handleExport = (type: string) => {
         showToast(`Generando reporte CSV de ${type}...`, 'info');
 
         try {
-            const headers = ['Nombre Taller', 'Admin General', 'Email', 'Teléfono', 'País', 'Ciudad', 'Dirección', 'Estado'];
+            const headers = [
+                'Nombre Taller',
+                'Admin General',
+                'Email',
+                'Teléfono',
+                'País',
+                'Ciudad',
+                'Dirección',
+                'Estado',
+                'Alumnos Totales',
+                'Alumnos Membresía',
+                'Alumnos Temporales',
+                'Bonos Totales',
+                'Bonos Vigentes',
+                'Bonos Vencidos',
+                'Bonos Sin Enlace',
+                'Bonos Sin Expiración',
+                'Sesiones Totales',
+                'Sesiones Temporal',
+                'Sesiones Membresía',
+                'Sesiones Sin Audiencia'
+            ];
             const rows = workshops.map(w => {
                 const admin = users.find(u => u.id === w.adminGeneralUserId);
+                const metrics = workshopMetrics[w.id] || {
+                    totalStudents: 0,
+                    membershipStudents: 0,
+                    temporaryStudents: 0,
+                    totalGiftCards: 0,
+                    activeGiftCards: 0,
+                    expiredGiftCards: 0,
+                    unlinkedGiftCards: 0,
+                    missingExpiryGiftCards: 0,
+                    totalSessions: 0,
+                    temporalSessions: 0,
+                    membershipSessions: 0,
+                    nullAudienceSessions: 0
+                };
                 return [
                     w.nombre || '',
                     admin?.nombre || 'Sin asignar',
@@ -21,7 +56,19 @@ export const Reports: React.FC = () => {
                     w.pais || '',
                     w.ciudad || '',
                     w.direccion || '',
-                    w.estado || 'Desconocido'
+                    w.estado || 'Desconocido',
+                    metrics.totalStudents,
+                    metrics.membershipStudents,
+                    metrics.temporaryStudents,
+                    metrics.totalGiftCards,
+                    metrics.activeGiftCards,
+                    metrics.expiredGiftCards,
+                    metrics.unlinkedGiftCards,
+                    metrics.missingExpiryGiftCards,
+                    metrics.totalSessions,
+                    metrics.temporalSessions,
+                    metrics.membershipSessions,
+                    metrics.nullAudienceSessions
                 ];
             });
 
@@ -51,6 +98,8 @@ export const Reports: React.FC = () => {
         acc[curr.pais] = (acc[curr.pais] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
+    const missingWorkshopContacts = workshops.filter(w => !w.emailTaller || !w.telefonoTaller).length;
+    const dataModelAlerts = globalMetrics.unlinkedGiftCards + globalMetrics.missingExpiryGiftCards + globalMetrics.nullAudienceSessions;
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -94,9 +143,9 @@ export const Reports: React.FC = () => {
                         <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-xl">
                             <div>
                                 <p className="font-bold text-blue-800">Datos incompletos</p>
-                                <p className="text-sm text-blue-600">Falta email o teléfono de contacto</p>
+                                <p className="text-sm text-blue-600">Contactos + modelo temporal/bonos/audiencia</p>
                             </div>
-                            <span className="text-2xl font-bold text-blue-800">{workshops.filter(w => !w.emailTaller || !w.telefonoTaller).length}</span>
+                            <span className="text-2xl font-bold text-blue-800">{missingWorkshopContacts + dataModelAlerts}</span>
                         </div>
                     </div>
                 </Card>

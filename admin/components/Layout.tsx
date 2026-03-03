@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { Toast, Icon, Button } from './UI';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { toast, currentUser, logout, workshops, showToast } = useAppContext();
+  const { toast, currentUser, logout, workshops, globalMetrics, showToast } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -35,7 +35,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     }, 1200);
   };
 
-  const alertsCount = workshops.filter(w => !w.adminGeneralUserId).length;
+  const alertsCount =
+    workshops.filter(w => !w.adminGeneralUserId).length +
+    globalMetrics.unlinkedGiftCards +
+    globalMetrics.missingExpiryGiftCards +
+    globalMetrics.nullAudienceSessions;
   const displayName = currentUser?.nombre || (isLoggingOut ? 'CERRANDO SESIÓN' : 'ADMIN');
   const displayStatus = currentUser ? 'ACTIVO' : (isLoggingOut ? 'CERRANDO' : 'SIN SESIÓN');
 

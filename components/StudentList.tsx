@@ -13,30 +13,21 @@ interface StudentListProps {
 }
 
 type TabType = 'all' | 'active' | 'pending';
-type CategoryFilter = 'todos' | 'membresia' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal';
+type CategoryFilter = 'todos' | 'membresia' | 'temporal';
 
 const CATEGORY_LABELS: Record<string, string> = {
   membresia: 'Membresía',
-  iniciacion: 'Iniciación',
-  grupal: 'Grupal',
-  temporal: 'Temporal',
-  grupo_temporal: 'Grupo Temporal'
+  temporal: 'Temporal'
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
   membresia: 'bg-brand text-white',
-  iniciacion: 'bg-blue-500 text-white',
-  grupal: 'bg-purple-500 text-white',
-  temporal: 'bg-amber-500 text-white',
-  grupo_temporal: 'bg-orange-500 text-white'
+  temporal: 'bg-amber-500 text-white'
 };
 
 const CATEGORY_BADGE_LIGHT: Record<string, string> = {
   membresia: 'bg-brand/10 text-brand border-brand/20',
-  iniciacion: 'bg-blue-50 text-blue-600 border-blue-100',
-  grupal: 'bg-purple-50 text-purple-600 border-purple-100',
-  temporal: 'bg-amber-50 text-amber-700 border-amber-100',
-  grupo_temporal: 'bg-orange-50 text-orange-600 border-orange-100'
+  temporal: 'bg-amber-50 text-amber-700 border-amber-100'
 };
 
 const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRenew, onUpdate, onDeleteStudent, selectedStudentId, onClearSelectedStudent }) => {
@@ -62,8 +53,10 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     classType: 'Modelado',
     expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
     assignedClasses: [] as AssignedClass[],
-    studentCategory: 'membresia' as 'membresia' | 'iniciacion' | 'grupal' | 'temporal' | 'grupo_temporal',
-    groupName: ''
+    studentCategory: 'membresia' as 'membresia' | 'temporal',
+    groupName: '',
+    bonosAsignados: 4,
+    repetirMensualmente: false
   });
 
   const [newSessionDate, setNewSessionDate] = useState('');
@@ -101,7 +94,9 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       expiryDate: student.expiryDate || '',
       assignedClasses: student.assignedClasses || [],
       studentCategory: student.studentCategory || 'membresia',
-      groupName: student.groupName || ''
+      groupName: student.groupName || '',
+      bonosAsignados: student.bonosAsignados ?? 4,
+      repetirMensualmente: student.repetirMensualmente ?? false
     });
     setShowModal(true);
   };
@@ -114,7 +109,8 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       name: '', surname: '', email: '', phone: '', notes: '', observations: '',
       classesRemaining: 4, price: 100, paymentStatus: 'paid', classType: 'Modelado',
       expiryDate: nextMonth.toISOString().split('T')[0], assignedClasses: [],
-      studentCategory: 'membresia', groupName: ''
+      studentCategory: 'membresia', groupName: '',
+      bonosAsignados: 4, repetirMensualmente: false
     });
     setShowModal(true);
   };
@@ -126,17 +122,11 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
       alert('El nombre es obligatorio.');
       return;
     }
-    // Require groupName for grupal / grupo_temporal
-    if ((form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') && !form.groupName.trim()) {
-      alert('Debes asignar un nombre de grupo.');
-      return;
-    }
     setIsSubmitting(true);
     const data = {
       ...form,
       status: getCalculatedStatus(form) as 'needs_renewal' | 'membresia',
-      // BOMBA 2 FIX: Send '' (not undefined) so buildStudentPayload passes null to DB and clears the field
-      groupName: (form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal') ? form.groupName : ''
+      groupName: ''
     };
     try {
       if (editingStudent?.id) await onUpdate(editingStudent.id, data);
@@ -158,7 +148,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     setNewSessionDate('');
   };
 
-  const needsGroup = form.studentCategory === 'grupal' || form.studentCategory === 'grupo_temporal';
+
 
   const filteredStudents = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -186,10 +176,11 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
 
   // Count per category
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { todos: students.length, membresia: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
+    const counts: Record<string, number> = { todos: students.length, membresia: 0, temporal: 0 };
     students.forEach(s => {
       const cat = s.studentCategory || 'membresia';
-      if (counts[cat] !== undefined) counts[cat]++;
+      if (cat === 'membresia') counts.membresia++;
+      if (cat === 'temporal') counts.temporal++;
     });
     return counts;
   }, [students]);
@@ -210,7 +201,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
 
         {/* Category pills */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {(['todos', 'membresia', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as CategoryFilter[]).map(cat => (
+          {(['todos', 'membresia', 'temporal'] as CategoryFilter[]).map(cat => (
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat)}
@@ -305,15 +296,15 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
 
                 <div className="mt-auto space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">CLASES</span>
+                    <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">BONOS</span>
                     <span className={`text-[18px] font-black ${isPending ? 'text-red-500' : 'text-neutral-textMain'}`}>
-                      {s.classesRemaining}
+                      {s.classesRemaining}<span className="text-[13px] font-bold text-neutral-textHelper">/{s.bonosAsignados || 4}</span>
                     </span>
                   </div>
-                  <div className="w-full h-1 bg-neutral-alt rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-neutral-alt rounded-full overflow-hidden">
                     <div
-                      className={`h-full transition-all duration-700 ${isPending ? 'bg-red-400' : 'bg-green-400'}`}
-                      style={{ width: `${Math.min(100, (s.classesRemaining / 4) * 100)}%` }}
+                      className={`h-full transition-all duration-700 rounded-full ${isPending ? 'bg-red-400' : 'bg-green-400'}`}
+                      style={{ width: `${Math.min(100, (s.classesRemaining / (s.bonosAsignados || 4)) * 100)}%` }}
                     />
                   </div>
                   <span className={`inline-block w-full text-center py-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border ${isPending ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
@@ -350,6 +341,19 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
             <div className="flex-1 overflow-y-auto custom-scrollbar px-10 pb-44">
               <form onSubmit={handleSubmit} className="space-y-12 pt-6">
 
+                {/* ─── FECHA DE CREACIÓN (auto, no editable) ─── */}
+                <div className="flex items-center gap-4 p-4 bg-neutral-sec/60 rounded-2xl border border-neutral-border">
+                  <svg className="w-5 h-5 text-neutral-textHelper shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <div>
+                    <p className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-textHelper">FECHA DE CREACIÓN</p>
+                    <p className="text-[13px] font-bold text-neutral-textMain">
+                      {editingStudent?.createdAt
+                        ? new Date(editingStudent.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : 'Se generará automáticamente'}
+                    </p>
+                  </div>
+                </div>
+
                 {/* ─── 1. INFORMACIÓN PERSONAL (PRIMERO según solicitud) ─── */}
                 <section className="space-y-6">
                   <div className="flex items-center gap-3 mb-2">
@@ -370,12 +374,12 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                     <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
                     <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Categoría del Alumno</h4>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {(['membresia', 'iniciacion', 'grupal', 'temporal', 'grupo_temporal'] as const).map(cat => (
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['membresia', 'temporal'] as const).map(cat => (
                       <button
                         key={cat}
                         type="button"
-                        onClick={() => setForm({ ...form, studentCategory: cat, groupName: (cat === 'grupal' || cat === 'grupo_temporal') ? form.groupName : '' })}
+                        onClick={() => setForm({ ...form, studentCategory: cat })}
                         className={`py-4 rounded-2xl font-extrabold text-[11px] uppercase tracking-widest border transition-all ${form.studentCategory === cat
                           ? CATEGORY_COLORS[cat] + ' border-transparent shadow-md scale-[1.02]'
                           : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textMain'
@@ -385,20 +389,6 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                       </button>
                     ))}
                   </div>
-
-                  {/* Group name input — only for grupal / grupo_temporal */}
-                  {needsGroup && (
-                    <div className="mt-4 animate-fade-in">
-                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper mb-2 ml-2">NOMBRE DEL GRUPO</label>
-                      <input
-                        required
-                        value={form.groupName}
-                        onChange={(e) => setForm({ ...form, groupName: e.target.value })}
-                        placeholder="Ej: Grupo de los viernes, Equipo piloto..."
-                        className="w-full p-5 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-purple-400 outline-none transition-all"
-                      />
-                    </div>
-                  )}
                 </section>
 
                 {/* ─── 3. TIPO DE CLASE Y PAGO ─── */}
@@ -442,9 +432,23 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-1.5 h-6 bg-brand rounded-full"></div>
-                    <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Gestion de Bonos</h4>
+                    <h4 className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-widest">Gestión de Bonos</h4>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                  {/* Bonos contratados + restantes */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper ml-2">BONOS CONTRATADOS</label>
+                      <div className="flex items-center bg-white border border-neutral-border rounded-2xl overflow-hidden p-1 shadow-sm">
+                        <button type="button" onClick={() => setForm(f => ({ ...f, bonosAsignados: Math.max(1, f.bonosAsignados - 1) }))} className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 flex items-center justify-center text-brand hover:bg-neutral-alt transition-colors font-black">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M18 12H6" /></svg>
+                        </button>
+                        <input type="number" readOnly value={form.bonosAsignados} className="flex-1 min-w-0 text-center font-black text-[18px] md:text-xl outline-none bg-transparent" />
+                        <button type="button" onClick={() => setForm(f => ({ ...f, bonosAsignados: f.bonosAsignados + 1 }))} className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 flex items-center justify-center text-brand hover:bg-neutral-alt transition-colors font-black">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                        </button>
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper ml-2">CLASES RESTANTES</label>
                       <div className="flex items-center bg-white border border-neutral-border rounded-2xl overflow-hidden p-1 shadow-sm">
@@ -457,14 +461,56 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Barra de progreso visual */}
+                  {form.bonosAsignados > 0 && (
+                    <div className="mb-4 p-4 bg-neutral-sec rounded-2xl border border-neutral-border">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper">USO DE BONOS</span>
+                        <span className="text-[12px] font-black text-neutral-textMain">{form.classesRemaining}/{form.bonosAsignados}</span>
+                      </div>
+                      <div className="w-full h-2 bg-neutral-alt rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 rounded-full ${form.classesRemaining <= 0 ? 'bg-red-400' : form.classesRemaining <= Math.ceil(form.bonosAsignados * 0.25) ? 'bg-amber-400' : 'bg-green-400'}`}
+                          style={{ width: `${Math.min(100, (form.classesRemaining / form.bonosAsignados) * 100)}%` }}
+                        />
+                      </div>
+                      {form.classesRemaining <= 0 && (
+                        <p className="text-[10px] font-bold text-red-500 mt-2 uppercase tracking-wider">⚠ Sin bonos disponibles</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Expiración + Repetir mensual */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper ml-2">EXPIRACION</label>
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper ml-2">EXPIRACIÓN</label>
                       <input
                         type="date"
                         value={form.expiryDate}
                         onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
                         className="w-full p-4 bg-white border border-neutral-border rounded-2xl text-[15px] font-bold shadow-sm"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper ml-2">RENOVACIÓN AUTO</label>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, repetirMensualmente: !f.repetirMensualmente }))}
+                        className={`w-full p-4 rounded-2xl font-bold text-[13px] uppercase tracking-widest border transition-all flex items-center justify-center gap-3 ${form.repetirMensualmente
+                          ? 'bg-brand text-white border-brand shadow-md'
+                          : 'bg-white text-neutral-textHelper border-neutral-border hover:border-brand'
+                          }`}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {form.repetirMensualmente
+                            ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                            : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          }
+                        </svg>
+                        {form.repetirMensualmente ? 'Activo' : 'Repetir Mensual'}
+                      </button>
                     </div>
                   </div>
                 </section>
@@ -576,11 +622,15 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
         title="¿Eliminar alumno?"
         message="¿Seguro que deseas eliminar el historial de este alumno? Esta acción no se puede deshacer."
         isDestructive={true}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (studentToDelete) {
-            await onDeleteStudent(studentToDelete);
+            const idToDelete = studentToDelete;
+            // Close modals IMMEDIATELY — don't wait for network
             setStudentToDelete(null);
             setShowModal(false);
+            setEditingStudent(null);
+            // Fire-and-forget: deleteStudent already does optimistic UI removal
+            onDeleteStudent(idToDelete);
           }
         }}
         onCancel={() => setStudentToDelete(null)}

@@ -283,10 +283,11 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
         title="¿Eliminar profesor?"
         message="Esta acción no se puede deshacer. Las clases concluidas seguirán mostrando su nombre pero se desvincularán de su perfil."
         isDestructive={true}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (teacherToDelete) {
-            await onDeleteTeacher(teacherToDelete);
+            const id = teacherToDelete;
             setTeacherToDelete(null);
+            onDeleteTeacher(id);
           }
         }}
         onCancel={() => setTeacherToDelete(null)}

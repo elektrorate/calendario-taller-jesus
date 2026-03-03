@@ -58,7 +58,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, piece
     const totalSessions = sessions.length;
 
     // Students by category
-    const byCategory: Record<string, number> = { membresia: 0, iniciacion: 0, grupal: 0, temporal: 0, grupo_temporal: 0 };
+    const byCategory: Record<string, number> = { membresia: 0, temporal: 0 };
     students.forEach(s => {
       const cat = s.studentCategory || 'membresia';
       if (byCategory[cat] !== undefined) byCategory[cat]++;
@@ -176,8 +176,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, piece
     }, 2000);
   }, [onUpdateSession]);
 
-  const CATEGORY_LABELS: Record<string, string> = { membresia: 'Membresía', iniciacion: 'Iniciación', grupal: 'Grupal', temporal: 'Temporal', grupo_temporal: 'Grupo T.' };
-  const CATEGORY_COLORS: Record<string, string> = { membresia: 'bg-brand', iniciacion: 'bg-blue-500', grupal: 'bg-purple-500', temporal: 'bg-amber-500', grupo_temporal: 'bg-orange-500' };
+  const CATEGORY_LABELS: Record<string, string> = { membresia: 'Membresía', temporal: 'Temporal' };
+  const CATEGORY_COLORS: Record<string, string> = { membresia: 'bg-brand', temporal: 'bg-amber-500' };
 
   return (
     <div className="h-full flex flex-col bg-neutral-base overflow-hidden animate-fade-in">
