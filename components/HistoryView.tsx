@@ -265,12 +265,12 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
                   className={`px-2.5 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border transition-all ${categoryFilter === cat
-                      ? (cat === 'todos'
-                        ? 'bg-neutral-textMain text-white border-neutral-textMain'
-                        : cat === 'bonos_especiales'
-                          ? 'bg-brand text-white border-transparent'
-                          : CATEGORY_COLORS[cat] + ' border-transparent')
-                      : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
+                    ? (cat === 'todos'
+                      ? 'bg-neutral-textMain text-white border-neutral-textMain'
+                      : cat === 'bonos_especiales'
+                        ? 'bg-brand text-white border-transparent'
+                        : CATEGORY_COLORS[cat] + ' border-transparent')
+                    : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
                     }`}
                 >
                   {cat === 'todos' ? 'Todos' : cat === 'bonos_especiales' ? 'Bonos especiales' : CATEGORY_LABELS[cat]}
@@ -448,9 +448,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                               <p className="text-[10px] font-bold text-neutral-textHelper uppercase tracking-widest">
                                 Emitido: <span className="text-neutral-textSec">{formatGiftCardDate(card.createdAt)}</span>
                               </p>
-                              {card.scheduledDate && (
+                              {card.issuedDate && (
                                 <p className="text-[10px] font-bold text-neutral-textHelper uppercase tracking-widest">
-                                  Cita: <span className="text-neutral-textSec">{formatGiftCardDate(card.scheduledDate)}</span>
+                                  Emitido: <span className="text-neutral-textSec">{formatGiftCardDate(card.issuedDate)}</span>
                                 </p>
                               )}
                             </div>

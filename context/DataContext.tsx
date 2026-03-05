@@ -192,7 +192,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 id: row.id, buyer: row.buyer, recipient: row.recipient,
                 recipientStudentId: row.recipient_student_id || undefined,
                 numClasses: row.num_classes, type: row.type,
-                scheduledDate: row.scheduled_date || undefined,
+                issuedDate: row.scheduled_date || undefined,
                 expiryDate: row.expiry_date || undefined, createdAt: row.created_at,
                 extraCommentary: row.extra_commentary || undefined
             }));

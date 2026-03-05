@@ -156,7 +156,7 @@ const SettingsView: React.FC = () => {
         addSheet('Bonos Regalo', giftCards.map(g => ({
           Comprador: g.buyer || '', Destinatario: g.recipient || '',
           'Nº Clases': g.numClasses ?? '', Tipo: g.type || '',
-          'Fecha programada': g.scheduledDate || '', Comentarios: g.extraCommentary || ''
+          'Fecha de emisión': g.issuedDate || '', Comentarios: g.extraCommentary || ''
         })));
       }
       if (mode === 'all' || mode === 'inventory') {

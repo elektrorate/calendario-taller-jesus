@@ -92,7 +92,7 @@ export interface GiftCard {
   recipientStudentId?: string;
   numClasses: number;
   type: 'modelado' | 'torno';
-  scheduledDate?: string;
+  issuedDate?: string;
   expiryDate?: string;
   createdAt: string; // ISO format
   extraCommentary?: string;

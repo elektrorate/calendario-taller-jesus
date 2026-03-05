@@ -387,7 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
       showToast('Taller creado con éxito', 'success');
-      await Promise.all([fetchWorkshops(), fetchOperationalMetrics()]);
+      Promise.all([fetchWorkshops(), fetchOperationalMetrics()]);
       return true;
     } catch (err: any) {
       showToast('Error inesperado creando taller: ' + (err.message || ''), 'error');
@@ -418,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
       showToast('Taller actualizado', 'success');
-      await Promise.all([fetchWorkshops(), fetchOperationalMetrics()]);
+      Promise.all([fetchWorkshops(), fetchOperationalMetrics()]);
       return true;
     } catch (err: any) {
       showToast('Error inesperado actualizando taller: ' + (err.message || ''), 'error');
@@ -454,7 +454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       showToast('Taller y usuario eliminados correctamente', 'success');
-      await Promise.all([fetchWorkshops(), fetchUsers(), fetchOperationalMetrics()]);
+      Promise.all([fetchWorkshops(), fetchUsers(), fetchOperationalMetrics()]);
       return true;
     } catch (err: any) {
       showToast('Error inesperado: ' + (err.message || ''), 'error');
@@ -497,7 +497,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('User created but no ID returned immediately', data);
         if (data.email) {
           showToast(`Usuario ${user.nombre} creado correctamente`, 'success');
-          await Promise.all([fetchUsers(), fetchWorkshops(), fetchOperationalMetrics()]);
+          Promise.all([fetchUsers(), fetchWorkshops(), fetchOperationalMetrics()]);
           return { userId: data.id };
         }
         throw new Error('El servidor no devolvió el ID del usuario');
@@ -513,8 +513,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       showToast(`Usuario ${user.nombre} creado correctamente`, 'success');
-      // Refresh both users AND workshops since Edge Function now auto-creates a sede
-      await Promise.all([fetchUsers(), fetchWorkshops(), fetchOperationalMetrics()]);
+      // Fire-and-forget: refresh in background, don't block the UI
+      Promise.all([fetchUsers(), fetchWorkshops(), fetchOperationalMetrics()]);
       return { userId, sedeId: data.sede?.id };
 
     } catch (err: any) {
@@ -535,7 +535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Error actualizando usuario', 'error');
       return;
     }
-    await fetchUsers();
+    fetchUsers();
     showToast('Usuario actualizado', 'info');
   };
 

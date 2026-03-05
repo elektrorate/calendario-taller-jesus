@@ -79,10 +79,10 @@ const GiftCardItem: React.FC<{
                 <p className={`text-[13px] font-bold uppercase ${isExpired ? 'text-red-500' : 'text-[#3F373A]'}`}>{formatDateOnly(card.expiryDate)}</p>
               </div>
             )}
-            {card.scheduledDate && (
+            {card.issuedDate && (
               <div>
-                <p className="text-[9px] text-[#CB7859] font-bold uppercase tracking-widest mb-0.5">CITA ASIGNADA</p>
-                <p className="text-[13px] font-bold text-[#3F373A] uppercase">{formatDateOnly(card.scheduledDate)}</p>
+                <p className="text-[9px] text-[#CB7859] font-bold uppercase tracking-widest mb-0.5">EMITIDO</p>
+                <p className="text-[13px] font-bold text-[#3F373A] uppercase">{formatDateOnly(card.issuedDate)}</p>
               </div>
             )}
           </div>
@@ -105,7 +105,7 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
     numClasses: 2,
     type: 'modelado' as GiftCard['type'],
     expiryDate: '',
-    scheduledDate: '',
+    issuedDate: '',
     extraCommentary: ''
   };
   const [form, setForm] = useState(initialFormState);
@@ -118,7 +118,7 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
       numClasses: card.numClasses,
       type: card.type,
       expiryDate: card.expiryDate ? card.expiryDate.split('T')[0] : '',
-      scheduledDate: card.scheduledDate ? card.scheduledDate.split('T')[0] : '',
+      issuedDate: card.issuedDate ? card.issuedDate.split('T')[0] : '',
       extraCommentary: card.extraCommentary || ''
     });
     setShowModal(true);
@@ -156,7 +156,7 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
       const cardData = {
         ...form,
         expiryDate: form.expiryDate || undefined,
-        scheduledDate: form.scheduledDate ? `${form.scheduledDate}T10:00:00` : undefined
+        issuedDate: form.issuedDate ? `${form.issuedDate}T10:00:00` : undefined
       };
       // Close modal immediately — Supabase operations run in background
       setShowModal(false);
@@ -300,11 +300,11 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-[#CB7859] uppercase tracking-[0.08em] mb-2">FECHA DE CITA (OPCIONAL)</label>
+                  <label className="block text-[11px] font-semibold text-[#CB7859] uppercase tracking-[0.08em] mb-2">FECHA DE EMISIÓN</label>
                   <input
                     type="date"
-                    value={form.scheduledDate}
-                    onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })}
+                    value={form.issuedDate}
+                    onChange={(e) => setForm({ ...form, issuedDate: e.target.value })}
                     className="w-full px-4 h-[48px] bg-[#F6F2EE] border border-[#DED3CD] rounded-[14px] text-[15px] font-medium text-[#3F373A] focus:outline-none focus:border-[#CB7859]"
                   />
                 </div>

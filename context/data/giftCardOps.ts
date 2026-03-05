@@ -60,7 +60,7 @@ export const addGiftCard = async (ctx: OpsContext, newCard: Omit<GiftCard, 'id' 
     const payload: any = {
         buyer: newCard.buyer, recipient: newCard.recipient, recipient_student_id: resolvedId,
         num_classes: newCard.numClasses, type: newCard.type,
-        scheduled_date: newCard.scheduledDate || null, extra_commentary: newCard.extraCommentary || null
+        scheduled_date: newCard.issuedDate || null, extra_commentary: newCard.extraCommentary || null
     };
     if (newCard.expiryDate) payload.expiry_date = newCard.expiryDate;
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
@@ -71,7 +71,7 @@ export const addGiftCard = async (ctx: OpsContext, newCard: Omit<GiftCard, 'id' 
             const mapped: GiftCard = {
                 id: data.id, buyer: data.buyer, recipient: data.recipient,
                 recipientStudentId: data.recipient_student_id || undefined, numClasses: data.num_classes,
-                type: data.type, scheduledDate: data.scheduled_date || undefined,
+                type: data.type, issuedDate: data.scheduled_date || undefined,
                 expiryDate: data.expiry_date || undefined, createdAt: data.created_at,
                 extraCommentary: data.extra_commentary || undefined
             };
@@ -99,7 +99,7 @@ export const updateGiftCard = async (ctx: OpsContext, id: string, updates: Parti
     }
     if (updates.numClasses !== undefined) payload.num_classes = updates.numClasses;
     if (updates.type !== undefined) payload.type = updates.type;
-    if (updates.scheduledDate !== undefined) payload.scheduled_date = updates.scheduledDate || null;
+    if (updates.issuedDate !== undefined) payload.scheduled_date = updates.issuedDate || null;
     if (updates.expiryDate !== undefined) payload.expiry_date = updates.expiryDate || null;
     if (updates.extraCommentary !== undefined) payload.extra_commentary = updates.extraCommentary || null;
     if (!Object.keys(payload).length) return;

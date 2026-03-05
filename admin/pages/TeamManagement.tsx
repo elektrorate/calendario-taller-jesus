@@ -64,7 +64,7 @@ async function fetchTeamMembers(): Promise<TeamMember[]> {
     const { data: profiles, error: profError } = await supabase
         .from('profiles')
         .select('id, email, full_name, phone, role')
-        .in('role', ['tallerista', 'staff'])
+        .in('role', ['tallerista'])
         .order('full_name');
 
     if (profError) {
@@ -338,7 +338,7 @@ export const TeamManagement: React.FC = () => {
                     Gestión del <span className="text-[#C17D5C]">Equipo</span>
                 </h2>
                 <p className="text-[16px] font-medium text-[#8A8481] mt-4 max-w-xl">
-                    Edita tus datos de administrador, cambia tu contraseña y gestiona las credenciales de talleristas y staff.
+                    Edita tus datos de administrador, cambia tu contraseña y gestiona las credenciales de talleristas.
                 </p>
             </div>
 
@@ -402,7 +402,7 @@ export const TeamManagement: React.FC = () => {
                     <div>
                         <p className="text-[11px] font-extrabold text-[#C17D5C] uppercase tracking-[0.2em] mb-2">CREDENCIALES</p>
                         <h3 className="text-[28px] font-extrabold text-[#312A2C] uppercase tracking-tight">Equipo de Trabajo</h3>
-                        <p className="text-[13px] text-[#8A8481] font-medium mt-1">Talleristas y Staff — edita sus datos o restablece contraseñas.</p>
+                        <p className="text-[13px] text-[#8A8481] font-medium mt-1">Talleristas — edita sus datos o restablece contraseñas.</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                         <span className="px-5 py-2 bg-[#F4EEE8] rounded-full text-[11px] font-extrabold text-[#8A8481] uppercase tracking-widest">
