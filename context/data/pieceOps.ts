@@ -1,4 +1,5 @@
 import type { CeramicPiece } from '../../types';
+import { showError, showWarning } from '../toast';
 import { supabase, withTimeout, normalizeForMatch, isAbortError, OpsContext } from './shared';
 
 export const addPiece = async (ctx: OpsContext, newPiece: Omit<CeramicPiece, 'id'>) => {
@@ -13,10 +14,10 @@ export const addPiece = async (ctx: OpsContext, newPiece: Omit<CeramicPiece, 'id
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
         const { error } = await withTimeout('pieces.insert', supabase.from('pieces').insert(payload));
-        if (error) { alert(`ERROR: No se pudo crear la pieza. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo crear la pieza. ${error.message || ''}`); return; }
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo crear la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo crear la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -29,11 +30,11 @@ export const updatePiece = async (ctx: OpsContext, id: string, updates: Partial<
     Object.keys(payload).forEach(k => { if (payload[k] === undefined) delete payload[k]; });
     try {
         const { error } = await withTimeout('pieces.update', supabase.from('pieces').update(payload).eq('id', id));
-        if (error) { alert(`ERROR: No se pudo actualizar la pieza. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo actualizar la pieza. ${error.message || ''}`); return; }
         ctx.setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo actualizar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo actualizar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -41,9 +42,9 @@ export const deletePiece = async (ctx: OpsContext, id: string) => {
     ctx.setPieces(prev => prev.filter(p => p.id !== id));
     try {
         const { error } = await withTimeout('pieces.delete', supabase.from('pieces').delete().eq('id', id));
-        if (error) { alert(`ERROR: No se pudo eliminar la pieza. ${error.message || ''}`); ctx.safeReload(); return; }
+        if (error) { showError(`No se pudo eliminar la pieza. ${error.message || ''}`); ctx.safeReload(); return; }
     } catch (err: any) {
-        alert(`ERROR: No se pudo eliminar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo eliminar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
         ctx.safeReload();
     }
 };

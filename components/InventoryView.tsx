@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryCategory, InventoryItemStatus, MovementType, InventoryMovement, StructuredFormula, FormulaComponent, ColorFamily, GlazeFinish } from '../types';
@@ -175,7 +176,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
 
   const submitItem = async () => {
     if (!itemForm.name.trim()) {
-      alert('ERROR: El nombre es obligatorio.');
+      showError('El nombre es obligatorio.');
       return;
     }
     const normalizedCode = itemForm.code.trim().toUpperCase();
@@ -184,11 +185,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       return i.code.trim().toUpperCase() === normalizedCode;
     });
     if (!normalizedCode) {
-      alert('ERROR: El codigo es obligatorio.');
+      showError('El codigo es obligatorio.');
       return;
     }
     if (duplicated) {
-      alert('ERROR: Ya existe un item con ese codigo.');
+      showError('Ya existe un item con ese codigo.');
       return;
     }
 
@@ -201,7 +202,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       if (rows.length > 0) {
         const invalidRow = rows.find(row => Number.isNaN(row.value) || row.value < 0);
         if (invalidRow) {
-          alert('ERROR: Los valores de la receta deben ser numericos y no negativos.');
+          showError('Los valores de la receta deben ser numericos y no negativos.');
           return;
         }
         parsedFormula = {
@@ -241,15 +242,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
     if (isSubmittingMovement) return;
     if (!selectedItem) return;
     if (!movementForm.reason.trim()) {
-      alert('ERROR: El motivo es obligatorio.');
+      showError('El motivo es obligatorio.');
       return;
     }
     if (movementForm.type === 'adjust' && Number.isNaN(Number(movementForm.new_quantity))) {
-      alert('ERROR: La cantidad ajustada es invalida.');
+      showError('La cantidad ajustada es invalida.');
       return;
     }
     if (movementForm.type !== 'adjust' && Number(movementForm.quantity) <= 0) {
-      alert('ERROR: La cantidad debe ser mayor que 0.');
+      showError('La cantidad debe ser mayor que 0.');
       return;
     }
     // Close form immediately — Supabase operations run in background

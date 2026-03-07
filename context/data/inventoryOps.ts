@@ -1,4 +1,5 @@
 import type { InventoryItem, InventoryMovement } from '../../types';
+import { showError, showWarning } from '../toast';
 import { supabase, withTimeout, removeUndefined, isAbortError, OpsContext } from './shared';
 
 export const addInventoryItem = async (ctx: OpsContext, item: InventoryItem) => {
@@ -14,10 +15,10 @@ export const addInventoryItem = async (ctx: OpsContext, item: InventoryItem) => 
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
         const { error } = await withTimeout('inventory_items.insert', supabase.from('inventory_items').insert(payload));
-        if (error) { alert(`ERROR: No se pudo crear el item. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo crear el item. ${error.message || ''}`); return; }
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo crear el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo crear el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -38,11 +39,11 @@ export const updateInventoryItem = async (ctx: OpsContext, id: string, updates: 
     if (updates.notes !== undefined) payload.notes = updates.notes || null;
     try {
         const { error } = await withTimeout('inventory_items.update', supabase.from('inventory_items').update(payload).eq('id', id));
-        if (error) { alert(`ERROR: No se pudo actualizar el item. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo actualizar el item. ${error.message || ''}`); return; }
         ctx.setInventoryItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo actualizar el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo actualizar el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -50,10 +51,10 @@ export const archiveInventoryItem = async (ctx: OpsContext, id: string) => {
     try {
         const { error } = await withTimeout('inventory_items.archive',
             supabase.from('inventory_items').update({ status: 'archived' }).eq('id', id));
-        if (error) { alert(`ERROR: No se pudo archivar el item. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo archivar el item. ${error.message || ''}`); return; }
         ctx.setInventoryItems(prev => prev.map(i => i.id === id ? { ...i, status: 'archived' as const } : i));
     } catch (err: any) {
-        alert(`ERROR: No se pudo archivar el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo archivar el item. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -61,9 +62,9 @@ export const deleteInventoryItem = async (ctx: OpsContext, id: string) => {
     ctx.setInventoryItems(prev => prev.filter(i => i.id !== id));
     try {
         const { error } = await withTimeout('inventory_items.delete', supabase.from('inventory_items').delete().eq('id', id));
-        if (error) { alert(`ERROR: No se pudo eliminar el item. ${error.message || ''}`); ctx.safeReload(); return; }
+        if (error) { showError(`No se pudo eliminar el item. ${error.message || ''}`); ctx.safeReload(); return; }
     } catch (err: any) {
-        alert(`ERROR: No se pudo eliminar el item. ${err?.message || ''}`);
+        showError(`No se pudo eliminar el item. ${err?.message || ''}`);
         ctx.safeReload();
     }
 };
@@ -79,7 +80,7 @@ export const addInventoryMovement = async (ctx: OpsContext, movement: Omit<Inven
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
         const { error } = await withTimeout('inventory_movements.insert', supabase.from('inventory_movements').insert(payload));
-        if (error) { alert(`ERROR: No se pudo registrar el movimiento. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo registrar el movimiento. ${error.message || ''}`); return; }
         if (movement.new_quantity !== undefined) {
             ctx.setInventoryItems(prev => prev.map(item =>
                 item.id === movement.item_id ? { ...item, current_quantity: movement.new_quantity! } : item
@@ -87,6 +88,6 @@ export const addInventoryMovement = async (ctx: OpsContext, movement: Omit<Inven
         }
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo registrar el movimiento. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo registrar el movimiento. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };

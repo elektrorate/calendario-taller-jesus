@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import { Student, AssignedClass } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
@@ -119,7 +120,7 @@ const StudentList: React.FC<StudentListProps> = ({ students, onAddStudent, onRen
     e.preventDefault();
     if (isSubmitting) return;
     if (!form.name.trim()) {
-      alert('El nombre es obligatorio.');
+      showError('El nombre es obligatorio.');
       return;
     }
     const data = {

@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -182,7 +183,7 @@ const SettingsView: React.FC = () => {
       setTimeout(() => setExportDone(''), 3000);
     } catch (err) {
       console.error('Export error:', err);
-      alert('Error al exportar datos.');
+      showError('Error al exportar datos.');
     } finally {
       setIsExporting(false);
     }

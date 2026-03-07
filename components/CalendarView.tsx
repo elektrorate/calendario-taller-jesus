@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 import React, { useState, useMemo } from 'react';
 import { ClassSession, Student, Teacher } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
@@ -154,7 +155,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const finalizeAttendance = async () => {
     if (!attendanceSession) return;
     if (attendanceSession.completedAt) {
-      alert('Esta sesión ya fue finalizada.');
+      showError('Esta sesión ya fue finalizada.');
       return;
     }
 
@@ -217,7 +218,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         await Promise.all(updatePromises);
       } catch (err: any) {
         console.error('Error finalizando control de asistencia:', err);
-        alert(`ERROR: No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
+        showError(`No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
       }
     })();
   };
@@ -242,23 +243,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const handleSessionSubmit = async () => {
     if (isSubmitting) return;
     if (!sessionForm.date) {
-      alert("ERROR: Selecciona un día en el calendario antes de guardar.");
+      showError("Selecciona un día en el calendario antes de guardar.");
       return;
     }
     if (requiresTeacher(sessionForm.classType) && !sessionForm.teacherId) {
-      alert("ERROR: Debes asignar un profesor.");
+      showError("Debes asignar un profesor.");
       return;
     }
     if (requiresWorkshopName(sessionForm.classType) && !sessionForm.workshopName.trim()) {
-      alert("ERROR: Debes indicar el nombre del workshop.");
+      showError("Debes indicar el nombre del workshop.");
       return;
     }
     if (requiresPrivateReason(sessionForm.classType) && !sessionForm.privateReason.trim()) {
-      alert("ERROR: Debes indicar el motivo de la sesion privada.");
+      showError("Debes indicar el motivo de la sesion privada.");
       return;
     }
     if (sessionForm.startTime >= sessionForm.endTime) {
-      alert("ERROR: La hora de inicio debe ser anterior a la hora de fin.");
+      showError("La hora de inicio debe ser anterior a la hora de fin.");
       return;
     }
     const duplicate = sessions.some(s => {
@@ -269,7 +270,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         && s.classType === sessionForm.classType;
     });
     if (duplicate) {
-      alert("ERROR: Ya existe una sesión con el mismo horario y tipo.");
+      showError("Ya existe una sesión con el mismo horario y tipo.");
       return;
     }
     setIsSubmitting(true);

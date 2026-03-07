@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 import React, { useState } from 'react';
 import { GiftCard } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
@@ -144,12 +145,12 @@ const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, o
     setIsSubmitting(true);
     try {
       if (!form.expiryDate) {
-        alert('La fecha de expiración es obligatoria.');
+        showError('La fecha de expiración es obligatoria.');
         setIsSubmitting(false);
         return;
       }
       if (!Number.isFinite(form.numClasses) || form.numClasses <= 0) {
-        alert('El número de clases debe ser mayor que 0.');
+        showError('El número de clases debe ser mayor que 0.');
         setIsSubmitting(false);
         return;
       }

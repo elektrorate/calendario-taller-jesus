@@ -1,4 +1,5 @@
 import type { ClassSession, Student } from '../../types';
+import { showError, showWarning } from '../toast';
 import { supabase, withTimeout, buildSessionPayload, isAbortError, OpsContext } from './shared';
 
 const syncSessionStudents = async (ctx: OpsContext, sessionId: string, studentNames: string[], attendance?: Record<string, 'present' | 'absent'>) => {
@@ -87,10 +88,10 @@ export const addSession = async (ctx: OpsContext, newSession: Omit<ClassSession,
     let data: any;
     try {
         const res = await withTimeout('sessions.insert', supabase.from('sessions').insert(payload).select().single());
-        if (res.error) { alert(`ERROR: No se pudo crear la sesión. ${res.error.message || ''}`); return; }
+        if (res.error) { showError(`No se pudo crear la sesión. ${res.error.message || ''}`); return; }
         data = res.data;
     } catch (error: any) {
-        alert(`ERROR: No se pudo crear la sesión. ${error.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo crear la sesión. ${error.message || 'Conexión lenta, intenta de nuevo.'}`);
         return;
     }
 
@@ -106,7 +107,7 @@ export const addSession = async (ctx: OpsContext, newSession: Omit<ClassSession,
         try {
             await syncSessionStudents(ctx, data.id, newSession.students, newSession.attendance || undefined);
         } catch (syncErr: any) {
-            alert(`ADVERTENCIA: La sesión se creó, pero no se pudieron vincular alumnos. ${syncErr?.message || ''}`);
+            showWarning(`La sesión se creó, pero no se pudieron vincular alumnos. ${syncErr?.message || ''}`);
         }
     }
     // Background reload
@@ -118,9 +119,9 @@ export const updateSession = async (ctx: OpsContext, id: string, updates: Partia
     if (Object.keys(payload).length) {
         try {
             const { error } = await withTimeout('sessions.update', supabase.from('sessions').update(payload).eq('id', id));
-            if (error) { alert(`ERROR: No se pudo actualizar la sesión. ${error.message || ''}`); return; }
+            if (error) { showError(`No se pudo actualizar la sesión. ${error.message || ''}`); return; }
         } catch (error: any) {
-            alert(`ERROR: No se pudo actualizar la sesión. ${error.message || 'Conexión lenta, intenta de nuevo.'}`);
+            showError(`No se pudo actualizar la sesión. ${error.message || 'Conexión lenta, intenta de nuevo.'}`);
             return;
         }
     }
@@ -133,7 +134,7 @@ export const updateSession = async (ctx: OpsContext, id: string, updates: Partia
     if (updates.students) {
         try { await syncSessionStudents(ctx, id, updates.students!, updates.attendance || undefined); }
         catch (syncErr: any) {
-            alert(`ADVERTENCIA: La sesión se actualizó, pero falló la vinculación de alumnos. ${syncErr?.message || ''}`);
+            showWarning(`La sesión se actualizó, pero falló la vinculación de alumnos. ${syncErr?.message || ''}`);
         }
     } else if (updates.attendance) {
         await updateSessionAttendance(ctx, id, updates.attendance);
@@ -146,11 +147,11 @@ export const deleteSession = async (ctx: OpsContext, id: string) => {
     try {
         // session_students has ON DELETE CASCADE from sessions
         const { error } = await withTimeout('sessions.delete', supabase.from('sessions').delete().eq('id', id));
-        if (error) { alert(`ERROR: No se pudo eliminar la sesión. ${error.message || ''}`); ctx.safeReload(); return; }
+        if (error) { showError(`No se pudo eliminar la sesión. ${error.message || ''}`); ctx.safeReload(); return; }
         console.log('deleteSession: sesión eliminada correctamente');
     } catch (err: any) {
         if (isAbortError(err)) { console.warn('deleteSession: request aborted, optimistic update active'); }
-        else { alert(`ERROR: ${err.message || 'Error inesperado al eliminar sesión.'}`); }
+        else { showError(`${err.message || 'Error inesperado al eliminar sesión.'}`); }
         ctx.safeReload();
     }
 };

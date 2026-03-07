@@ -1,4 +1,5 @@
 import type { Teacher } from '../../types';
+import { showError, showWarning } from '../toast';
 import { supabase, withTimeout, isAbortError, OpsContext } from './shared';
 
 export const addTeacher = async (ctx: OpsContext, newTeacher: Omit<Teacher, 'id'>) => {
@@ -10,10 +11,10 @@ export const addTeacher = async (ctx: OpsContext, newTeacher: Omit<Teacher, 'id'
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
         const { error } = await withTimeout('teachers.insert', supabase.from('teachers').insert(payload));
-        if (error) { alert(`ERROR: No se pudo crear el profesor. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo crear el profesor. ${error.message || ''}`); return; }
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo crear el profesor. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo crear el profesor. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -26,11 +27,11 @@ export const updateTeacher = async (ctx: OpsContext, id: string, updates: Partia
     if (!payload.name) { console.error('updateTeacher: name is required'); return; }
     try {
         const { error } = await withTimeout('teachers.update', supabase.from('teachers').update(payload).eq('id', id));
-        if (error) { alert(`ERROR: No se pudo actualizar el profesor. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo actualizar el profesor. ${error.message || ''}`); return; }
         ctx.setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo actualizar el profesor. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        showError(`No se pudo actualizar el profesor. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };
 
@@ -42,9 +43,9 @@ export const deleteTeacher = async (ctx: OpsContext, id: string) => {
             supabase.from('sessions').update({ teacher_substitute_id: null }).eq('teacher_substitute_id', id),
         ]);
         const { error } = await withTimeout('teachers.delete', supabase.from('teachers').delete().eq('id', id));
-        if (error) { alert(`ERROR: No se pudo eliminar el profesor. ${error.message || ''}`); ctx.safeReload(); return; }
+        if (error) { showError(`No se pudo eliminar el profesor. ${error.message || ''}`); ctx.safeReload(); return; }
     } catch (err: any) {
-        alert(`ERROR: ${err.message || 'Error inesperado al eliminar profesor.'}`);
+        showError(`${err.message || 'Error inesperado al eliminar profesor.'}`);
         ctx.safeReload();
     }
 };

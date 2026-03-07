@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 import React, { useState, useMemo } from 'react';
 import { CeramicPiece, PieceStatus, Student } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
@@ -280,7 +281,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    if (!form.owner) { alert("Por favor selecciona un propietario."); return; }
+    if (!form.owner) { showError('Por favor selecciona un propietario.'); return; }
     setIsSubmitting(true);
     // Close modal immediately — Supabase operations run in background
     setShowModal(false);

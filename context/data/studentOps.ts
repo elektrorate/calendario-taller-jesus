@@ -1,5 +1,6 @@
 import type { Student, ClassSession, AssignedClass } from '../../types';
 import { supabase, withTimeout, buildStudentPayload, extractTime, isAbortError, OpsContext } from './shared';
+import { showError } from '../toast';
 
 const buildAssignedKey = (cls: AssignedClass) => `${cls.date}|${cls.startTime}|${cls.endTime}`;
 
@@ -72,7 +73,7 @@ export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'
     if (ctx.sedeId) payload = { ...payload, sede_id: ctx.sedeId };
     try {
         const { data, error } = await withTimeout('students.insert', supabase.from('students').insert(payload).select().single());
-        if (error) { alert(`ERROR: No se pudo crear el alumno. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo crear el alumno. ${error.message || ''}`); return; }
 
         // IMMEDIATE UI update — don't wait for safeReload
         const newStudentWithId: Student = {
@@ -99,7 +100,7 @@ export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'
         ctx.safeReload();
     } catch (err: any) {
         if (isAbortError(err)) { console.warn('addStudent: request aborted, reloading...'); ctx.safeReload(); }
-        else alert(`ERROR: No se pudo crear el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        else showError(`No se pudo crear el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     } finally { ctx.operationLockRef.current = false; }
 };
 
@@ -109,7 +110,7 @@ export const updateStudent = async (ctx: OpsContext, id: string, updates: Partia
     const payload = buildStudentPayload(updates);
     try {
         const { error } = await withTimeout('students.update', supabase.from('students').update(payload).eq('id', id));
-        if (error) { alert(`ERROR: No se pudo actualizar el alumno. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo actualizar el alumno. ${error.message || ''}`); return; }
         ctx.setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
         if (updates.assignedClasses) {
             const student = ctx.students.find(s => s.id === id);
@@ -125,7 +126,7 @@ export const updateStudent = async (ctx: OpsContext, id: string, updates: Partia
         ctx.safeReload();
     } catch (err: any) {
         if (isAbortError(err)) { console.warn('updateStudent: request aborted, reloading...'); ctx.safeReload(); }
-        else alert(`ERROR: No se pudo actualizar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        else showError(`No se pudo actualizar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     } finally { ctx.operationLockRef.current = false; }
 };
 
@@ -144,18 +145,18 @@ export const deleteStudent = async (ctx: OpsContext, id: string) => {
     try {
         // DB has ON DELETE CASCADE for all dependents
         const { error } = await withTimeout('students.delete', supabase.from('students').delete().eq('id', id));
-        if (error) { alert(`ERROR: No se pudo eliminar el alumno. ${error.message || ''}`); ctx.safeReload(); return; }
+        if (error) { showError(`No se pudo eliminar el alumno. ${error.message || ''}`); ctx.safeReload(); return; }
         console.log('deleteStudent: alumno eliminado correctamente');
     } catch (err: any) {
         if (isAbortError(err)) { console.warn('deleteStudent: request aborted — optimistic update active, verifying...'); }
-        else { alert(`ERROR: No se pudo eliminar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`); }
+        else { showError(`No se pudo eliminar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`); }
         ctx.safeReload();
     } finally { ctx.operationLockRef.current = false; }
 };
 
 export const renewStudent = async (ctx: OpsContext, id: string, numClasses: number = 4) => {
     const student = ctx.students.find(s => s.id === id);
-    if (!student) { alert('ERROR: Alumno no encontrado.'); return; }
+    if (!student) { showError('Alumno no encontrado.'); return; }
     const nextClasses = (student.classesRemaining ?? 0) + numClasses;
     const today = new Date().toISOString().split('T')[0];
     const baseDate = student.expiryDate && student.expiryDate > today ? new Date(student.expiryDate) : new Date();

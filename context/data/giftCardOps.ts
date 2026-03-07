@@ -1,4 +1,5 @@
 import type { GiftCard, Student } from '../../types';
+import { showError, showWarning } from '../toast';
 import { supabase, withTimeout, normalizeForMatch, mapStudentRowToModel, OpsContext } from './shared';
 
 const resolveRecipientStudentId = (students: Student[], recipient?: string): string | null => {
@@ -66,7 +67,7 @@ export const addGiftCard = async (ctx: OpsContext, newCard: Omit<GiftCard, 'id' 
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
         const { data, error } = await withTimeout('gift_cards.insert', supabase.from('gift_cards').insert(payload).select().single());
-        if (error) { alert(`ERROR: No se pudo crear la tarjeta regalo. ${error.message || ''}`); return; }
+        if (error) { showError(`No se pudo crear la tarjeta regalo. ${error.message || ''}`); return; }
         if (data) {
             const mapped: GiftCard = {
                 id: data.id, buyer: data.buyer, recipient: data.recipient,
@@ -79,7 +80,7 @@ export const addGiftCard = async (ctx: OpsContext, newCard: Omit<GiftCard, 'id' 
         }
         ctx.safeReload();
     } catch (err: any) {
-        alert(`ERROR: No se pudo crear la tarjeta regalo. ${err?.message || ''}`);
+        showError(`No se pudo crear la tarjeta regalo. ${err?.message || ''}`);
     }
 };
 
@@ -119,14 +120,14 @@ export const updateGiftCard = async (ctx: OpsContext, id: string, updates: Parti
             void (async () => {
                 try {
                     const { error } = await supabase.from('gift_cards').update(payload).eq('id', id);
-                    if (error) { revert(); alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${error.message || ''}`); return; }
+                    if (error) { revert(); showError(`No se pudo actualizar la tarjeta regalo. ${error.message || ''}`); return; }
                     ctx.safeReload();
                 } catch { revert(); }
             })();
             return;
         }
         revert();
-        alert(`ERROR: No se pudo actualizar la tarjeta regalo. ${err?.message || ''}`);
+        showError(`No se pudo actualizar la tarjeta regalo. ${err?.message || ''}`);
     }
 };
 
@@ -134,9 +135,9 @@ export const deleteGiftCard = async (ctx: OpsContext, id: string) => {
     ctx.setGiftCards(prev => prev.filter(gc => gc.id !== id));
     try {
         const { error } = await withTimeout('gift_cards.delete', supabase.from('gift_cards').delete().eq('id', id));
-        if (error) { alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${error.message || ''}`); ctx.safeReload(); return; }
+        if (error) { showError(`No se pudo eliminar la tarjeta regalo. ${error.message || ''}`); ctx.safeReload(); return; }
     } catch (err: any) {
-        alert(`ERROR: No se pudo eliminar la tarjeta regalo. ${err?.message || ''}`);
+        showError(`No se pudo eliminar la tarjeta regalo. ${err?.message || ''}`);
         ctx.safeReload();
     }
 };

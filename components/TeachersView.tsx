@@ -1,3 +1,4 @@
+import { showError, showWarning } from '../context/toast';
 import React, { useMemo, useState } from 'react';
 import { Teacher, ClassSession } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
@@ -86,7 +87,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
     e.preventDefault();
     if (isSubmitting) return;
     if (!form.name.trim()) {
-      alert('ERROR: El nombre es obligatorio.');
+      showError('El nombre es obligatorio.');
       return;
     }
     setIsSubmitting(true);
