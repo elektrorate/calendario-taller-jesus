@@ -13,8 +13,24 @@ export const addPiece = async (ctx: OpsContext, newPiece: Omit<CeramicPiece, 'id
     };
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
-        const { error } = await withTimeout('pieces.insert', supabase.from('pieces').insert(payload));
+        // Return created record for optimistic UI update
+        const { data, error } = await withTimeout('pieces.insert',
+            supabase.from('pieces').insert(payload).select().single()
+        );
         if (error) { showError(`No se pudo crear la pieza. ${error.message || ''}`); return; }
+
+        // IMMEDIATE optimistic UI update
+        if (data) {
+            const newPieceWithId: CeramicPiece = {
+                id: data.id, owner: data.owner_name, description: data.description,
+                status: data.status, glazeType: data.glaze_type || undefined,
+                deliveryDate: data.delivery_date || undefined, notes: data.notes || undefined,
+                extraCommentary: data.extra_commentary || undefined,
+                createdAt: data.created_at || undefined
+            };
+            ctx.setPieces(prev => [newPieceWithId, ...prev]);
+        }
+        // Background reload (UI already has the piece)
         ctx.safeReload();
     } catch (err: any) {
         showError(`No se pudo crear la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
@@ -22,6 +38,10 @@ export const addPiece = async (ctx: OpsContext, newPiece: Omit<CeramicPiece, 'id
 };
 
 export const updatePiece = async (ctx: OpsContext, id: string, updates: Partial<CeramicPiece>) => {
+    // OPTIMISTIC: update UI immediately
+    const previousPieces = [...ctx.pieces];
+    ctx.setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+
     const payload: Record<string, any> = {
         owner_name: updates.owner, description: updates.description, status: updates.status,
         glaze_type: updates.glazeType || null, delivery_date: updates.deliveryDate || null,
@@ -30,10 +50,14 @@ export const updatePiece = async (ctx: OpsContext, id: string, updates: Partial<
     Object.keys(payload).forEach(k => { if (payload[k] === undefined) delete payload[k]; });
     try {
         const { error } = await withTimeout('pieces.update', supabase.from('pieces').update(payload).eq('id', id));
-        if (error) { showError(`No se pudo actualizar la pieza. ${error.message || ''}`); return; }
-        ctx.setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+        if (error) {
+            ctx.setPieces(previousPieces); // REVERT
+            showError(`No se pudo actualizar la pieza. ${error.message || ''}`);
+            return;
+        }
         ctx.safeReload();
     } catch (err: any) {
+        ctx.setPieces(previousPieces); // REVERT
         showError(`No se pudo actualizar la pieza. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
     }
 };

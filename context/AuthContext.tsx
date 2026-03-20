@@ -203,8 +203,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             if (event === 'SIGNED_IN' && newSession?.user) {
-                // This fires after manual login or re-auth (not initial page load)
-                await loadUserData(newSession);
+                // Only load if login() hasn't already set the profile
+                // login() sets profileRef.current synchronously before this fires
+                if (!profileRef.current) {
+                    await loadUserData(newSession);
+                }
             }
         });
 
@@ -264,15 +267,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const logout = async () => {
         try {
-            await supabase.auth.signOut();
+            // 1. Clear React state FIRST (before network call)
             setSession(null);
             setUser(null);
             setProfile(null);
             profileRef.current = null;
             setSedeId(null);
             setError(null);
+
+            // 2. SignOut local only — no network dependency
+            await supabase.auth.signOut({ scope: 'local' });
         } catch (err) {
             console.error('Error logging out:', err);
+            // 3. Fallback: manually clear localStorage if signOut fails
+            try {
+                localStorage.removeItem('sb-gowjmefxpxlpkrpvmlqd-auth-token');
+            } catch {}
         }
     };
 

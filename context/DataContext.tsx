@@ -93,7 +93,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     // ==================== DATA LOADING ====================
     const loadAllData = useCallback(async () => {
         if (!session) return;
-        if (!isSuperAdmin && !sedeId) return;
+        // Removed sedeId guard: RLS on Supabase will filter by get_owned_sede_id()
+        // This ensures staff users can load data even before sedeId resolves
         if (!hasLoadedOnceRef.current) setIsLoadingData(true);
 
         try {
@@ -258,9 +259,11 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }, [loadAllData]);
 
     useEffect(() => {
-        if (session && (isSuperAdmin || sedeId)) {
+        if (session) {
+            // Always load when there's a session. RLS protects data at DB level.
             loadAllData();
-        } else if (!session) {
+        }
+        if (!session) {
             setStudents([]); setSessions([]); setPieces([]);
             setGiftCards([]); setInventoryItems([]); setInventoryMovements([]); setTeachers([]);
         }
@@ -271,15 +274,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     // which prevents React from aborting in-flight fetch requests (AbortError).
     const studentsRef = useRef(students);
     const sessionsRef = useRef(sessions);
+    const piecesRef = useRef(pieces);
     const giftCardsRef = useRef(giftCards);
     useEffect(() => { studentsRef.current = students; }, [students]);
     useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+    useEffect(() => { piecesRef.current = pieces; }, [pieces]);
     useEffect(() => { giftCardsRef.current = giftCards; }, [giftCards]);
 
     const getOpsContext = useCallback((): OpsContext => ({
         sedeId, isSuperAdmin, operationLockRef,
         get students() { return studentsRef.current; },
         get sessions() { return sessionsRef.current; },
+        get pieces() { return piecesRef.current; },
         setStudents, setSessions, setTeachers, setPieces, setGiftCards,
         setInventoryItems, setInventoryMovements, safeReload
     }), [sedeId, isSuperAdmin, safeReload]);

@@ -1,6 +1,6 @@
 import type { Student, ClassSession, AssignedClass } from '../../types';
 import { supabase, withTimeout, buildStudentPayload, extractTime, isAbortError, OpsContext } from './shared';
-import { showError } from '../toast';
+import { showError, showWarning } from '../toast';
 
 const buildAssignedKey = (cls: AssignedClass) => `${cls.date}|${cls.startTime}|${cls.endTime}`;
 
@@ -67,7 +67,10 @@ const syncAssignedClassesToSessions = async (student: Student, assignedClasses: 
 };
 
 export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'>) => {
-    if (ctx.operationLockRef.current) { console.warn('addStudent: operation in progress'); return; }
+    if (ctx.operationLockRef.current) {
+        showWarning('Hay otra operación en progreso. Espera un momento e intenta de nuevo.');
+        return;
+    }
     ctx.operationLockRef.current = true;
     let payload = buildStudentPayload(newStudent);
     if (ctx.sedeId) payload = { ...payload, sede_id: ctx.sedeId };
@@ -105,15 +108,27 @@ export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'
 };
 
 export const updateStudent = async (ctx: OpsContext, id: string, updates: Partial<Student>) => {
-    if (ctx.operationLockRef.current) { console.warn('updateStudent: operation in progress'); return; }
+    if (ctx.operationLockRef.current) {
+        showWarning('Hay otra operación en progreso. Espera un momento e intenta de nuevo.');
+        return;
+    }
     ctx.operationLockRef.current = true;
+
+    // OPTIMISTIC: update UI immediately
+    const previousStudents = [...ctx.students];
+    ctx.setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+
     const payload = buildStudentPayload(updates);
     try {
         const { error } = await withTimeout('students.update', supabase.from('students').update(payload).eq('id', id));
-        if (error) { showError(`No se pudo actualizar el alumno. ${error.message || ''}`); return; }
-        ctx.setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+        if (error) {
+            // REVERT on error
+            ctx.setStudents(previousStudents);
+            showError(`No se pudo actualizar el alumno. ${error.message || ''}`);
+            return;
+        }
         if (updates.assignedClasses) {
-            const student = ctx.students.find(s => s.id === id);
+            const student = previousStudents.find(s => s.id === id);
             if (student) {
                 const prevAssigned = student.assignedClasses || [];
                 const nextSet = new Set(updates.assignedClasses.map(buildAssignedKey));
@@ -126,12 +141,18 @@ export const updateStudent = async (ctx: OpsContext, id: string, updates: Partia
         ctx.safeReload();
     } catch (err: any) {
         if (isAbortError(err)) { console.warn('updateStudent: request aborted, reloading...'); ctx.safeReload(); }
-        else showError(`No se pudo actualizar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        else {
+            ctx.setStudents(previousStudents); // REVERT
+            showError(`No se pudo actualizar el alumno. ${err?.message || 'Conexión lenta, intenta de nuevo.'}`);
+        }
     } finally { ctx.operationLockRef.current = false; }
 };
 
 export const deleteStudent = async (ctx: OpsContext, id: string) => {
-    if (ctx.operationLockRef.current) { console.warn('deleteStudent: operation in progress'); return; }
+    if (ctx.operationLockRef.current) {
+        showWarning('Hay otra operación en progreso. Espera un momento e intenta de nuevo.');
+        return;
+    }
     ctx.operationLockRef.current = true;
     ctx.setStudents(prev => prev.filter(s => s.id !== id));
     // Also remove from sessions UI immediately

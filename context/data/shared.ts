@@ -12,15 +12,30 @@ export const RELOAD_TIMEOUT_MS = 12000;
 export const isAbortError = (err: any): boolean =>
     err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.includes('aborted'));
 
-// NON-DESTRUCTIVE timeout wrapper. Logs warning but never rejects.
-export const withTimeout = async <T,>(operation: string, queryOrPromise: T | Promise<T>, timeoutMs: number = WRITE_TIMEOUT_MS): Promise<Awaited<T>> => {
+// Timeout wrapper with REAL abort after hard limit.
+// Warns at timeoutMs, rejects at 2x timeoutMs.
+export const withTimeout = async <T,>(
+    operation: string,
+    queryOrPromise: T | Promise<T>,
+    timeoutMs: number = WRITE_TIMEOUT_MS
+): Promise<Awaited<T>> => {
     let didWarn = false;
+    const hardLimit = timeoutMs * 2; // 30s for writes
+
     const warnTimer = setTimeout(() => {
         didWarn = true;
         console.warn(`⚠️ ${operation} is taking longer than ${timeoutMs}ms — still waiting...`);
     }, timeoutMs);
+
     try {
-        const result = await Promise.resolve(queryOrPromise);
+        const result = await Promise.race([
+            Promise.resolve(queryOrPromise),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(
+                    `${operation}: timeout after ${hardLimit}ms. Revisa tu conexión.`
+                )), hardLimit)
+            )
+        ]);
         return result as Awaited<T>;
     } finally {
         clearTimeout(warnTimer);
@@ -129,6 +144,7 @@ export interface OpsContext {
     operationLockRef: React.MutableRefObject<boolean>;
     students: Student[];
     sessions: ClassSession[];
+    pieces: any[];
     setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
     setSessions: React.Dispatch<React.SetStateAction<ClassSession[]>>;
     setTeachers: React.Dispatch<React.SetStateAction<any[]>>;

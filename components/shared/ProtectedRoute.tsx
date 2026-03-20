@@ -29,11 +29,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Session exists but profile hasn't loaded → send to login
-    // (this prevents an infinite limbo state)
+    // Session exists but profile hasn't loaded → show loading spinner
+    // DO NOT redirect to login here — it causes an infinite loop for staff users
+    // whose sedeId takes an extra render cycle to resolve
     if (!profile) {
-        console.warn('ProtectedRoute: session exists but profile is null, redirecting to login');
-        return <Navigate to="/login" state={{ from: location }} replace />;
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-neutral-base">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-brand/20 border-t-brand rounded-full animate-spin"></div>
+                    <p className="text-[12px] text-neutral-textHelper uppercase tracking-widest font-light">
+                        Cargando perfil...
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     // Check role permissions

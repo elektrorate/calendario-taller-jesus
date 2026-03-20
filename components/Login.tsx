@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
@@ -14,6 +14,11 @@ const Login: React.FC = () => {
   const { login, session, profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Clear any residual session when arriving at login
+  useEffect(() => {
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  }, []);
 
   // Redirect if already logged in
   useEffect(() => {
