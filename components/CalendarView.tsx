@@ -702,142 +702,177 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
       {/* MODAL DE EDICIÓN DE SESIÓN (SOLO CONFIGURACIÓN) */}
       {showSessionModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 soft-shadow relative animate-fade-in border border-neutral-border flex flex-col max-h-[90dvh]">
-            <h3 className="text-[24px] md:text-[28px] font-extrabold text-neutral-textMain uppercase tracking-tight">{editingSessionId ? 'Editar Sesión' : 'Nueva Sesión'}</h3>
-            <p className="text-[12px] font-light text-neutral-textHelper uppercase tracking-widest mt-2 mb-6 md:mb-8">
-              {sessionForm.date ? formatSessionDate(sessionForm.date) : 'Fecha no seleccionada'}
-            </p>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-6 md:space-y-8">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-2">INICIO</label>
-                  <input type="time" value={sessionForm.startTime} onChange={(e) => setSessionForm({ ...sessionForm, startTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl font-extrabold text-[16px] md:text-[18px] ${sessionForm.classType === 'feriado' ? 'opacity-60 cursor-not-allowed' : ''}`} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-2">FIN</label>
-                  <input type="time" value={sessionForm.endTime} onChange={(e) => setSessionForm({ ...sessionForm, endTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl font-extrabold text-[16px] md:text-[18px] ${sessionForm.classType === 'feriado' ? 'opacity-60 cursor-not-allowed' : ''}`} />
-                </div>
-              </div>
-              {sessionForm.classType === 'feriado' && (
-                <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest">
-                  Dia bloqueado por feriado (00:00 - 24:00).
+        <div
+          className="fixed inset-0 z-[100] flex items-end bg-[#2F1E17]/45 font-['Inter'] backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !isSubmitting) setShowSessionModal(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="session-modal-title"
+            className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#FFFCF8] text-[#2F211B] shadow-[0_24px_70px_rgba(59,35,24,0.2)] sm:h-auto sm:max-h-[92dvh] sm:max-w-3xl sm:rounded-[24px] sm:border sm:border-[#E8D9CC] animate-fade-in"
+          >
+            <header className="flex shrink-0 items-center justify-between border-b border-[#E8D9CC] px-5 pb-3 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-8 sm:py-4">
+              <div className="min-w-0 pr-4 sm:flex sm:items-baseline sm:gap-4">
+                <h3 id="session-modal-title" className="shrink-0 font-['Playfair_Display'] text-[24px] font-semibold leading-none text-[#7B3F22] sm:text-[27px]">
+                  {editingSessionId ? 'Editar sesión' : 'Nueva sesión'}
+                </h3>
+                <p className="mt-1.5 truncate text-[11px] text-[#8B6B5E] first-letter:uppercase sm:mt-0 sm:text-[12px]">
+                  {sessionForm.date ? formatSessionDate(sessionForm.date) : 'Fecha no seleccionada'}
                 </p>
-              )}
-              <div>
-                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">TIPO</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {([
-                    { id: 'mesa', label: 'Mesa' },
-                    { id: 'torno', label: 'Torno' },
-                    { id: 'coworking', label: 'Coworking' },
-                    { id: 'workshop', label: 'Workshop' },
-                    { id: 'privada', label: 'Privadas' },
-                    { id: 'feriado', label: 'Feriados' }
-                  ] as { id: ClassSession['classType']; label: string }[]).map(option => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setSessionForm({
-                        ...sessionForm,
-                        classType: option.id,
-                        teacherId: (option.id === 'mesa' || option.id === 'torno') ? sessionForm.teacherId : '',
-                        workshopName: option.id === 'workshop' ? sessionForm.workshopName : '',
-                        privateReason: option.id === 'privada' ? sessionForm.privateReason : '',
-                        selectedStudents: option.id === 'feriado' ? [] : sessionForm.selectedStudents,
-                        startTime: option.id === 'feriado' ? '00:00' : sessionForm.startTime,
-                        endTime: option.id === 'feriado' ? '24:00' : sessionForm.endTime
-                      })}
-                      className={`py-4 rounded-xl font-extrabold text-[12px] md:text-[13px] uppercase tracking-widest border transition-all ${sessionForm.classType === option.id ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper'
-                        }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
               </div>
-              {(sessionForm.classType === 'mesa' || sessionForm.classType === 'torno') && (
-                <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">
-                    PROFESOR {sessionForm.classType === 'mesa' ? '(OBLIGATORIO)' : '(OPCIONAL)'}
-                  </label>
+              <button
+                type="button"
+                onClick={() => setShowSessionModal(false)}
+                disabled={isSubmitting}
+                aria-label="Cerrar modal"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#8B6B5E] transition-colors hover:bg-[#F3E7DC] hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:opacity-50"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </header>
+
+            <div className="custom-scrollbar flex-1 overflow-y-auto px-5 py-4 sm:px-8 sm:py-5">
+              <div className="grid gap-6 md:grid-cols-[0.9fr_1.1fr] md:gap-8">
+                <div className="space-y-5">
+                  <fieldset>
+                    <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Horario</legend>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8B6B5E]">Inicio</span>
+                        <input aria-label="Hora de inicio" type="time" value={sessionForm.startTime} onChange={(e) => setSessionForm({ ...sessionForm, startTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`h-10 w-full rounded-[9px] border border-[#DDBFA4] bg-white px-3 text-[13px] font-medium text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20 ${sessionForm.classType === 'feriado' ? 'cursor-not-allowed opacity-55' : ''}`} />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8B6B5E]">Fin</span>
+                        <input aria-label="Hora de fin" type="time" value={sessionForm.endTime} onChange={(e) => setSessionForm({ ...sessionForm, endTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`h-10 w-full rounded-[9px] border border-[#DDBFA4] bg-white px-3 text-[13px] font-medium text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20 ${sessionForm.classType === 'feriado' ? 'cursor-not-allowed opacity-55' : ''}`} />
+                      </label>
+                    </div>
+                    {sessionForm.classType === 'feriado' && (
+                      <p className="mt-2 text-[11px] leading-relaxed text-[#8B6B5E]">Día bloqueado por feriado (00:00–24:00).</p>
+                    )}
+                  </fieldset>
+
+                  <div>
+                    <label htmlFor="session-type" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Tipo de sesión</label>
+                    <div className="relative">
+                      <select
+                        id="session-type"
+                        value={sessionForm.classType}
+                        onChange={(e) => {
+                          const classType = e.target.value as ClassSession['classType'];
+                          setSessionForm({
+                            ...sessionForm,
+                            classType,
+                            teacherId: (classType === 'mesa' || classType === 'torno') ? sessionForm.teacherId : '',
+                            workshopName: classType === 'workshop' ? sessionForm.workshopName : '',
+                            privateReason: classType === 'privada' ? sessionForm.privateReason : '',
+                            selectedStudents: classType === 'feriado' ? [] : sessionForm.selectedStudents,
+                            startTime: classType === 'feriado' ? '00:00' : sessionForm.startTime,
+                            endTime: classType === 'feriado' ? '24:00' : sessionForm.endTime
+                          });
+                        }}
+                        className="h-11 w-full appearance-none rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 pr-10 text-[13px] font-medium text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20"
+                      >
+                        <option value="mesa">Mesa</option>
+                        <option value="torno">Torno</option>
+                        <option value="coworking">Coworking</option>
+                        <option value="workshop">Workshop</option>
+                        <option value="privada">Privadas</option>
+                        <option value="feriado">Feriados</option>
+                      </select>
+                      <svg className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m7 10 5 5 5-5" /></svg>
+                    </div>
+                  </div>
+
+                  {(sessionForm.classType === 'mesa' || sessionForm.classType === 'torno') && (
+                    <div>
+                      <label htmlFor="session-teacher" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">
+                        Profesor <span className="font-normal normal-case tracking-normal text-[#8B6B5E]">{sessionForm.classType === 'mesa' ? '(obligatorio)' : '(opcional)'}</span>
+                      </label>
                   <select
+                    id="session-teacher"
                     value={sessionForm.teacherId}
                     onChange={(e) => setSessionForm({ ...sessionForm, teacherId: e.target.value })}
-                    className="w-full px-5 py-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light appearance-none"
+                    className="h-11 w-full rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 text-[13px] text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20"
                   >
                     <option value="">Sin asignar</option>
                     {teachers.map(t => (
                       <option key={t.id} value={t.id}>{`${t.name} ${t.surname || ''}`.trim()}</option>
                     ))}
                   </select>
-                </div>
-              )}
-              {sessionForm.classType === 'workshop' && (
-                <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">NOMBRE DEL WORKSHOP</label>
+                    </div>
+                  )}
+                  {sessionForm.classType === 'workshop' && (
                   <input
+                    aria-label="Nombre del workshop"
                     value={sessionForm.workshopName}
                     onChange={(e) => setSessionForm({ ...sessionForm, workshopName: e.target.value })}
-                    className="w-full px-5 py-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
+                    className="h-11 w-full rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 text-[13px] text-[#2F211B] outline-none transition placeholder:text-[#8B6B5E] focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20"
                     placeholder="Nombre del workshop"
                   />
-                </div>
-              )}
-              {sessionForm.classType === 'privada' && (
-                <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">MOTIVO</label>
+                  )}
+                  {sessionForm.classType === 'privada' && (
                   <input
+                    aria-label="Motivo de la sesión privada"
                     value={sessionForm.privateReason}
                     onChange={(e) => setSessionForm({ ...sessionForm, privateReason: e.target.value })}
-                    className="w-full px-5 py-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
-                    placeholder="Motivo de la sesion"
+                    className="h-11 w-full rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 text-[13px] text-[#2F211B] outline-none transition placeholder:text-[#8B6B5E] focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20"
+                    placeholder="Motivo de la sesión"
                   />
+                  )}
                 </div>
-              )}
-              {sessionForm.classType !== 'feriado' && (
-                <div className="space-y-4">
-                  {/* Selector de audiencia */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">TIPO DE ALUMNOS</label>
-                    <div className="grid grid-cols-3 gap-2">
+
+                {sessionForm.classType !== 'feriado' && (
+                  <div className="space-y-6 border-t border-[#E8D9CC] pt-6 md:border-l md:border-t-0 md:pl-10 md:pt-0">
+                    <fieldset>
+                      <legend className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Tipo de alumnos</legend>
+                      <div className="grid grid-cols-3 gap-2 rounded-[12px] bg-[#F5E9DE] p-1">
                       <button
                         type="button"
                         onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'membresia' }); setStudentSearchQuery(''); }}
-                        className={`py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'membresia' ? 'bg-brand text-white border-brand' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                        className={`min-h-10 rounded-[9px] px-2 text-[10px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#C68952] ${sessionForm.sessionAudience === 'membresia' ? 'bg-white text-[#7B3F22] shadow-sm' : 'text-[#8B6B5E] hover:text-[#7B3F22]'}`}
                       >
                         Membresía
                       </button>
                       <button
                         type="button"
                         onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'temporal' }); setStudentSearchQuery(''); }}
-                        className={`py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'temporal' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                        className={`min-h-10 rounded-[9px] px-2 text-[10px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#C68952] ${sessionForm.sessionAudience === 'temporal' ? 'bg-white text-[#7B3F22] shadow-sm' : 'text-[#8B6B5E] hover:text-[#7B3F22]'}`}
                       >
                         Temporales
                       </button>
                       <button
                         type="button"
                         onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'ambos' }); setStudentSearchQuery(''); }}
-                        className={`py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-widest border transition-all ${sessionForm.sessionAudience === 'ambos' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-neutral-textHelper border-neutral-border'}`}
+                        className={`min-h-10 rounded-[9px] px-2 text-[10px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#C68952] ${sessionForm.sessionAudience === 'ambos' ? 'bg-white text-[#7B3F22] shadow-sm' : 'text-[#8B6B5E] hover:text-[#7B3F22]'}`}
                       >
                         Ambos
                       </button>
-                    </div>
-                  </div>
-                  {/* Lista de alumnos filtrada por audiencia */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-3">
-                      ALUMNOS ASIGNADOS ({sessionForm.sessionAudience === 'membresia' ? 'MEMBRESÍA' : sessionForm.sessionAudience === 'temporal' ? 'TEMPORALES' : 'TODOS'})
-                    </label>
-                    {/* Buscador de alumnos */}
+                      </div>
+                    </fieldset>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <label htmlFor="student-search" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Alumnos</label>
+                        <span className="text-[11px] text-[#8B6B5E]">{sessionForm.selectedStudents.length} seleccionados</span>
+                      </div>
+                      <div className="relative mb-2.5">
+                        <svg className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" /></svg>
                     <input
+                      id="student-search"
                       type="text"
-                      placeholder="Buscar alumno por nombre o grupo..."
+                      placeholder="Buscar por nombre o grupo"
                       value={studentSearchQuery}
                       onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      className="w-full px-4 py-2.5 mb-3 bg-neutral-sec border border-neutral-border rounded-xl text-[11px] font-medium focus:border-brand outline-none transition-all"
+                      className="h-9 w-full rounded-[9px] border border-[#E1C9B5] bg-white pl-[2.125rem] pr-3 text-[12px] text-[#2F211B] outline-none transition placeholder:text-[#9B8175] focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20"
                     />
-                    <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto custom-scrollbar">
+                      </div>
+                    <div className="custom-scrollbar max-h-[230px] overflow-y-auto rounded-[10px] border border-[#E8D9CC] bg-white p-1.5">
                       {(() => {
                         const filtered = students
                           .filter(s => {
@@ -857,7 +892,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           });
 
                         if (filtered.length === 0) {
-                          return <p className="text-[11px] text-neutral-textHelper italic py-4">
+                          return <p className="w-full py-6 text-center text-[12px] text-[#8B6B5E]">
                             {studentSearchQuery ? 'No se encontraron alumnos con ese nombre' : 'No hay alumnos en esta categoría'}
                           </p>;
                         }
@@ -869,26 +904,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           const cat = s.studentCategory || 'membresia';
                           const isTemporary = cat === 'temporal';
                           return (
-                            <button key={s.id} onClick={() => {
+                            <button type="button" key={s.id} onClick={() => {
                               const newList = isSelected
                                 ? sessionForm.selectedStudents.filter(n => n !== studentKey)
                                 : [...sessionForm.selectedStudents, studentKey];
                               setSessionForm({ ...sessionForm, selectedStudents: newList });
-                            }} className={`px-3 py-2 rounded-lg text-[10px] font-extrabold uppercase border transition-all ${isSelected ? (isTemporary ? 'bg-amber-500 text-white border-amber-500' : 'bg-brand text-white border-brand') : 'bg-white text-neutral-textHelper border-neutral-border'}`}>
-                              {fullName}
-                              {s.groupName && <span className="ml-1 opacity-70">({s.groupName})</span>}
+                            }} className={`mb-0.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition last:mb-0 focus:outline-none focus:ring-2 focus:ring-[#C68952] ${isSelected ? 'bg-[#C68952] text-white' : 'text-[#4E3A31] hover:bg-[#F8EEE5]'}`}>
+                              <span className="min-w-0 truncate text-[13px] font-medium">
+                                {fullName}
+                                {s.groupName && <span className="ml-1.5 text-[10px] font-normal opacity-65">{s.groupName}</span>}
+                              </span>
+                              <span className={`shrink-0 rounded-[6px] px-2 py-1 text-[9px] font-semibold ${isSelected ? 'bg-white/18 text-white' : isTemporary ? 'bg-[#F4E2D2] text-[#8A5633]' : 'bg-[#EEE5DE] text-[#6E5145]'}`}>
+                                {isTemporary ? 'Temporal' : 'Membresía'}
+                              </span>
                             </button>
                           );
                         });
                       })()}
                     </div>
-                    {/* Mostrar alumnos seleccionados */}
                     {sessionForm.selectedStudents.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-neutral-border">
-                        <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase mb-2">
-                          SELECCIONADOS ({sessionForm.selectedStudents.length})
-                        </p>
-                        <div className="flex flex-wrap gap-1">
+                      <div className="mt-3 border-t border-[#E8D9CC] pt-3">
+                        <div className="flex flex-wrap gap-1.5">
                           {sessionForm.selectedStudents.map(name => {
                             // Determinar el color basado en la categoría del estudiante
                             const studentObj = students.find(st => {
@@ -898,7 +934,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                             const cat = studentObj?.studentCategory || 'membresia';
                             const isTemporary = cat === 'temporal';
                             return (
-                              <span key={name} className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${isTemporary ? 'bg-amber-100 text-amber-700' : 'bg-brand/10 text-brand'}`}>
+                              <span key={name} className="rounded-[7px] bg-[#F1E1D3] px-2 py-1 text-[9px] font-semibold text-[#7B3F22]">
                                 {name.toLowerCase()}
                               </span>
                             );
@@ -906,23 +942,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-            <div className="pt-8 flex gap-3 shrink-0">
+
+            <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#E8D9CC] bg-white/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-8 sm:py-4">
               {editingSessionId && (
                 <button
+                  type="button"
                   onClick={() => setSessionToDelete(editingSessionId)}
-                  className="px-6 py-5 bg-red-50 text-red-400 rounded-2xl font-extrabold uppercase tracking-widest text-[11px]"
+                  className="mr-auto min-h-10 px-2 text-[11px] font-semibold text-[#9C4235] transition hover:text-[#742F26] focus:outline-none focus:ring-2 focus:ring-[#9C4235] focus:ring-offset-2"
                 >
-                  ELIMINAR
+                  Eliminar
                 </button>
               )}
-              <button onClick={handleSessionSubmit} disabled={isSubmitting} className="flex-1 py-5 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest soft-shadow text-[14px] disabled:opacity-60 disabled:cursor-not-allowed">{isSubmitting ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}</button>
-              <button onClick={() => setShowSessionModal(false)} disabled={isSubmitting} className="px-6 py-5 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[11px] disabled:opacity-60">CANCELAR</button>
-            </div>
-          </div>
+              <button type="button" onClick={() => setShowSessionModal(false)} disabled={isSubmitting} className={`${editingSessionId ? '' : 'ml-auto'} min-h-10 px-3 text-[12px] font-medium text-[#8B6B5E] transition hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:opacity-50`}>Cancelar</button>
+              <button type="button" onClick={handleSessionSubmit} disabled={isSubmitting} className="h-11 rounded-[10px] bg-[#C68952] px-5 text-[12px] font-semibold text-white shadow-[0_5px_14px_rgba(123,63,34,0.16)] transition hover:bg-[#B87543] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 sm:px-6">{isSubmitting ? 'Guardando…' : editingSessionId ? 'Guardar cambios' : 'Crear sesión'}</button>
+            </footer>
+          </section>
         </div>
       )}
 
