@@ -4,6 +4,11 @@ import { supabase } from '../supabaseClient';
 
 export type UserRole = 'super_admin' | 'tallerista' | 'staff';
 
+const VALID_USER_ROLES: UserRole[] = ['super_admin', 'tallerista', 'staff'];
+
+const isUserRole = (role: unknown): role is UserRole =>
+    typeof role === 'string' && VALID_USER_ROLES.includes(role as UserRole);
+
 export interface Profile {
     id: string;
     email: string;
@@ -76,6 +81,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 return null;
             }
 
+            if (!isUserRole(data.role)) {
+                console.error('Invalid user role:', data.role);
+                return null;
+            }
+
             return data as Profile;
         } catch (err) {
             console.error('Error in fetchProfile:', err);
@@ -118,18 +128,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     }, []);
 
-    // Full load helper: sets session, user, profile, sedeId, and loading=false
+    // Resolve the authenticated identity against the authorization data in Postgres.
     const loadUserData = useCallback(async (currentSession: Session) => {
+        const userProfile = await fetchProfile(currentSession.user.id);
+
+        if (!userProfile) {
+            await supabase.auth.signOut({ scope: 'local' });
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            profileRef.current = null;
+            setSedeId(null);
+            setError('Tu cuenta no tiene un perfil autorizado. Contacta con administración.');
+            setLoading(false);
+            return;
+        }
+
+        const userSedeId = await fetchSedeId(currentSession.user.id, userProfile.role);
+        if (userProfile.role !== 'super_admin' && !userSedeId) {
+            await supabase.auth.signOut({ scope: 'local' });
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            profileRef.current = null;
+            setSedeId(null);
+            setError('Tu cuenta no está vinculada a un taller activo. Contacta con administración.');
+            setLoading(false);
+            return;
+        }
+
         setSession(currentSession);
         setUser(currentSession.user);
-
-        const userProfile = await fetchProfile(currentSession.user.id);
-        if (userProfile) {
-            setProfile(userProfile);
-            profileRef.current = userProfile;
-            const userSedeId = await fetchSedeId(currentSession.user.id, userProfile.role);
-            setSedeId(userSedeId);
-        }
+        setProfile(userProfile);
+        profileRef.current = userProfile;
+        setSedeId(userSedeId);
+        setError(null);
 
         setLoading(false);
     }, [fetchProfile, fetchSedeId]);
@@ -248,12 +281,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 return { success: false, error: 'No se encontró el perfil del usuario.' };
             }
 
+            const userSedeId = await fetchSedeId(data.user.id, userProfile.role);
+            if (userProfile.role !== 'super_admin' && !userSedeId) {
+                await supabase.auth.signOut({ scope: 'local' });
+                const accessError = 'Tu cuenta no está vinculada a un taller activo. Contacta con administración.';
+                setSession(null);
+                setUser(null);
+                setProfile(null);
+                profileRef.current = null;
+                setSedeId(null);
+                setError(accessError);
+                return { success: false, error: accessError };
+            }
+
             setSession(data.session);
             setUser(data.user);
             setProfile(userProfile);
             profileRef.current = userProfile;
-
-            const userSedeId = await fetchSedeId(data.user.id, userProfile.role);
             setSedeId(userSedeId);
             setLoading(false);
 
@@ -281,7 +325,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.error('Error logging out:', err);
             // 3. Fallback: manually clear localStorage if signOut fails
             try {
-                localStorage.removeItem('sb-gowjmefxpxlpkrpvmlqd-auth-token');
+                Object.keys(localStorage)
+                    .filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+                    .forEach(k => localStorage.removeItem(k));
             } catch {}
         }
     };

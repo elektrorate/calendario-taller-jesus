@@ -110,10 +110,11 @@ serve(async (req) => {
                 return json({ error: "Error inesperado: usuario creado sin ID." });
             }
 
-            await supabaseAdmin
-                .from("profiles")
-                .update({ role: "staff", full_name: nombre })
-                .eq("id", newUser.user.id);
+            // Garantiza el perfil exista aunque el trigger on_auth_user_created no exista.
+            await supabaseAdmin.from("profiles").upsert(
+                { id: newUser.user.id, email, role: "staff", full_name: nombre },
+                { onConflict: "id" }
+            );
 
             const { error: memberError } = await supabaseAdmin
                 .from("sede_members")
