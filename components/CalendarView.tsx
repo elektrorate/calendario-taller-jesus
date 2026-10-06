@@ -537,83 +537,86 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       {/* MODAL DE CONTROL DE ASISTENCIA (EXCLUSIVO) */}
       {showAttendanceModal && attendanceSession && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4"
-          onClick={(e) => {
-            // Cerrar al hacer click en el backdrop (fuera del modal)
-            if (e.target === e.currentTarget && !isSubmitting) {
-              setShowAttendanceModal(false);
-            }
+          className="fixed inset-0 z-[110] flex items-end bg-[#2F1E17]/45 font-['Inter'] backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !isSubmitting) setShowAttendanceModal(false);
           }}
         >
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 md:p-12 soft-shadow relative animate-fade-in border border-neutral-border flex flex-col max-h-[85dvh]">
-            {/* Botón X para cerrar */}
-            <button
-              onClick={() => setShowAttendanceModal(false)}
-              disabled={isSubmitting}
-              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-neutral-sec/80 hover:bg-neutral-sec flex items-center justify-center text-neutral-textHelper hover:text-neutral-textMain transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Cerrar"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <div className="mb-8">
-              <span className="text-[10px] font-extrabold text-brand uppercase tracking-[0.2em] mb-2 block">CHECK-IN DIARIO</span>
-              <h3 className="text-[24px] md:text-[28px] font-black text-neutral-textMain uppercase tracking-tight leading-none">Control Asistencia</h3>
-              {/* Indicador visual de sesión ya completada */}
-              {attendanceSession.completedAt && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-[11px] font-extrabold text-green-600 uppercase tracking-widest flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                    SESIÓN YA FINALIZADA
-                  </p>
-                  <p className="text-[10px] text-green-500 mt-1">
-                    Completada el {new Date(attendanceSession.completedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </p>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="attendance-modal-title"
+            className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#FFFCF8] text-[#2F211B] shadow-[0_24px_70px_rgba(59,35,24,0.2)] sm:h-auto sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[24px] sm:border sm:border-[#E8D9CC] animate-fade-in"
+          >
+            <header className="flex shrink-0 items-center justify-between border-b border-[#E8D9CC] px-5 pb-3 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-8 sm:py-4">
+              <div className="min-w-0 pr-4 sm:flex sm:items-baseline sm:gap-4">
+                <h3 id="attendance-modal-title" className="shrink-0 font-['Playfair_Display'] text-[24px] font-semibold leading-none text-[#7B3F22] sm:text-[27px]">Control de asistencia</h3>
+                <p className="mt-1.5 truncate text-[11px] text-[#8B6B5E] first-letter:uppercase sm:mt-0 sm:text-[12px]">{formatSessionDate(attendanceSession.date)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAttendanceModal(false)}
+                disabled={isSubmitting}
+                aria-label="Cerrar modal"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#8B6B5E] transition-colors hover:bg-[#F3E7DC] hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:opacity-50"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </header>
+
+            <div className="custom-scrollbar flex-1 overflow-y-auto px-5 py-4 sm:px-8 sm:py-5">
+              <div className="mb-5 rounded-[12px] border border-[#E8D9CC] bg-[#F8EEE5] px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="text-[13px] font-semibold text-[#7B3F22]">{attendanceSession.startTime}–{attendanceSession.endTime}</span>
+                  <span className="h-3 w-px bg-[#DDBFA4]" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold text-[#6E5145]">{getSessionLabel(attendanceSession)}</span>
+                  <span className="text-[11px] text-[#8B6B5E]">{getTeacherName(attendanceSession.teacherId)}</span>
+                  {attendanceSession.completedAt && (
+                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-[7px] bg-[#E7F0E8] px-2 py-1 text-[9px] font-semibold text-[#47704D]">
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="m5 13 4 4L19 7" /></svg>
+                      Finalizada
+                    </span>
+                  )}
                 </div>
-              )}
-              <p className="text-[13px] font-light text-neutral-textHelper mt-4 uppercase tracking-widest">
-                {formatSessionDate(attendanceSession.date)} <br />
-                <span className="text-neutral-textSec font-bold">{attendanceSession.startTime} - {attendanceSession.endTime} • {getSessionLabel(attendanceSession).toUpperCase()}</span>
-              </p>
-              <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest mt-2">
-                {getTeacherName(attendanceSession.teacherId)}
-              </p>
-              {attendanceSession.classType === 'workshop' && attendanceSession.workshopName && (
-                <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest mt-2">
-                  {attendanceSession.workshopName}
-                </p>
-              )}
-              {attendanceSession.classType === 'privada' && attendanceSession.privateReason && (
-                <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest mt-2">
-                  {attendanceSession.privateReason}
-                </p>
-              )}
-              {attendanceSession.classType === 'feriado' && (
-                <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest mt-2">
-                  Vacaciones
-                </p>
-              )}
-              <div className="mt-4">
-                <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase mb-2">Reemplazo</label>
+                {(attendanceSession.workshopName || attendanceSession.privateReason || attendanceSession.classType === 'feriado') && (
+                  <p className="mt-1.5 text-[11px] text-[#8B6B5E]">
+                    {attendanceSession.workshopName || attendanceSession.privateReason || 'Vacaciones'}
+                  </p>
+                )}
+                {attendanceSession.completedAt && (
+                  <p className="mt-1.5 text-[10px] text-[#6B876F]">Completada el {new Date(attendanceSession.completedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                )}
+              </div>
+
+              <div className="mb-5">
+                <label htmlFor="attendance-substitute" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Reemplazo</label>
+                <div className="relative">
                 <select
+                  id="attendance-substitute"
                   value={substituteId}
                   onChange={(e) => setSubstituteId(e.target.value)}
                   disabled={!!attendanceSession.completedAt}
-                  className="w-full px-4 py-3 bg-neutral-sec border border-neutral-border rounded-xl text-[13px] font-light appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="h-11 w-full appearance-none rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 pr-10 text-[13px] text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20 disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   <option value="">Sin reemplazo</option>
                   {teachers.map(t => (
                     <option key={t.id} value={t.id}>{`${t.name} ${t.surname || ''}`.trim()}</option>
                   ))}
                 </select>
+                  <svg className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m7 10 5 5 5-5" /></svg>
+                </div>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Alumnos</h4>
+                <span className="text-[11px] text-[#8B6B5E]">{attendanceSession.students.length} asignados</span>
+              </div>
+
+              <div className="overflow-hidden rounded-[12px] border border-[#E8D9CC] bg-white">
               {attendanceSession.students.length === 0 ? (
-                <div className="py-12 text-center border-2 border-dashed border-neutral-border rounded-[2rem]">
-                  <p className="text-[13px] font-light text-neutral-textHelper uppercase tracking-widest italic">No hay alumnos asignados</p>
+                <div className="px-4 py-10 text-center">
+                  <p className="text-[12px] text-[#8B6B5E]">No hay alumnos asignados</p>
                 </div>
               ) : (
                 attendanceSession.students.map((studentName, idx) => {
@@ -627,48 +630,53 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   const bonos = studentObj?.classesRemaining ?? 0;
                   const bonosTotal = studentObj?.bonosAsignados ?? 4;
                   return (
-                    <div key={idx} className="bg-neutral-sec/50 p-5 rounded-[2rem] border border-neutral-border flex items-center justify-between group transition-all">
-                      <div className="flex flex-col overflow-hidden mr-4">
+                    <div key={idx} className="flex min-h-[62px] items-center justify-between gap-3 border-b border-[#EFE3D8] px-3 py-2.5 last:border-b-0 sm:px-4">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-[16px] font-black text-neutral-textMain uppercase tracking-tight truncate">{studentName.toLowerCase()}</p>
+                          <p className="truncate text-[14px] font-medium capitalize text-[#3F2E27]">{studentName.toLowerCase()}</p>
                           {isMembership && (
-                            <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider border ${bonos <= 0 ? 'bg-red-50 text-red-500 border-red-200'
-                              : bonos <= Math.ceil(bonosTotal * 0.25) ? 'bg-amber-50 text-amber-600 border-amber-200'
-                                : 'bg-green-50 text-green-600 border-green-200'
+                            <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[9px] font-semibold ${bonos <= 0 ? 'bg-[#F7E3DF] text-[#9C4235]'
+                              : bonos <= Math.ceil(bonosTotal * 0.25) ? 'bg-[#F5E8D4] text-[#916438]'
+                                : 'bg-[#E7F0E8] text-[#47704D]'
                               }`}>
-                              {bonos}/{bonosTotal}
+                              Bonos {bonos}/{bonosTotal}
                             </span>
                           )}
                         </div>
-                        <span className={`text-[10px] font-extrabold uppercase tracking-widest mt-1 ${status === 'present' ? 'text-green-500' : status === 'absent' ? 'text-red-400' : 'text-neutral-textHelper'}`}>
+                        <span className={`mt-1 block text-[10px] font-medium ${status === 'present' ? 'text-[#47704D]' : status === 'absent' ? 'text-[#9C4235]' : 'text-[#9B8175]'}`}>
                           {status === 'present' ? 'Asiste' : status === 'absent' ? 'No asiste' : 'Pendiente'}
                         </span>
                       </div>
-                      <div className="flex gap-2 shrink-0">
-                        {/* Botones deshabilitados si la sesión ya fue finalizada */}
+                      <div className="flex shrink-0 gap-1.5">
                         <button
+                          type="button"
                           onClick={() => handleMarkAttendance(studentName, 'present')}
                           disabled={!!attendanceSession.completedAt}
-                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${status === 'present' ? 'bg-green-500 text-white scale-110' : 'bg-white text-neutral-textHelper hover:bg-green-100 hover:text-green-600 disabled:hover:bg-white disabled:hover:text-neutral-textHelper'}`}
+                          className={`flex h-10 w-10 items-center justify-center rounded-[9px] border transition focus:outline-none focus:ring-2 focus:ring-[#6B876F] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${status === 'present' ? 'border-[#5F8065] bg-[#5F8065] text-white' : 'border-[#D8E4D9] bg-[#F4F8F4] text-[#5F8065] hover:bg-[#E7F0E8]'}`}
                           title={attendanceSession.completedAt ? "Sesión ya finalizada" : "Marcar Asistencia"}
+                          aria-label={`Marcar asistencia de ${studentName}`}
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="m5 13 4 4L19 7" /></svg>
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleMarkAttendance(studentName, 'absent')}
                           disabled={!!attendanceSession.completedAt}
-                          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${status === 'absent' ? 'bg-red-400 text-white scale-110' : 'bg-white text-neutral-textHelper hover:bg-red-100 hover:text-red-400 disabled:hover:bg-white disabled:hover:text-neutral-textHelper'}`}
+                          className={`flex h-10 w-10 items-center justify-center rounded-[9px] border transition focus:outline-none focus:ring-2 focus:ring-[#9C4235] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${status === 'absent' ? 'border-[#9C4235] bg-[#9C4235] text-white' : 'border-[#EBCFC9] bg-[#FCF4F2] text-[#9C4235] hover:bg-[#F7E3DF]'}`}
                           title={attendanceSession.completedAt ? "Sesión ya finalizada" : "Marcar Falta"}
+                          aria-label={`Marcar falta de ${studentName}`}
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M6 18L18 6M6 6l12 12" /></svg>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18 18 6M6 6l12 12" /></svg>
                         </button>
                         {status !== 'pending' && !attendanceSession.completedAt && (
                           <button
+                            type="button"
                             onClick={() => handleMarkAttendance(studentName, 'pending')}
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white text-neutral-textHelper hover:text-brand transition-all shadow-sm"
+                            className="flex h-10 w-10 items-center justify-center rounded-[9px] border border-[#E8D9CC] bg-white text-[#8B6B5E] transition hover:bg-[#F8EEE5] hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2"
                             title="Resetear Estado"
+                            aria-label={`Dejar pendiente a ${studentName}`}
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" /></svg>
                           </button>
                         )}
                       </div>
@@ -676,27 +684,33 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   );
                 })
               )}
+              </div>
             </div>
 
-            <div className="pt-8 shrink-0">
+            <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-[#E8D9CC] bg-white/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-8 sm:py-4">
               {attendanceSession.completedAt ? (
                 <button
+                  type="button"
                   onClick={() => setShowAttendanceModal(false)}
-                  className="w-full py-6 bg-neutral-textHelper text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-neutral-textMain active:scale-[0.98] transition-all soft-shadow"
+                  className="h-11 rounded-[10px] bg-[#C68952] px-6 text-[12px] font-semibold text-white shadow-[0_5px_14px_rgba(123,63,34,0.16)] transition hover:bg-[#B87543] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2"
                 >
-                  CERRAR
+                  Cerrar
                 </button>
               ) : (
-                <button
-                  onClick={finalizeAttendance}
-                  disabled={isSubmitting}
-                  className="w-full py-6 bg-neutral-textMain text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[14px] hover:bg-black active:scale-[0.98] transition-all soft-shadow disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'GUARDANDO...' : 'FINALIZAR CONTROL'}
-                </button>
+                <>
+                  <button type="button" onClick={() => setShowAttendanceModal(false)} disabled={isSubmitting} className="min-h-10 px-3 text-[12px] font-medium text-[#8B6B5E] transition hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:opacity-50">Cancelar</button>
+                  <button
+                    type="button"
+                    onClick={finalizeAttendance}
+                    disabled={isSubmitting}
+                    className="h-11 rounded-[10px] bg-[#C68952] px-5 text-[12px] font-semibold text-white shadow-[0_5px_14px_rgba(123,63,34,0.16)] transition hover:bg-[#B87543] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 sm:px-6"
+                  >
+                    {isSubmitting ? 'Guardando…' : 'Finalizar control'}
+                  </button>
+                </>
               )}
-            </div>
-          </div>
+            </footer>
+          </section>
         </div>
       )}
 
