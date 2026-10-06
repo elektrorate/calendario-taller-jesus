@@ -100,7 +100,7 @@ serve(async (req) => {
 
             if (createError) {
                 let errorMessage = createError.message || "Error al crear el usuario";
-                if (errorMessage.toLowerCase().includes("already registered") || errorMessage.toLowerCase().includes("duplicate")) {
+                if (/already (been )?registered|duplicate|email address/i.test(errorMessage)) {
                     errorMessage = "El correo electronico ya esta registrado.";
                 }
                 return json({ error: errorMessage });

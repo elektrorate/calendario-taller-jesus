@@ -55,8 +55,8 @@ serve(async (req) => {
   });
 
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const payload = decodeJwtPayload(token);
-  const userId = payload?.sub as string | undefined;
+  const jwtPayload = decodeJwtPayload(token);
+  const userId = jwtPayload?.sub as string | undefined;
   if (!userId) {
     return new Response(JSON.stringify({ error: 'Invalid JWT' }), {
       status: 401,
