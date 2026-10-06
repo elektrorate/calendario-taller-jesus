@@ -184,43 +184,38 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     setIsSubmitting(true);
     const completedAt = new Date().toISOString();
 
-    // Close modal immediately
-    setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
-    setShowAttendanceModal(false);
-    setIsSubmitting(false);
-
-    // Fire Supabase operations in background
-    (async () => {
-      try {
-        await onUpdateSession(attendanceSession.id, {
-          completedAt,
-          attendance: finalAttendance,
-          teacherSubstituteId: substituteId || undefined
+    try {
+      // Student updates share an operation lock, so they must be persisted in sequence.
+      // Only present membership students consume one bonus.
+      for (const studentName of presentStudentNames) {
+        const student = students.find(s => {
+          const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
+          return fullName === studentName.toUpperCase();
         });
 
-        const updatePromises = presentStudentNames.map(async (studentName) => {
-          const student = students.find(s => {
-            const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
-            return fullName === studentName.toUpperCase() || fullName === studentName;
+        if (student && student.studentCategory === 'membresia' && student.classesRemaining > 0) {
+          const nextClassesRemaining = student.classesRemaining - 1;
+          await onUpdateStudent(student.id, {
+            classesRemaining: nextClassesRemaining,
+            status: nextClassesRemaining <= 0 ? 'needs_renewal' : student.status
           });
-          if (student && student.classesRemaining > 0 && student.studentCategory === 'membresia') {
-            try {
-              await onUpdateStudent(student.id, {
-                classesRemaining: student.classesRemaining - 1,
-                status: (student.classesRemaining - 1) <= 0 ? 'needs_renewal' : student.status
-              });
-            } catch (err) {
-              console.error(`Error actualizando clases de ${studentName}:`, err);
-            }
-          }
-        });
-
-        await Promise.all(updatePromises);
-      } catch (err: any) {
-        console.error('Error finalizando control de asistencia:', err);
-        showError(`No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
+        }
       }
-    })();
+
+      await onUpdateSession(attendanceSession.id, {
+        completedAt,
+        attendance: finalAttendance,
+        teacherSubstituteId: substituteId || undefined
+      });
+
+      setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
+      setShowAttendanceModal(false);
+    } catch (err: any) {
+      console.error('Error finalizando control de asistencia:', err);
+      showError(`No se pudo finalizar el control de asistencia. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ★ handleMarkAttendance: ONLY updates local state, does NOT call API
@@ -413,7 +408,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                       style={{ top: `${topOffset}px`, left: `calc(${leftOffset}% + 80px)`, width: `calc(${widthPercent}% - 92px)`, minHeight: '190px' }}
                       onClick={() => handleOpenSessionModal(session)}
                     >
-                      <div className="flex flex-col md:flex-row justify-between items-start w-full mb-4 gap-2">
+                      <div className="flex w-full flex-col items-start gap-2 pr-14 mb-4">
                         <span className="text-[16px] md:text-[18px] font-semibold text-neutral-textMain leading-none">{session.startTime} - {session.endTime}</span>
                         <span className={`px-3 py-1 rounded-full text-[9px] font-semibold uppercase tracking-[0.2em] text-white ${getSessionBadgeClasses(session.classType)}`}>{getSessionLabel(session).toUpperCase()}</span>
                       </div>
@@ -441,7 +436,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           </span>
                         )}
                       </div>
-                      <div className="space-y-2 w-full flex-1 mb-10 overflow-hidden">
+                      <div className="w-full flex-1 space-y-2 overflow-hidden">
                         {session.students.map((studentName, idx) => {
                           const att = session.attendance?.[studentName];
                           // Buscar el alumno para obtener su categoría
@@ -467,13 +462,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           );
                         })}
                       </div>
-                      {/* BotÇün Control de Asistencia EspecÇðfico */}
+                      {/* Control de asistencia */}
                       <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); handleOpenAttendanceModal(session); }}
-                        className="absolute bottom-4 right-4 w-10 h-10 bg-white border border-neutral-border/40 rounded-full flex items-center justify-center text-neutral-textMain shadow-sm hover:shadow-md transition-all z-20"
+                        className="absolute right-4 top-4 z-20 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/80 bg-[#C68952] text-white shadow-[0_6px_18px_rgba(123,63,34,0.3)] transition-all hover:-translate-y-0.5 hover:bg-[#B87543] hover:shadow-[0_8px_22px_rgba(123,63,34,0.38)] focus:outline-none focus:ring-2 focus:ring-[#7B3F22] focus:ring-offset-2 active:translate-y-0"
                         title="Control de Asistencia"
+                        aria-label="Abrir control de asistencia"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4" /></svg>
                       </button>
                     </div>
                   );
