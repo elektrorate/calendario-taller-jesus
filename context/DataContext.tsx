@@ -16,6 +16,13 @@ import * as giftCardOps from './data/giftCardOps';
 import * as inventoryOps from './data/inventoryOps';
 import { isStudentArchived } from '../utils/studentLifecycle';
 
+const normalizeAttendanceStatus = (value: unknown): 'present' | 'absent' | undefined => {
+    const status = String(value || '').trim().toLowerCase();
+    if (status === 'present' || status === 'presente' || status === 'asiste') return 'present';
+    if (status === 'absent' || status === 'ausente' || status === 'falta' || status === 'no asiste') return 'absent';
+    return undefined;
+};
+
 interface DataContextType {
     // Data
     students: Student[];
@@ -170,20 +177,22 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 const linked = sessionStudentsMap[row.id] || [];
                 const attendance: Record<string, 'present' | 'absent'> = {};
                 linked.forEach((item: any) => {
-                    if (item.attendance === 'present' || item.attendance === 'absent') {
-                        attendance[item.student_name] = item.attendance;
+                    const status = normalizeAttendanceStatus(item.attendance);
+                    if (status && item.student_name) {
+                        attendance[item.student_name] = status;
                     }
                 });
                 return {
-                    id: row.id, date: row.date,
+                    id: row.id, date: String(row.date).split('T')[0],
                     startTime: extractTime(row.start_time), endTime: extractTime(row.end_time),
                     classType: row.class_type,
                     students: linked.map((item: any) => item.student_name),
                     studentIds: linked.map((item: any) => item.student_id || ''),
                     attendance: Object.keys(attendance).length ? attendance : undefined,
                     attendanceByStudentId: linked.reduce((result: Record<string, 'present' | 'absent'>, item: any) => {
-                        if (item.student_id && (item.attendance === 'present' || item.attendance === 'absent')) {
-                            result[item.student_id] = item.attendance;
+                        const status = normalizeAttendanceStatus(item.attendance);
+                        if (item.student_id && status) {
+                            result[item.student_id] = status;
                         }
                         return result;
                     }, {}),
@@ -203,7 +212,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             normalizedSessions.forEach(session => {
                 session.students.forEach((studentName, index) => {
                     const studentId = session.studentIds?.[index] || studentIdsByName.get(normalizeForMatch(studentName));
-                    const status = (studentId && session.attendanceByStudentId?.[studentId]) || session.attendance?.[studentName];
+                    const normalizedNameStatus = Object.entries(session.attendance || {}).find(([name]) => normalizeForMatch(name) === normalizeForMatch(studentName))?.[1];
+                    const status = (studentId && session.attendanceByStudentId?.[studentId]) || normalizedNameStatus;
                     if (!studentId || (status !== 'present' && status !== 'absent')) return;
                     if (!attendanceHistory[studentId]) attendanceHistory[studentId] = [];
                     attendanceHistory[studentId].push({
