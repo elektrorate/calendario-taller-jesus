@@ -245,6 +245,7 @@ const StudentList: React.FC<StudentListProps> = ({
   }, [form.assignedClasses]);
 
   const attendanceMonths = Object.keys(attendanceByMonth).sort((a, b) => b.localeCompare(a));
+  const previousAttendanceMonths = attendanceMonths.filter(month => month !== currentMonthKey).slice(0, 3);
   const currentMonthAttendance = attendanceByMonth[currentMonthKey] || [];
   const currentAttendanceByDate = currentMonthAttendance.reduce<Record<string, AssignedClass[]>>((groups, attendance) => {
     if (!groups[attendance.date]) groups[attendance.date] = [];
@@ -418,7 +419,8 @@ const StudentList: React.FC<StudentListProps> = ({
                       const records = dateKey ? currentAttendanceByDate[dateKey] || [] : [];
                       const hasPresent = records.some(record => record.status === 'present');
                       const hasAbsent = records.some(record => record.status === 'absent');
-                      return <div key={`${dateKey || 'empty'}-${index}`} className={`min-h-[42px] rounded-md border p-1.5 ${day ? 'bg-white border-[#E6D8CB]' : 'border-transparent'}`}>
+                      const dayColor = hasPresent && hasAbsent ? 'bg-[#F5E8D4] border-[#DDBFA4]' : hasPresent ? 'bg-[#E7F0E8] border-[#A9C9AE]' : hasAbsent ? 'bg-[#F7E3DF] border-[#EBCFC9]' : 'bg-white border-[#E6D8CB]';
+                      return <div key={`${dateKey || 'empty'}-${index}`} className={`min-h-[42px] rounded-md border p-1.5 ${day ? dayColor : 'border-transparent'}`}>
                         {day && <><span className="text-[10px] font-semibold text-[#7B3F22]">{day}</span>{records.length > 0 && <div className="mt-1 flex items-center gap-1"><span className={`h-1.5 w-1.5 rounded-full ${hasPresent ? 'bg-[#5F8065]' : 'bg-[#D8E4D9]'}`} /><span className={`h-1.5 w-1.5 rounded-full ${hasAbsent ? 'bg-[#9C4235]' : 'bg-[#EBCFC9]'}`} /></div>}</>}
                       </div>;
                     })}
@@ -426,8 +428,8 @@ const StudentList: React.FC<StudentListProps> = ({
                   <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-[#8B6B5E]"><span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#5F8065]" />Presente</span><span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#9C4235]" />Falta</span><span>{currentMonthAttendance.length} registros</span></div>
                 </section>
                 <section className="border-t border-[#E6D8CB] pt-6">
-                  <div className="flex items-baseline justify-between mb-3"><h4 className="text-[14px] font-bold text-[#7B3F22]">Historial por meses</h4><span className="text-[10px] text-[#8B6B5E]">{attendanceMonths.filter(month => month !== currentMonthKey).length} meses anteriores</span></div>
-                  {attendanceMonths.filter(month => month !== currentMonthKey).length === 0 ? <p className="py-5 border border-dashed border-[#DDBFA4] rounded-md text-center text-[12px] text-[#8B6B5E]">No hay meses anteriores registrados.</p> : <div className="space-y-2">{attendanceMonths.filter(month => month !== currentMonthKey).map(monthKey => {
+                  <div className="flex items-baseline justify-between mb-3"><h4 className="text-[14px] font-bold text-[#7B3F22]">Historial por meses</h4><span className="text-[10px] text-[#8B6B5E]">{previousAttendanceMonths.length} meses anteriores</span></div>
+                  {previousAttendanceMonths.length === 0 ? <p className="py-5 border border-dashed border-[#DDBFA4] rounded-md text-center text-[12px] text-[#8B6B5E]">No hay meses anteriores registrados.</p> : <div className="space-y-2">{previousAttendanceMonths.map(monthKey => {
                     const records = attendanceByMonth[monthKey];
                     const isExpanded = expandedAttendanceMonth === monthKey;
                     const presentCount = records.filter(record => record.status === 'present').length;
