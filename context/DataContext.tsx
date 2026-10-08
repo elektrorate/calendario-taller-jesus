@@ -7,7 +7,7 @@ import {
 } from '../types';
 
 // Import modular operations
-import { extractTime, withTimeout, RELOAD_TIMEOUT_MS, OpsContext } from './data/shared';
+import { extractTime, normalizeForMatch, withTimeout, RELOAD_TIMEOUT_MS, OpsContext } from './data/shared';
 import * as studentOps from './data/studentOps';
 import * as sessionOps from './data/sessionOps';
 import * as teacherOps from './data/teacherOps';
@@ -105,9 +105,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 return query;
             };
 
-            const [studentsRes, teachersRes, sessionsRes, sessionStudentsRes, assignedRes, piecesRes, giftRes, inventoryRes, movementsRes] = await Promise.all([
+            const [studentsRes, teachersRes, sessionsRes, sessionStudentsRes, piecesRes, giftRes, inventoryRes, movementsRes] = await Promise.all([
                 buildQuery('students'), buildQuery('teachers'), buildQuery('sessions'),
-                buildQuery('session_students'), buildQuery('student_assigned_classes'),
+                buildQuery('session_students'),
                 buildQuery('pieces'), buildQuery('gift_cards'), buildQuery('inventory_items'), buildQuery('inventory_movements')
             ]);
 
@@ -115,21 +115,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             if (teachersRes.error) throw teachersRes.error;
             if (sessionsRes.error) throw sessionsRes.error;
             if (sessionStudentsRes.error) throw sessionStudentsRes.error;
-            if (assignedRes.error) throw assignedRes.error;
             if (piecesRes.error) throw piecesRes.error;
             if (giftRes.error) throw giftRes.error;
             if (inventoryRes.error) throw inventoryRes.error;
             if (movementsRes.error) throw movementsRes.error;
-
-            // Normalize assigned classes
-            const assignedMap: Record<string, AssignedClass[]> = {};
-            (assignedRes.data || []).forEach((row: any) => {
-                if (!assignedMap[row.student_id]) assignedMap[row.student_id] = [];
-                assignedMap[row.student_id].push({
-                    date: row.date, startTime: extractTime(row.start_time),
-                    endTime: extractTime(row.end_time), status: row.status || 'pending'
-                });
-            });
 
             const today = new Date().toISOString().split('T')[0];
 
@@ -148,7 +137,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 paymentMethod: row.payment_method || undefined,
                 notes: row.notes || undefined, observations: row.observations || undefined,
                 price: row.price ?? undefined,
-                assignedClasses: assignedMap[row.id] || [],
+                assignedClasses: [],
                 classType: row.class_type || undefined,
                 expiryDate: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : undefined,
                 studentCategory,
@@ -190,7 +179,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                     startTime: extractTime(row.start_time), endTime: extractTime(row.end_time),
                     classType: row.class_type,
                     students: linked.map((item: any) => item.student_name),
+                    studentIds: linked.map((item: any) => item.student_id || ''),
                     attendance: Object.keys(attendance).length ? attendance : undefined,
+                    attendanceByStudentId: linked.reduce((result: Record<string, 'present' | 'absent'>, item: any) => {
+                        if (item.student_id && (item.attendance === 'present' || item.attendance === 'absent')) {
+                            result[item.student_id] = item.attendance;
+                        }
+                        return result;
+                    }, {}),
                     teacherId: row.teacher_id || undefined,
                     teacherSubstituteId: row.teacher_substitute_id || undefined,
                     completedAt: row.completed_at || undefined,
@@ -199,6 +195,30 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                     sessionAudience: row.session_audience || undefined
                 };
             });
+
+            const studentIdsByName = new Map(
+                normalizedStudents.map(student => [normalizeForMatch(`${student.name} ${student.surname || ''}`), student.id])
+            );
+            const attendanceHistory: Record<string, AssignedClass[]> = {};
+            normalizedSessions.forEach(session => {
+                session.students.forEach((studentName, index) => {
+                    const studentId = session.studentIds?.[index] || studentIdsByName.get(normalizeForMatch(studentName));
+                    const status = (studentId && session.attendanceByStudentId?.[studentId]) || session.attendance?.[studentName];
+                    if (!studentId || (status !== 'present' && status !== 'absent')) return;
+                    if (!attendanceHistory[studentId]) attendanceHistory[studentId] = [];
+                    attendanceHistory[studentId].push({
+                        date: session.date,
+                        startTime: session.startTime,
+                        endTime: session.endTime,
+                        status
+                    });
+                });
+            });
+
+            const studentsWithAttendance = normalizedStudents.map(student => ({
+                ...student,
+                assignedClasses: attendanceHistory[student.id] || []
+            }));
 
             const normalizedPieces: CeramicPiece[] = (piecesRes.data || []).map((row: any) => ({
                 id: row.id, owner: row.owner_name, description: row.description,
@@ -216,9 +236,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 extraCommentary: row.extra_commentary || undefined
             }));
 
-            setStudents(normalizedStudents);
+            setStudents(studentsWithAttendance);
 
-            const studentsToArchive = normalizedStudents.filter(student => student.archivedAt === today);
+            const studentsToArchive = studentsWithAttendance.filter(student => student.archivedAt === today);
             if (studentsToArchive.length > 0) {
                 Promise.all(studentsToArchive.map(student =>
                     withTimeout('students.auto_archive', supabase.from('students').update({ archived_at: today }).eq('id', student.id))
@@ -226,7 +246,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             }
 
             // Auto-renewal of expired memberships
-            const studentsToRenew = normalizedStudents.filter(s =>
+            const studentsToRenew = studentsWithAttendance.filter(s =>
                 !s.archivedAt && s.repetirMensualmente && s.studentCategory === 'membresia' && s.expiryDate && s.expiryDate < today
             );
             if (studentsToRenew.length > 0) {

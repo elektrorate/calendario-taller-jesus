@@ -94,7 +94,6 @@ serve(async (req) => {
                 await tryDelete("packages", supabaseAdmin.from("packages").delete().in("student_id", studentIds));
             }
             await tryDelete("session_students", supabaseAdmin.from("session_students").delete().in("sede_id", sedeIds));
-            await tryDelete("student_assigned_classes", supabaseAdmin.from("student_assigned_classes").delete().in("sede_id", sedeIds));
             await tryDelete("gift_cards", supabaseAdmin.from("gift_cards").delete().in("sede_id", sedeIds));
             await tryDelete("pieces", supabaseAdmin.from("pieces").delete().in("sede_id", sedeIds));
             await tryDelete("inventory_movements", supabaseAdmin.from("inventory_movements").delete().in("sede_id", sedeIds));

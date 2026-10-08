@@ -1,6 +1,6 @@
 import React from 'react';
 import { supabase } from '../../supabaseClient';
-import { inferMembershipTier, Student, ClassSession, AssignedClass } from '../../types';
+import { inferMembershipTier, Student, ClassSession } from '../../types';
 
 export { supabase };
 
@@ -130,7 +130,6 @@ export const mapStudentRowToModel = (row: any): Student => ({
     notes: row.notes || undefined,
     observations: row.observations || undefined,
     price: row.price ?? undefined,
-    assignedClasses: [],
     classType: row.class_type || undefined,
     expiryDate: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : undefined,
     studentCategory: row.student_category || 'membresia',

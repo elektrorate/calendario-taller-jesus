@@ -71,6 +71,8 @@ export interface ClassSession {
   classType: 'mesa' | 'torno' | 'coworking' | 'workshop' | 'privada' | 'feriado';
   students: string[]; // List of student names
   attendance?: Record<string, 'present' | 'absent'>; // Record key is student name or ID
+  studentIds?: string[];
+  attendanceByStudentId?: Record<string, 'present' | 'absent'>;
   teacherId?: string;
   teacherSubstituteId?: string;
   completedAt?: string;

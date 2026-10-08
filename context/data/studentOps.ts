@@ -1,71 +1,7 @@
 import { MEMBERSHIP_PLANS, MembershipTier } from '../../types';
-import type { Student, ClassSession, AssignedClass } from '../../types';
-import { supabase, withTimeout, buildStudentPayload, extractTime, isAbortError, OpsContext } from './shared';
+import type { Student } from '../../types';
+import { supabase, withTimeout, buildStudentPayload, isAbortError, OpsContext } from './shared';
 import { showError, showWarning } from '../toast';
-
-const buildAssignedKey = (cls: AssignedClass) => `${cls.date}|${cls.startTime}|${cls.endTime}`;
-
-const persistAssignedClasses = async (studentId: string, assignedClasses: AssignedClass[], sedeId: string | null) => {
-    await withTimeout('assigned_classes.delete', supabase.from('student_assigned_classes').delete().eq('student_id', studentId));
-    if (!assignedClasses.length) return;
-    const rows = assignedClasses.map(cls => ({
-        student_id: studentId,
-        ...(sedeId ? { sede_id: sedeId } : {}),
-        date: cls.date,
-        start_time: cls.startTime,
-        end_time: cls.endTime,
-        status: cls.status || 'pending'
-    }));
-    const { error } = await withTimeout('assigned_classes.insert', supabase.from('student_assigned_classes').insert(rows));
-    if (error) console.error('Assigned classes insert error', error);
-};
-
-const removeAssignedClassesFromSessions = async (student: Student, removedClasses: AssignedClass[], sessions: ClassSession[]) => {
-    if (!removedClasses.length) return;
-    for (const cls of removedClasses) {
-        let sessionMatch = sessions.find(s => s.date === cls.date && s.startTime === cls.startTime && s.endTime === cls.endTime);
-        if (!sessionMatch) {
-            try {
-                const { data, error } = await withTimeout('sessions.select_for_unlink',
-                    supabase.from('sessions').select('id').eq('date', cls.date).eq('start_time', cls.startTime).eq('end_time', cls.endTime).limit(1).single()
-                );
-                if (error) continue;
-                sessionMatch = { id: data.id } as ClassSession;
-            } catch { continue; }
-        }
-        try {
-            await withTimeout('session_students.delete_unassigned',
-                supabase.from('session_students').delete().eq('session_id', sessionMatch.id).eq('student_id', student.id)
-            );
-        } catch (err) { console.error('Session student delete timeout in removeAssigned', err); }
-    }
-};
-
-const syncAssignedClassesToSessions = async (student: Student, assignedClasses: AssignedClass[], sessions: ClassSession[]) => {
-    if (!assignedClasses.length) return;
-    const studentName = `${student.name} ${student.surname || ''}`.trim().toUpperCase();
-    const inferredType = student.classType?.toLowerCase() === 'torno' ? 'torno' : 'mesa';
-
-    for (const cls of assignedClasses) {
-        let sessionMatch = sessions.find(s => s.date === cls.date && s.startTime === cls.startTime);
-        if (!sessionMatch) {
-            try {
-                const { data, error } = await withTimeout('sessions.insert_for_assigned',
-                    supabase.from('sessions').insert({ date: cls.date, start_time: cls.startTime, end_time: cls.endTime, class_type: inferredType }).select().single()
-                );
-                if (error) { console.error('Session insert error', error); continue; }
-                sessionMatch = { id: data.id, date: data.date, startTime: extractTime(data.start_time), endTime: extractTime(data.end_time), classType: data.class_type, students: [] } as ClassSession;
-            } catch { continue; }
-        }
-        const attendance = cls.status === 'present' || cls.status === 'absent' ? cls.status : 'pending';
-        try {
-            const { error } = await withTimeout('session_students.upsert_assigned',
-                supabase.from('session_students').upsert({ session_id: sessionMatch.id, student_id: student.id, student_name: studentName, attendance }, { onConflict: 'session_id,student_id' })
-            );
-            if (error) console.error('Session student upsert error', error);
-        } catch (err) { console.error('Session student upsert timeout', err); }
-    }
-};
 
 export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'>) => {
     if (ctx.operationLockRef.current) {
@@ -88,18 +24,12 @@ export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'
             phone: newStudent.phone || '',
             classesRemaining: newStudent.classesRemaining ?? data.classes_remaining ?? 0,
             status: newStudent.status || data.status || 'membresia',
-            assignedClasses: newStudent.assignedClasses || [],
             studentCategory: newStudent.studentCategory || data.student_category || 'membresia',
             bonosAsignados: newStudent.bonosAsignados ?? data.bonos_asignados ?? 4,
             repetirMensualmente: newStudent.repetirMensualmente ?? false,
         };
         ctx.setStudents(prev => [newStudentWithId, ...prev]);
 
-        const assignedClasses = newStudent.assignedClasses || [];
-        if (assignedClasses.length) {
-            await persistAssignedClasses(data.id, assignedClasses, ctx.sedeId);
-            await syncAssignedClassesToSessions({ ...newStudent, id: data.id } as Student, assignedClasses, ctx.sessions);
-        }
         // Background reload — if it fails, UI already has the student
         ctx.safeReload();
     } catch (err: any) {
@@ -127,17 +57,6 @@ export const updateStudent = async (ctx: OpsContext, id: string, updates: Partia
             ctx.setStudents(previousStudents);
             showError(`No se pudo actualizar el alumno. ${error.message || ''}`);
             return;
-        }
-        if (updates.assignedClasses) {
-            const student = previousStudents.find(s => s.id === id);
-            if (student) {
-                const prevAssigned = student.assignedClasses || [];
-                const nextSet = new Set(updates.assignedClasses.map(buildAssignedKey));
-                const removed = prevAssigned.filter(cls => !nextSet.has(buildAssignedKey(cls)));
-                await persistAssignedClasses(id, updates.assignedClasses, ctx.sedeId);
-                await removeAssignedClassesFromSessions({ ...student, ...updates } as Student, removed, ctx.sessions);
-                await syncAssignedClassesToSessions({ ...student, ...updates } as Student, updates.assignedClasses, ctx.sessions);
-            }
         }
         ctx.safeReload();
     } catch (err: any) {
