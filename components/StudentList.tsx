@@ -422,9 +422,10 @@ const StudentList: React.FC<StudentListProps> = ({
                       const records = dateKey ? currentAttendanceByDate[dateKey] || [] : [];
                       const hasPresent = records.some(record => record.status === 'present');
                       const hasAbsent = records.some(record => record.status === 'absent');
-                      const dayColor = hasPresent && hasAbsent ? 'bg-[#F5E8D4] border-[#DDBFA4]' : hasPresent ? 'bg-[#E7F0E8] border-[#A9C9AE]' : hasAbsent ? 'bg-[#F7E3DF] border-[#EBCFC9]' : 'bg-white border-[#E6D8CB]';
-                      return <div key={`${dateKey || 'empty'}-${index}`} className={`min-h-[42px] rounded-md border p-1.5 ${day ? dayColor : 'border-transparent'}`}>
-                        {day && <><span className="text-[10px] font-semibold text-[#7B3F22]">{day}</span>{records.length > 0 && <div className="mt-1 flex items-center gap-1"><span className={`h-1.5 w-1.5 rounded-full ${hasPresent ? 'bg-[#5F8065]' : 'bg-[#D8E4D9]'}`} /><span className={`h-1.5 w-1.5 rounded-full ${hasAbsent ? 'bg-[#9C4235]' : 'bg-[#EBCFC9]'}`} /></div>}</>}
+                      const dayColor = hasPresent && hasAbsent ? 'bg-[#F6D596] border-[#DDB36D]' : hasPresent ? 'bg-[#8CF776] border-[#65D95B]' : hasAbsent ? 'bg-[#FFA18B] border-[#F27F67]' : 'bg-white border-[#E6D8CB]';
+                      const dayTextColor = hasPresent && hasAbsent ? 'text-[#7B5421]' : hasPresent ? 'text-[#247A2B]' : hasAbsent ? 'text-[#9C4235]' : 'text-[#7B3F22]';
+                      return <div key={`${dateKey || 'empty'}-${index}`} title={hasPresent && hasAbsent ? 'Presente y falta' : hasPresent ? 'Presente' : hasAbsent ? 'Falta' : undefined} className={`min-h-[42px] rounded-md border p-1.5 ${day ? dayColor : 'border-transparent'}`}>
+                        {day && <span className={`text-[10px] font-semibold ${dayTextColor}`}>{day}</span>}
                       </div>;
                     })}
                   </div>
