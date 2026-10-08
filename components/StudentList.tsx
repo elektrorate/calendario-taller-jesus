@@ -43,6 +43,7 @@ const StudentList: React.FC<StudentListProps> = ({
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [studentToArchive, setStudentToArchive] = useState<string | null>(null);
   const [pendingCategory, setPendingCategory] = useState<'membresia' | 'temporal' | null>(null);
+  const [pendingMembershipTier, setPendingMembershipTier] = useState<MembershipTier | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
@@ -141,6 +142,23 @@ const StudentList: React.FC<StudentListProps> = ({
   const requestCategoryChange = (category: 'membresia' | 'temporal') => {
     if (category === form.studentCategory) return;
     setPendingCategory(category);
+  };
+
+  const applyMembershipTierChange = (tier: MembershipTier) => {
+    const plan = MEMBERSHIP_PLANS[tier];
+    setForm(current => ({
+      ...current,
+      membershipTier: tier,
+      price: plan.price,
+      bonosAsignados: plan.bonuses,
+      classesRemaining: editingStudent ? Math.min(current.classesRemaining, plan.bonuses) : plan.bonuses
+    }));
+    setPendingMembershipTier(null);
+  };
+
+  const requestMembershipTierChange = (tier: MembershipTier) => {
+    if (tier === form.membershipTier) return;
+    setPendingMembershipTier(tier);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -312,7 +330,7 @@ const StudentList: React.FC<StudentListProps> = ({
               <section><div className="flex items-baseline justify-between mb-3"><h4 className="text-[14px] font-bold text-[#7B3F22]">Información personal</h4><span className="text-[10px] text-[#8B6B5E]">Datos de contacto</span></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nombre" aria-label="Nombre" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /><input value={form.surname} onChange={(e) => setForm({ ...form, surname: e.target.value })} placeholder="Apellidos" aria-label="Apellidos" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" aria-label="Email" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Teléfono" aria-label="Teléfono" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /></div></section>
                <section className="border-t border-[#E6D8CB] pt-6"><h4 className="text-[14px] font-bold text-[#7B3F22] mb-3">Actividad y categoría</h4><div className="grid grid-cols-2 sm:grid-cols-4 gap-2"><select value={form.classType} onChange={(e) => setForm({ ...form, classType: e.target.value })} aria-label="Tipo de clase" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] outline-none focus:border-[#C68952]"><option>Modelado</option><option>Torno</option><option>Coworking</option><option>Iniciación</option></select><select value={form.studentCategory} onChange={(e) => requestCategoryChange(e.target.value as 'membresia' | 'temporal')} aria-label="Categoría del alumno" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] outline-none focus:border-[#C68952]"><option value="membresia">Membresía</option><option value="temporal">Temporal</option></select><select value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value as 'paid' | 'pending' })} aria-label="Estado del pago" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] outline-none focus:border-[#C68952]"><option value="paid">Pago al día</option><option value="pending">Pago pendiente</option></select><input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: parseInt(e.target.value) })} placeholder="Cuota" aria-label="Cuota" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952]" /></div></section>
                {form.studentCategory === 'membresia' && <div className="grid grid-cols-3 gap-2 mt-3">
-                 {(['plata', 'gold', 'platinum'] as MembershipTier[]).map(tier => <button key={tier} type="button" onClick={() => { const plan = MEMBERSHIP_PLANS[tier]; setForm(f => ({ ...f, membershipTier: tier, price: plan.price, bonosAsignados: plan.bonuses, classesRemaining: editingStudent ? Math.min(f.classesRemaining, plan.bonuses) : plan.bonuses })); }} className={`min-h-10 rounded-md border text-[10px] font-bold uppercase tracking-[0.08em] transition-colors ${form.membershipTier === tier ? 'bg-[#7B3F22] text-white border-[#7B3F22]' : 'bg-white text-[#8B6B5E] border-[#DDBFA4] hover:border-[#C68952]'}`}>{MEMBERSHIP_PLANS[tier].label}<span className="block text-[9px] opacity-75 normal-case tracking-normal">{MEMBERSHIP_PLANS[tier].price}€ · {MEMBERSHIP_PLANS[tier].bonuses} bonos</span></button>)}
+                  {(['plata', 'gold', 'platinum'] as MembershipTier[]).map(tier => <button key={tier} type="button" onClick={() => requestMembershipTierChange(tier)} className={`min-h-10 rounded-md border text-[10px] font-bold uppercase tracking-[0.08em] transition-colors ${form.membershipTier === tier ? 'bg-[#7B3F22] text-white border-[#7B3F22]' : 'bg-white text-[#8B6B5E] border-[#DDBFA4] hover:border-[#C68952]'}`}>{MEMBERSHIP_PLANS[tier].label}<span className="block text-[9px] opacity-75 normal-case tracking-normal">{MEMBERSHIP_PLANS[tier].price}€ · {MEMBERSHIP_PLANS[tier].bonuses} bonos</span></button>)}
                </div>}
 
               <section className="border-t border-[#E6D8CB] pt-6">
@@ -360,6 +378,7 @@ const StudentList: React.FC<StudentListProps> = ({
       </div>}
 
         <ConfirmModal isOpen={!!pendingCategory} title="¿Cambiar categoría?" message={`Vas a cambiar este alumno a ${pendingCategory === 'temporal' ? 'Temporal' : 'Membresía'}. Se ajustarán sus bonos y la renovación automática.`} confirmText="Cambiar categoría" isDestructive={false} onConfirm={() => { if (pendingCategory) applyCategoryChange(pendingCategory); }} onCancel={() => setPendingCategory(null)} />
+        <ConfirmModal isOpen={!!pendingMembershipTier} title="¿Cambiar nivel?" message={`Vas a cambiar la membresía a ${pendingMembershipTier ? MEMBERSHIP_PLANS[pendingMembershipTier].label : ''}. Se actualizarán el precio y los bonos contratados.`} confirmText="Cambiar nivel" isDestructive={false} onConfirm={() => { if (pendingMembershipTier) applyMembershipTierChange(pendingMembershipTier); }} onCancel={() => setPendingMembershipTier(null)} />
         <ConfirmModal isOpen={!!studentToArchive} title="¿Archivar alumno?" message="El alumno dejará de aparecer entre los activos. Podrás reactivarlo al renovar o añadir bonos." confirmText="Archivar" isDestructive={false} onConfirm={() => { if (studentToArchive) { const idToArchive = studentToArchive; setStudentToArchive(null); setShowModal(false); setEditingStudent(null); onUpdate(idToArchive, { archivedAt: new Date().toISOString().split('T')[0] }); } }} onCancel={() => setStudentToArchive(null)} />
        <ConfirmModal isOpen={!!studentToDelete} title="¿Eliminar alumno?" message="¿Seguro que deseas eliminar el historial de este alumno? Esta acción no se puede deshacer." isDestructive={true} onConfirm={() => { if (studentToDelete) { const idToDelete = studentToDelete; setStudentToDelete(null); setShowModal(false); setEditingStudent(null); onDeleteStudent(idToDelete); } }} onCancel={() => setStudentToDelete(null)} />
     </div>
