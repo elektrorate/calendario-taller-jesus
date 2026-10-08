@@ -24,6 +24,24 @@ const CATEGORY_LABELS: Record<string, string> = {
   archivados: 'Archivados'
 };
 
+const getMonthKey = (date: string) => date.slice(0, 7);
+
+const formatMonthLabel = (monthKey: string) => {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+};
+
+const getMonthCalendarDays = (monthKey: string): Array<number | null> => {
+  const [year, month] = monthKey.split('-').map(Number);
+  const firstDay = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const mondayOffset = (firstDay.getDay() + 6) % 7;
+  return [
+    ...Array.from({ length: mondayOffset }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1)
+  ];
+};
+
 const StudentList: React.FC<StudentListProps> = ({
   students,
   onAddStudent,
@@ -44,6 +62,8 @@ const StudentList: React.FC<StudentListProps> = ({
   const [studentToArchive, setStudentToArchive] = useState<string | null>(null);
   const [pendingCategory, setPendingCategory] = useState<'membresia' | 'temporal' | null>(null);
   const [pendingMembershipTier, setPendingMembershipTier] = useState<MembershipTier | null>(null);
+  const currentMonthKey = getMonthKey(new Date().toISOString().split('T')[0]);
+  const [expandedAttendanceMonth, setExpandedAttendanceMonth] = useState(currentMonthKey);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
@@ -215,6 +235,23 @@ const StudentList: React.FC<StudentListProps> = ({
     setNewSessionDate('');
   };
 
+  const attendanceByMonth = useMemo(() => {
+    return form.assignedClasses.reduce<Record<string, AssignedClass[]>>((groups, attendance) => {
+      const monthKey = getMonthKey(attendance.date);
+      if (!groups[monthKey]) groups[monthKey] = [];
+      groups[monthKey].push(attendance);
+      return groups;
+    }, {});
+  }, [form.assignedClasses]);
+
+  const attendanceMonths = Object.keys(attendanceByMonth).sort((a, b) => b.localeCompare(a));
+  const currentMonthAttendance = attendanceByMonth[currentMonthKey] || [];
+  const currentAttendanceByDate = currentMonthAttendance.reduce<Record<string, AssignedClass[]>>((groups, attendance) => {
+    if (!groups[attendance.date]) groups[attendance.date] = [];
+    groups[attendance.date].push(attendance);
+    return groups;
+  }, {});
+
   const filteredStudents = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return students.filter(s => {
@@ -367,7 +404,37 @@ const StudentList: React.FC<StudentListProps> = ({
              <div id="student-attendance-panel" className="space-y-7">
                <style>{`#student-attendance-panel > section:first-of-type { display: none; }`}</style>
               <section><div className="flex items-baseline justify-between mb-3"><h4 className="text-[14px] font-bold text-[#7B3F22]">Asistencia</h4><span className="text-[10px] text-[#8B6B5E]">Registro de sesiones</span></div><div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar">{form.assignedClasses.length === 0 ? <p className="py-6 border border-dashed border-[#DDBFA4] rounded-md text-center text-[12px] text-[#8B6B5E]">No hay asistencias registradas aún.</p> : form.assignedClasses.map((ac, idx) => <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-white border border-[#E6D8CB] rounded-md"><div><p className="text-[13px] font-bold text-[#7B3F22]">{ac.date}</p><p className="text-[11px] text-[#8B6B5E]">{ac.startTime} - {ac.endTime}</p></div><div className="flex gap-1"><button type="button" onClick={() => { const updated = [...form.assignedClasses]; updated[idx].status = updated[idx].status === 'present' ? 'pending' : 'present'; setForm({ ...form, assignedClasses: updated }); }} className={`w-8 h-8 rounded-md flex items-center justify-center border ${ac.status === 'present' ? 'bg-[#7B3F22] text-white border-[#7B3F22]' : 'bg-white text-[#8B6B5E] border-[#DDBFA4]'}`} aria-label="Marcar presente">✓</button><button type="button" onClick={() => { const updated = [...form.assignedClasses]; updated[idx].status = updated[idx].status === 'absent' ? 'pending' : 'absent'; setForm({ ...form, assignedClasses: updated }); }} className={`w-8 h-8 rounded-md flex items-center justify-center border ${ac.status === 'absent' ? 'bg-[#A85D3B] text-white border-[#A85D3B]' : 'bg-white text-[#8B6B5E] border-[#DDBFA4]'}`} aria-label="Marcar ausente">×</button></div></div>)}</div><div className="grid grid-cols-[1fr_1fr_44px] gap-2 mt-3"><input type="date" value={newSessionDate} onChange={(e) => setNewSessionDate(e.target.value)} aria-label="Fecha de asistencia" className="h-10 px-2 bg-white border border-[#DDBFA4] rounded-md text-[12px] text-[#7B3F22]" /><input type="time" value={newSessionTime} onChange={(e) => setNewSessionTime(e.target.value)} aria-label="Hora de asistencia" className="h-10 px-2 bg-white border border-[#DDBFA4] rounded-md text-[12px] text-[#7B3F22]" /><button type="button" onClick={handleAddSession} className="h-10 rounded-md bg-[#F0E2D6] text-[#7B3F22] text-lg hover:bg-[#DDBFA4]" aria-label="Añadir asistencia">+</button></div></section>
-               <section className="border-t border-[#E6D8CB] pt-6"><div className="flex items-baseline justify-between mb-3"><h4 className="text-[14px] font-bold text-[#7B3F22]">Historial de asistencia</h4><span className="text-[10px] text-[#8B6B5E]">Desde el calendario</span></div><div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar">{form.assignedClasses.length === 0 ? <p className="py-6 border border-dashed border-[#DDBFA4] rounded-md text-center text-[12px] text-[#8B6B5E]">Todavía no hay asistencias registradas.</p> : form.assignedClasses.map((ac, idx) => <div key={`${ac.date}-${ac.startTime}-${idx}`} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-white border border-[#E6D8CB] rounded-md"><div><p className="text-[13px] font-bold text-[#7B3F22]">{ac.date}</p><p className="text-[11px] text-[#8B6B5E]">{ac.startTime} - {ac.endTime}</p></div><span className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${ac.status === 'present' ? 'bg-[#E7F0E8] text-[#47704D]' : 'bg-[#F7E3DF] text-[#9C4235]'}`}>{ac.status === 'present' ? 'Presente' : 'Falta'}</span></div>)}</div></section>
+                <section className="border-t border-[#E6D8CB] pt-6">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h4 className="text-[14px] font-bold text-[#7B3F22]">Asistencia de {formatMonthLabel(currentMonthKey)}</h4>
+                    <span className="text-[10px] text-[#8B6B5E]">Desde el calendario</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 mb-1.5">
+                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(day => <span key={day} className="text-center text-[9px] font-bold uppercase text-[#8B6B5E]">{day}</span>)}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {getMonthCalendarDays(currentMonthKey).map((day, index) => {
+                      const dateKey = day ? `${currentMonthKey}-${String(day).padStart(2, '0')}` : '';
+                      const records = dateKey ? currentAttendanceByDate[dateKey] || [] : [];
+                      const hasPresent = records.some(record => record.status === 'present');
+                      const hasAbsent = records.some(record => record.status === 'absent');
+                      return <div key={`${dateKey || 'empty'}-${index}`} className={`min-h-[42px] rounded-md border p-1.5 ${day ? 'bg-white border-[#E6D8CB]' : 'border-transparent'}`}>
+                        {day && <><span className="text-[10px] font-semibold text-[#7B3F22]">{day}</span>{records.length > 0 && <div className="mt-1 flex items-center gap-1"><span className={`h-1.5 w-1.5 rounded-full ${hasPresent ? 'bg-[#5F8065]' : 'bg-[#D8E4D9]'}`} /><span className={`h-1.5 w-1.5 rounded-full ${hasAbsent ? 'bg-[#9C4235]' : 'bg-[#EBCFC9]'}`} /></div>}</>}
+                      </div>;
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-[#8B6B5E]"><span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#5F8065]" />Presente</span><span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#9C4235]" />Falta</span><span>{currentMonthAttendance.length} registros</span></div>
+                </section>
+                <section className="border-t border-[#E6D8CB] pt-6">
+                  <div className="flex items-baseline justify-between mb-3"><h4 className="text-[14px] font-bold text-[#7B3F22]">Historial por meses</h4><span className="text-[10px] text-[#8B6B5E]">{attendanceMonths.filter(month => month !== currentMonthKey).length} meses anteriores</span></div>
+                  {attendanceMonths.filter(month => month !== currentMonthKey).length === 0 ? <p className="py-5 border border-dashed border-[#DDBFA4] rounded-md text-center text-[12px] text-[#8B6B5E]">No hay meses anteriores registrados.</p> : <div className="space-y-2">{attendanceMonths.filter(month => month !== currentMonthKey).map(monthKey => {
+                    const records = attendanceByMonth[monthKey];
+                    const isExpanded = expandedAttendanceMonth === monthKey;
+                    const presentCount = records.filter(record => record.status === 'present').length;
+                    const absentCount = records.filter(record => record.status === 'absent').length;
+                    return <div key={monthKey} className="rounded-md border border-[#E6D8CB] bg-white overflow-hidden"><button type="button" onClick={() => setExpandedAttendanceMonth(isExpanded ? currentMonthKey : monthKey)} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[#FCF8F4]"><span className="text-[12px] font-bold capitalize text-[#7B3F22]">{formatMonthLabel(monthKey)}</span><span className="text-[10px] text-[#8B6B5E]">{presentCount} presentes · {absentCount} faltas <span className="ml-1">{isExpanded ? '−' : '+'}</span></span></button>{isExpanded && <div className="border-t border-[#E6D8CB] px-3 py-2 space-y-1.5">{records.map((record, index) => <div key={`${record.date}-${record.startTime}-${index}`} className="flex items-center justify-between text-[11px]"><span className="text-[#7B3F22]">{record.date} · {record.startTime} - {record.endTime}</span><span className={`font-bold ${record.status === 'present' ? 'text-[#47704D]' : 'text-[#9C4235]'}`}>{record.status === 'present' ? 'Presente' : 'Falta'}</span></div>)}</div>}</div>;
+                  })}</div>}
+                </section>
                <section className="border-t border-[#E6D8CB] pt-6"><h4 className="text-[14px] font-bold text-[#7B3F22] mb-3">Observaciones internas</h4><textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} placeholder="Preferencias, nivel o avisos relevantes" aria-label="Observaciones internas" className="w-full min-h-[120px] p-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none resize-y focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /></section>
                <div className="text-[11px] text-[#8B6B5E] border-t border-[#E6D8CB] pt-4">{editingStudent?.createdAt ? `Ficha creada el ${new Date(editingStudent.createdAt).toLocaleDateString('es-ES')}` : 'La ficha se registrará al guardar.'}</div>
                {editingStudent && form.studentCategory === 'membresia' && <button type="button" onClick={handleRenewMembership} disabled={isSubmitting} className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7B3F22] hover:text-[#C68952] disabled:opacity-50">Renovar {MEMBERSHIP_PLANS[form.membershipTier].label} · {MEMBERSHIP_PLANS[form.membershipTier].bonuses} bonos</button>}
