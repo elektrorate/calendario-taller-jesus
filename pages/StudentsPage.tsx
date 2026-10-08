@@ -9,6 +9,7 @@ const StudentsPage: React.FC = () => {
 
     const {
         students,
+        giftCards,
         addStudent,
         updateStudent,
         deleteStudent,
@@ -41,6 +42,7 @@ const StudentsPage: React.FC = () => {
     return (
         <StudentList
             students={students}
+            giftCards={giftCards}
             onAddStudent={addStudent}
             onRenew={renewStudent}
             onUpdate={updateStudent}

@@ -245,18 +245,18 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-neutral-base px-6 py-4">
-      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-8 pb-10">
+      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-6 pb-6">
         {/* BARRA LATERAL DE ALUMNOS */}
-        <aside className="w-full lg:w-96 flex flex-col shrink-0 bg-white rounded-[2.5rem] border border-neutral-border soft-shadow overflow-hidden">
-          <div className="p-5 border-b border-neutral-border bg-neutral-sec/30 space-y-4">
-            <h3 className="text-[12px] font-extrabold text-neutral-textMain uppercase tracking-widest">Listado de Alumnos</h3>
+        <aside className="w-full lg:w-96 flex flex-col shrink-0 bg-white rounded-2xl border border-neutral-border soft-shadow overflow-hidden">
+          <div className="p-4 border-b border-neutral-border bg-neutral-sec/40 space-y-3">
+            <h3 className="text-[15px] font-bold text-neutral-textMain">Listado de Alumnos</h3>
             {/* Búsqueda */}
             <input
               type="text"
               placeholder="Buscar por nombre o grupo..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-neutral-border rounded-xl text-[11px] font-medium focus:border-brand outline-none transition-all"
+              className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none placeholder:text-neutral-textHelper transition-all"
             />
             {/* Filtros por categoría */}
             <div className="flex flex-wrap gap-1.5">
@@ -264,13 +264,13 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
-                  className={`px-2.5 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border transition-all ${categoryFilter === cat
+                  className={`px-3 py-1.5 rounded-[10px] text-[12px] font-semibold border transition-all ${categoryFilter === cat
                     ? (cat === 'todos'
                       ? 'bg-neutral-textMain text-white border-neutral-textMain'
                       : cat === 'bonos_especiales'
                         ? 'bg-brand text-white border-transparent'
                         : CATEGORY_COLORS[cat] + ' border-transparent')
-                    : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
+                    : 'bg-white text-neutral-textHelper border-neutral-border hover:border-arena'
                     }`}
                 >
                   {cat === 'todos' ? 'Todos' : cat === 'bonos_especiales' ? 'Bonos especiales' : CATEGORY_LABELS[cat]}
@@ -284,7 +284,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
             className="flex-1 overflow-y-auto custom-scrollbar p-4"
           >
             {filteredStudents.length === 0 ? (
-              <p className="text-center py-8 text-[11px] text-neutral-textHelper uppercase font-light italic">Sin resultados</p>
+              <p className="text-center py-8 text-[13px] text-neutral-textHelper italic">Sin resultados</p>
             ) : (
               <>
                 <div style={{ height: virtualTopSpacer }} />
@@ -300,23 +300,23 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                         className={`w-full text-left p-4 rounded-2xl transition-all border flex items-center justify-between group ${selectedStudentId === s.id ? (isTemporary ? 'bg-amber-500 text-white border-amber-500' : 'bg-brand text-white border-brand') + ' soft-shadow' : 'bg-transparent border-transparent text-neutral-textSec hover:bg-neutral-alt'}`}
                       >
                         <div className="overflow-hidden flex-1">
-                          <p className={`font-extrabold text-[13px] uppercase tracking-tight truncate ${selectedStudentId === s.id ? 'text-white' : 'text-neutral-textMain'}`}>{s.name} {s.surname || ''}</p>
+                          <p className={`font-semibold text-[14px] truncate ${selectedStudentId === s.id ? 'text-white' : 'text-neutral-textMain'}`}>{s.name} {s.surname || ''}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[9px] font-extrabold uppercase tracking-widest ${selectedStudentId === s.id ? 'text-white/80' : 'text-neutral-textHelper'}`}>
+                            <span className={`text-[11px] font-semibold ${selectedStudentId === s.id ? 'text-white/80' : 'text-neutral-textHelper'}`}>
                               {CATEGORY_LABELS[displayCat]}
                             </span>
                             {s.groupName && (
-                              <span className={`text-[9px] font-light ${selectedStudentId === s.id ? 'text-white/70' : 'text-neutral-textSec'}`}>
+                              <span className={`text-[11px] ${selectedStudentId === s.id ? 'text-white/70' : 'text-neutral-textSec'}`}>
                                 • {s.groupName}
                               </span>
                             )}
                           </div>
                           {/* Info rápida para temporales */}
                           {isTemporary && (
-                            <div className={`flex items-center gap-2 mt-1 text-[9px] ${selectedStudentId === s.id ? 'text-white/70' : 'text-neutral-textSec'}`}>
+                            <div className={`flex items-center gap-2 mt-1 text-[11px] ${selectedStudentId === s.id ? 'text-white/70' : 'text-neutral-textSec'}`}>
                               <span>{s.classesRemaining} clases</span>
                               {s.expiryDate && (
-                                <span className={isExpired(s.expiryDate) ? 'text-red-400' : ''}>
+                                <span className={isExpired(s.expiryDate) ? 'text-[#9E3B2B] font-semibold' : ''}>
                                   • Exp: {formatExpiryDate(s.expiryDate)}
                                 </span>
                               )}
@@ -330,7 +330,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                 </div>
                 <div style={{ height: virtualBottomSpacer }} />
                 {canLoadMore && (
-                  <div className="py-3 text-center text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">
+                  <div className="py-3 text-center text-[11px] font-semibold text-neutral-textHelper">
                     Cargando más alumnos...
                   </div>
                 )}
@@ -340,9 +340,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
         </aside>
 
         {/* CONTENIDO DEL HISTORIAL */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-8">
+        <main className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
           {studentDetails ? (
-            <div className="animate-fade-in space-y-10">
+            <div className="animate-fade-in space-y-6">
               {/* CABECERA ALUMNO */}
               {(() => {
                 const cat = studentDetails.student.studentCategory || 'membresia';
@@ -350,56 +350,56 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                 const isTemporary = studentDetails.isTemporary;
                 const expired = isExpired(studentDetails.student.expiryDate);
                 return (
-                  <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-neutral-border soft-shadow">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
+                  <div className="bg-white p-4 md:p-6 rounded-2xl border border-neutral-border soft-shadow">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                       <div>
-                        <span className="text-[10px] font-extrabold text-brand uppercase tracking-[0.2em] mb-2 block">REGISTRO INTEGRAL</span>
-                        <h3 className="text-[32px] md:text-[42px] font-extrabold text-neutral-textMain uppercase tracking-tight leading-none">{studentDetails.fullName}</h3>
-                        <div className="flex flex-wrap gap-3 mt-4">
-                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest ${CATEGORY_COLORS[displayCat]}`}>
+                        <span className="eyebrow mb-2 block">Registro integral</span>
+                        <h3 className="text-[28px] md:text-[36px] font-bold text-neutral-textMain leading-tight">{studentDetails.fullName}</h3>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <span className={`px-3 py-1.5 rounded-[10px] text-[12px] font-semibold ${CATEGORY_COLORS[displayCat]}`}>
                             {CATEGORY_LABELS[displayCat]}
                           </span>
                           {studentDetails.student.groupName && (
-                            <span className="px-3 py-1.5 bg-neutral-sec border border-neutral-border rounded-full text-[10px] font-extrabold uppercase tracking-widest text-neutral-textSec">
+                            <span className="px-3 py-1.5 bg-neutral-sec border border-neutral-border rounded-[10px] text-[12px] font-semibold text-neutral-textSec">
                               {studentDetails.student.groupName}
                             </span>
                           )}
-                          <span className="px-3 py-1.5 bg-neutral-sec border border-neutral-border rounded-full text-[10px] font-extrabold uppercase tracking-widest text-neutral-textSec">
+                          <span className="px-3 py-1.5 bg-neutral-sec border border-neutral-border rounded-[10px] text-[12px] font-semibold text-neutral-textSec">
                             {studentDetails.student.classType || 'General'}
                           </span>
                         </div>
                       </div>
                       {/* KPIs principales */}
                       <div className={`grid grid-cols-2 ${isTemporary ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-3 w-full md:w-auto`}>
-                        <div className={`p-4 rounded-2xl border text-center min-w-[100px] ${studentDetails.student.classesRemaining <= 1 ? 'bg-red-50 border-red-100' : 'bg-neutral-sec border-neutral-border'}`}>
-                          <p className={`text-[24px] font-extrabold ${studentDetails.student.classesRemaining <= 1 ? 'text-red-500' : 'text-neutral-textMain'}`}>{studentDetails.student.classesRemaining}</p>
-                          <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Clases Rest.</p>
+                        <div className={`p-3 rounded-2xl border text-center min-w-[100px] ${studentDetails.student.classesRemaining <= 1 ? 'bg-[#F8E1DA] border-[#EFC9BE]' : 'bg-neutral-sec border-neutral-border'}`}>
+                          <p className={`text-[24px] font-bold ${studentDetails.student.classesRemaining <= 1 ? 'text-[#9E3B2B]' : 'text-neutral-textMain'}`}>{studentDetails.student.classesRemaining}</p>
+                          <p className="text-[12px] font-semibold text-neutral-textSec">Clases Rest.</p>
                         </div>
-                        <div className="bg-neutral-sec p-4 rounded-2xl border border-neutral-border text-center min-w-[100px]">
-                          <p className="text-[24px] font-extrabold text-neutral-textMain">{studentDetails.sessions.length}</p>
-                          <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Sesiones</p>
+                        <div className="bg-neutral-sec p-3 rounded-2xl border border-neutral-border text-center min-w-[100px]">
+                          <p className="text-[24px] font-bold text-neutral-textMain">{studentDetails.sessions.length}</p>
+                          <p className="text-[12px] font-semibold text-neutral-textSec">Sesiones</p>
                         </div>
-                        <div className="bg-neutral-sec p-4 rounded-2xl border border-neutral-border text-center min-w-[100px]">
-                          <p className="text-[24px] font-extrabold text-neutral-textMain">{studentDetails.pieces.length}</p>
-                          <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Piezas</p>
+                        <div className="bg-neutral-sec p-3 rounded-2xl border border-neutral-border text-center min-w-[100px]">
+                          <p className="text-[24px] font-bold text-neutral-textMain">{studentDetails.pieces.length}</p>
+                          <p className="text-[12px] font-semibold text-neutral-textSec">Piezas</p>
                         </div>
                         {isTemporary && (
-                          <div className="bg-neutral-sec p-4 rounded-2xl border border-neutral-border text-center min-w-[100px]">
-                            <p className="text-[24px] font-extrabold text-neutral-textMain">{studentDetails.giftCards.length}</p>
-                            <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Bonos</p>
+                          <div className="bg-neutral-sec p-3 rounded-2xl border border-neutral-border text-center min-w-[100px]">
+                            <p className="text-[24px] font-bold text-neutral-textMain">{studentDetails.giftCards.length}</p>
+                            <p className="text-[12px] font-semibold text-neutral-textSec">Bonos</p>
                             {studentDetails.giftCards.length > 0 && (
-                              <p className="text-[9px] font-bold text-green-600 mt-1">
+                              <p className="text-[11px] font-semibold text-[#20663B] mt-1">
                                 {studentDetails.activeGiftCards.length} vig.
                               </p>
                             )}
                           </div>
                         )}
                         {studentDetails.student.expiryDate && (
-                          <div className={`p-4 rounded-2xl border text-center min-w-[100px] ${expired ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
-                            <p className={`text-[13px] font-extrabold ${expired ? 'text-red-500' : 'text-green-600'}`}>
+                          <div className={`p-3 rounded-2xl border text-center min-w-[100px] ${expired ? 'bg-[#F8E1DA] border-[#EFC9BE]' : 'bg-[#DFF0E4] border-[#BFDECB]'}`}>
+                            <p className={`text-[13px] font-bold ${expired ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>
                               {formatExpiryDate(studentDetails.student.expiryDate)}
                             </p>
-                            <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">
+                            <p className="text-[12px] font-semibold text-neutral-textSec">
                               {expired ? 'Expirado' : 'Expira'}
                             </p>
                           </div>
@@ -410,13 +410,13 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                     {isTemporary && studentDetails.student.price && (
                       <div className="pt-4 border-t border-neutral-border flex flex-wrap gap-6">
                         <div>
-                          <span className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Precio Bono</span>
-                          <p className="text-[16px] font-extrabold text-neutral-textMain">{studentDetails.student.price}€</p>
+                          <span className="text-[12px] font-semibold text-neutral-textSec">Precio Bono</span>
+                          <p className="text-[16px] font-bold text-neutral-textMain">{studentDetails.student.price}€</p>
                         </div>
                         {studentDetails.student.paymentMethod && (
                           <div>
-                            <span className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">Método Pago</span>
-                            <p className="text-[16px] font-extrabold text-neutral-textMain">{studentDetails.student.paymentMethod}</p>
+                            <span className="text-[12px] font-semibold text-neutral-textSec">Método Pago</span>
+                            <p className="text-[16px] font-bold text-neutral-textMain">{studentDetails.student.paymentMethod}</p>
                           </div>
                         )}
                       </div>
@@ -427,38 +427,38 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
 
               {studentDetails.isTemporary && (
                 <section className="space-y-4">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className="w-1.5 h-6 bg-[#CB7859] rounded-full"></div>
-                    <h4 className="text-[16px] font-extrabold text-neutral-textMain uppercase tracking-widest">Bonos de Regalo</h4>
+                  <div className="flex items-center gap-3 px-1">
+                    <div className="w-1.5 h-5 bg-caramelo rounded-full"></div>
+                    <h4 className="text-[16px] font-bold text-neutral-textMain">Bonos de Regalo</h4>
                   </div>
                   {studentDetails.giftCards.length === 0 ? (
-                    <div className="bg-white/50 p-8 rounded-[2.5rem] border border-dashed border-neutral-border text-center">
-                      <p className="text-neutral-textHelper font-light uppercase text-xs tracking-widest">Sin bonos asociados a este perfil</p>
+                    <div className="bg-neutral-sec/60 p-6 rounded-2xl border border-dashed border-neutral-border text-center">
+                      <p className="text-neutral-textHelper text-[14px]">Sin bonos asociados a este perfil</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                       {studentDetails.giftCards.map(card => {
                         const expiredCard = isExpired(card.expiryDate);
                         return (
-                          <div key={card.id} className="bg-white p-5 rounded-[2rem] border border-neutral-border soft-shadow flex items-start justify-between gap-4">
+                          <div key={card.id} className="bg-white p-4 rounded-2xl border border-neutral-border soft-shadow flex items-start justify-between gap-4">
                             <div className="space-y-1">
-                              <p className="text-[14px] font-extrabold text-neutral-textMain uppercase tracking-tight">
+                              <p className="text-[14px] font-bold text-neutral-textMain">
                                 {card.type} · {card.numClasses} clases
                               </p>
-                              <p className="text-[10px] font-bold text-neutral-textHelper uppercase tracking-widest">
-                                Emitido: <span className="text-neutral-textSec">{formatGiftCardDate(card.createdAt)}</span>
+                              <p className="text-[12px] font-semibold text-neutral-textSec">
+                                Emitido: <span className="text-neutral-textMain">{formatGiftCardDate(card.createdAt)}</span>
                               </p>
                               {card.issuedDate && (
-                                <p className="text-[10px] font-bold text-neutral-textHelper uppercase tracking-widest">
-                                  Emitido: <span className="text-neutral-textSec">{formatGiftCardDate(card.issuedDate)}</span>
+                                <p className="text-[12px] font-semibold text-neutral-textSec">
+                                  Emitido: <span className="text-neutral-textMain">{formatGiftCardDate(card.issuedDate)}</span>
                                 </p>
                               )}
                             </div>
                             <div className="text-right">
-                              <p className={`text-[11px] font-extrabold uppercase tracking-widest ${expiredCard ? 'text-red-500' : 'text-green-600'}`}>
+                              <p className={`text-[12px] font-semibold ${expiredCard ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>
                                 {expiredCard ? 'Expirado' : 'Vigente'}
                               </p>
-                              <p className={`text-[12px] font-extrabold ${expiredCard ? 'text-red-500' : 'text-neutral-textMain'}`}>
+                              <p className={`text-[12px] font-bold ${expiredCard ? 'text-[#9E3B2B]' : 'text-neutral-textMain'}`}>
                                 {formatGiftCardDate(card.expiryDate)}
                               </p>
                             </div>
@@ -470,17 +470,17 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                 </section>
               )}
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {/* COLUMNA SESIONES (TIMELINE) */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className="w-1.5 h-6 bg-brand rounded-full"></div>
-                    <h4 className="text-[16px] font-extrabold text-neutral-textMain uppercase tracking-widest">Historial de Clases</h4>
+                <section className="space-y-4">
+                  <div className="flex items-center gap-3 px-1">
+                    <div className="w-1.5 h-5 bg-brand rounded-full"></div>
+                    <h4 className="text-[16px] font-bold text-neutral-textMain">Historial de Clases</h4>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {studentDetails.sessions.length === 0 ? (
-                      <div className="bg-white/50 p-10 rounded-[2.5rem] border border-dashed border-neutral-border text-center">
-                        <p className="text-neutral-textHelper font-light uppercase text-xs tracking-widest">No se registran asistencias aún</p>
+                      <div className="bg-neutral-sec/60 p-6 rounded-2xl border border-dashed border-neutral-border text-center">
+                        <p className="text-neutral-textHelper text-[14px]">No se registran asistencias aún</p>
                       </div>
                     ) : (
                       studentDetails.sessions.map(s => {
@@ -488,12 +488,12 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                         const nameKey = studentDetails.student.name.toUpperCase();
                         const status = s.attendance?.[attendanceKey] || s.attendance?.[nameKey] || 'pending';
                         return (
-                          <div key={s.id} className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex justify-between items-center group hover:border-brand transition-all">
+                          <div key={s.id} className="bg-white p-4 rounded-2xl border border-neutral-border flex justify-between items-center gap-3 group hover:border-arena transition-all">
                             <div className="flex flex-col">
-                              <p className="text-[15px] font-extrabold text-neutral-textMain uppercase tracking-tight">{formatSessionDate(s.date)}</p>
-                              <p className="text-[11px] font-light text-neutral-textSec mt-1">{s.startTime} - {s.endTime} • {s.classType.toUpperCase()}</p>
+                              <p className="text-[15px] font-semibold text-neutral-textMain">{formatSessionDate(s.date)}</p>
+                              <p className="text-[13px] text-neutral-textSec mt-0.5">{s.startTime} - {s.endTime} • {s.classType}</p>
                             </div>
-                            <div className={`px-4 py-1.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${status === 'present' ? 'bg-green-100 text-green-600' : status === 'absent' ? 'bg-red-100 text-red-500' : 'bg-neutral-alt text-neutral-textHelper'}`}>
+                            <div className={`px-3 py-1.5 rounded-[10px] text-[12px] font-semibold shrink-0 ${status === 'present' ? 'bg-[#DFF0E4] text-[#20663B] border border-[#BFDECB]' : status === 'absent' ? 'bg-[#F8E1DA] text-[#9E3B2B] border border-[#EFC9BE]' : 'bg-neutral-alt text-neutral-textHelper border border-neutral-border'}`}>
                               {status === 'present' ? 'Asistió' : status === 'absent' ? 'Faltó' : 'Pendiente'}
                             </div>
                           </div>
@@ -504,32 +504,32 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                 </section>
 
                 {/* COLUMNA PIEZAS (PORTFOLIO) */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-3 px-2">
-                    <div className="w-1.5 h-6 bg-[#3D3437] rounded-full"></div>
-                    <h4 className="text-[16px] font-extrabold text-neutral-textMain uppercase tracking-widest">Catálogo de Producción</h4>
+                <section className="space-y-4">
+                  <div className="flex items-center gap-3 px-1">
+                    <div className="w-1.5 h-5 bg-neutral-textMain rounded-full"></div>
+                    <h4 className="text-[16px] font-bold text-neutral-textMain">Catálogo de Producción</h4>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {studentDetails.pieces.length === 0 ? (
-                      <div className="bg-white/50 p-10 rounded-[2.5rem] border border-dashed border-neutral-border text-center">
-                        <p className="text-neutral-textHelper font-light uppercase text-xs tracking-widest">No hay piezas registradas</p>
+                      <div className="bg-neutral-sec/60 p-6 rounded-2xl border border-dashed border-neutral-border text-center">
+                        <p className="text-neutral-textHelper text-[14px]">No hay piezas registradas</p>
                       </div>
                     ) : (
                       studentDetails.pieces.map(p => (
-                        <div key={p.id} className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col gap-3 group hover:border-[#3D3437] transition-all">
-                          <div className="flex justify-between items-start">
-                            <p className="text-[16px] font-extrabold text-neutral-textMain uppercase tracking-tight leading-tight">{p.description}</p>
-                            <span className={`shrink-0 px-3 py-1 rounded-lg text-[8px] font-extrabold uppercase tracking-widest text-white ${p.status === 'entregado' ? 'bg-neutral-textHelper' : 'bg-brand'}`}>
-                              {p.status.replace('_', ' ').toUpperCase()}
+                        <div key={p.id} className="bg-white p-4 rounded-2xl border border-neutral-border flex flex-col gap-3 group hover:border-arena transition-all">
+                          <div className="flex justify-between items-start gap-3">
+                            <p className="text-[15px] font-bold text-neutral-textMain leading-tight">{p.description}</p>
+                            <span className={`shrink-0 px-2.5 py-1 rounded-[8px] text-[11px] font-semibold text-white ${p.status === 'entregado' ? 'bg-neutral-textHelper' : 'bg-brand'}`}>
+                              {p.status.replace('_', ' ')}
                             </span>
                           </div>
-                          <div className="flex items-center gap-4 text-[11px] font-light text-neutral-textSec border-t border-neutral-alt pt-3">
+                          <div className="flex items-center gap-4 text-[13px] text-neutral-textSec border-t border-neutral-alt pt-3">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-brand"></div>
+                              <div className="w-1.5 h-1.5 rounded-full bg-caramelo"></div>
                               <span>{p.glazeType || 'Sin esmalte'}</span>
                             </div>
                             {p.status === 'entregado' && (
-                              <span className="text-green-600 font-extrabold">✓ ENTREGADA</span>
+                              <span className="text-[#20663B] font-semibold">✓ Entregada</span>
                             )}
                           </div>
                         </div>
@@ -540,12 +540,12 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-[4rem] border border-dashed border-neutral-border/60">
-              <div className="w-24 h-24 bg-neutral-sec rounded-full flex items-center justify-center mb-8">
-                <svg className="w-12 h-12 text-neutral-textHelper" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 md:p-12 bg-white rounded-2xl border border-dashed border-neutral-border">
+              <div className="w-20 h-20 bg-neutral-sec rounded-full flex items-center justify-center mb-6">
+                <svg className="w-10 h-10 text-neutral-textHelper" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               </div>
-              <h3 className="text-[24px] font-extrabold text-neutral-textMain uppercase tracking-tight mb-2">Selecciona un Perfil</h3>
-              <p className="text-neutral-textSec font-light max-w-xs mx-auto">Explora el registro histórico de clases y piezas de cada alumno del taller.</p>
+              <h3 className="text-[24px] font-bold text-neutral-textMain mb-2">Selecciona un Perfil</h3>
+              <p className="text-neutral-textSec text-[15px] max-w-xs mx-auto">Explora el registro histórico de clases y piezas de cada alumno del taller.</p>
             </div>
           )}
         </main>

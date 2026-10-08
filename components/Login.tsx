@@ -1,144 +1,118 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+
+type LoginMode = 'login' | 'forgot-password';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<LoginMode>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const { login, session, profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Clear any residual session when arriving at login
   useEffect(() => {
-    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-  }, []);
+    if (!session || !profile) return;
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (session && profile) {
-      const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
-      if (from) {
-        navigate(from, { replace: true });
-      } else if (profile.role === 'super_admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-    }
-  }, [session, profile, navigate, location]);
+    const requestedPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
+    const destination = profile.role === 'super_admin' ? '/admin' : '/dashboard';
+    const canReturnToRequestedPath = requestedPath
+      && (profile.role === 'super_admin' ? requestedPath.startsWith('/admin') : !requestedPath.startsWith('/admin'));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    navigate(canReturnToRequestedPath ? requestedPath : destination, { replace: true });
+  }, [session, profile, navigate, location.state]);
+
+  const clearFeedback = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
+  };
 
-    if (isRegistering) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        setErrorMessage('No se pudo registrar. Verifica email y contraseña.');
-      } else {
-        setSuccessMessage('Registro exitoso. Revisa tu email para confirmar si está activado.');
-        setIsRegistering(false);
-      }
-      setIsLoading(false);
-    } else {
-      const result = await login(email, password);
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    clearFeedback();
+    setIsLoading(true);
 
-      if (result.success && result.role) {
-        if (result.role === 'super_admin') {
-          navigate('/admin', { replace: true });
-        } else {
-          navigate('/dashboard', { replace: true });
-        }
-      } else {
-        setErrorMessage(result.error || 'Error al iniciar sesión.');
-      }
-      setIsLoading(false);
+    const result = await login(email.trim().toLowerCase(), password);
+
+    if (!result.success) {
+      setErrorMessage(result.error || 'No se pudo iniciar sesión.');
     }
+
+    setIsLoading(false);
+  };
+
+  const handlePasswordRecovery = async (event: React.FormEvent) => {
+    event.preventDefault();
+    clearFeedback();
+    setIsLoading(true);
+
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo });
+
+    if (error) {
+      setErrorMessage('No se pudo enviar el correo. Inténtalo de nuevo dentro de unos minutos.');
+    } else {
+      setSuccessMessage('Si el correo pertenece a una cuenta autorizada, recibirás un enlace para crear una nueva contraseña.');
+    }
+
+    setIsLoading(false);
+  };
+
+  const changeMode = (nextMode: LoginMode) => {
+    clearFeedback();
+    setPassword('');
+    setMode(nextMode);
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-neutral-base p-6 md:p-8 font-sans">
-      <div className="w-full max-w-xl bg-white rounded-[3.5rem] md:rounded-[4.5rem] p-10 md:p-20 border border-neutral-border soft-shadow animate-fade-in flex flex-col items-center relative overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl"></div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-neutral-base p-4 md:p-8 font-sans">
+      <div className="w-full max-w-[440px] bg-white rounded-2xl p-6 md:p-10 border border-neutral-border soft-shadow animate-fade-in flex flex-col items-center relative">
+        <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center text-white font-display font-bold text-2xl mb-8">A</div>
 
-        <div className="w-20 h-20 md:w-24 md:h-24 bg-brand rounded-full flex items-center justify-center text-white font-extrabold text-[32px] md:text-[42px] mb-10 shadow-xl shadow-brand/20 relative z-10">A</div>
-
-        <div className="text-center mb-12 relative z-10">
-          <p className="text-[10px] md:text-[12px] font-light text-neutral-textHelper uppercase tracking-[0.3em] mb-2">SISTEMA DE GESTIÓN</p>
-          <h1 className="text-[32px] md:text-[48px] font-extrabold text-neutral-textMain uppercase tracking-tight leading-[1.1]">
-            BIENVENIDO AL <span className="text-brand">ESTUDIO</span>
+        <div className="text-center mb-8 w-full">
+          <p className="eyebrow mb-2">Sistema de gestión</p>
+          <h1 className="text-[30px] md:text-[36px] text-neutral-textMain leading-tight">
+            {mode === 'login' ? <>Bienvenido al <span className="text-brand italic">estudio</span></> : <>Recupera tu <span className="text-brand italic">acceso</span></>}
           </h1>
-          <div className="h-1 w-12 bg-brand mx-auto mt-6 rounded-full"></div>
+          <div className="h-[3px] w-10 bg-caramelo mx-auto mt-5 rounded-full" />
+          {mode === 'forgot-password' && <p className="mt-4 text-[14px] text-neutral-textHelper leading-relaxed">Escribe el correo asociado a tu cuenta y te enviaremos un enlace seguro.</p>}
         </div>
 
-        <form onSubmit={handleSubmit} className="w-full space-y-6 md:space-y-8 relative z-10">
-          {errorMessage && (
-            <p className="text-[12px] text-red-500 font-bold uppercase tracking-widest text-center">
-              {errorMessage}
-            </p>
-          )}
-          {successMessage && (
-            <p className="text-[12px] text-green-600 font-bold uppercase tracking-widest text-center">
-              {successMessage}
-            </p>
-          )}
-          <div className="space-y-3">
-            <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">Usuario o Email</label>
-            <input
-              required
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50"
-              placeholder="alexander@estudio.com"
-            />
-          </div>
-          <div className="space-y-3">
-            <label className="block text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest ml-4">Contraseña</label>
-            <input
-              required
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-8 py-5 md:py-6 bg-neutral-sec border border-neutral-border focus:border-brand focus:bg-white rounded-[2rem] font-light text-[18px] md:text-[20px] outline-none transition-all placeholder:text-neutral-textHelper/50"
-              placeholder="••••••••"
-            />
+        <form onSubmit={mode === 'login' ? handleLogin : handlePasswordRecovery} className="w-full space-y-5 relative">
+          {errorMessage && <div role="alert" className="rounded-[10px] bg-[#F8E1DA] border border-[#EFC9BE] px-4 py-3 text-[14px] text-[#9E3B2B]">{errorMessage}</div>}
+          {successMessage && <div role="status" className="rounded-[10px] bg-[#DFF0E4] border border-[#BFDECB] px-4 py-3 text-[14px] text-[#20663B]">{successMessage}</div>}
+
+          <div className="space-y-1.5">
+            <label htmlFor="login-email" className="block text-[12px] font-semibold text-neutral-textSec">Correo electrónico</label>
+            <input id="login-email" required autoComplete="email" inputMode="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full min-h-[48px] px-4 py-3 bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 rounded-[10px] text-[16px] outline-none transition-all placeholder:text-neutral-textHelper" placeholder="tu@correo.com" />
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-6 md:py-7 bg-brand text-white rounded-[2.5rem] font-extrabold shadow-lg shadow-brand/20 uppercase tracking-[0.2em] text-[16px] md:text-[18px] hover:bg-brand-hover hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 mt-4"
-          >
-            {isLoading ? (
-              <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <>
-                {isRegistering ? 'Crear Cuenta' : 'Entrar al Taller'}
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </>
-            )}
+          {mode === 'login' && (
+            <div className="space-y-1.5">
+              <label htmlFor="login-password" className="block text-[12px] font-semibold text-neutral-textSec">Contraseña</label>
+              <input id="login-password" required autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="w-full min-h-[48px] px-4 py-3 bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 rounded-[10px] text-[16px] outline-none transition-all placeholder:text-neutral-textHelper" placeholder="••••••••" />
+              <div className="flex justify-end pt-1">
+                <button type="button" onClick={() => changeMode('forgot-password')} className="text-[13px] font-medium text-neutral-textHelper hover:text-brand transition-colors">¿Olvidaste tu contraseña?</button>
+              </div>
+            </div>
+          )}
+
+          <button type="submit" disabled={isLoading} className="w-full min-h-[48px] py-3 bg-brand text-white rounded-[10px] font-semibold text-[15px] hover:bg-brand-hover active:scale-[0.99] transition-all flex items-center justify-center gap-3 mt-2 disabled:opacity-60 disabled:cursor-not-allowed">
+            {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : mode === 'login' ? 'Iniciar sesión' : 'Enviar enlace'}
           </button>
-          <button
-            type="button"
-            onClick={() => { setIsRegistering(!isRegistering); setErrorMessage(null); setSuccessMessage(null); }}
-            className="w-full py-4 text-[12px] font-extrabold uppercase tracking-widest text-neutral-textHelper hover:text-brand transition-colors"
-          >
-            {isRegistering ? 'Ya tengo cuenta' : 'Crear nueva cuenta'}
-          </button>
+
+          {mode === 'forgot-password' && (
+            <button type="button" onClick={() => changeMode('login')} className="w-full min-h-[44px] py-2 text-[14px] font-medium text-neutral-textHelper hover:text-brand transition-colors">Volver al inicio de sesión</button>
+          )}
         </form>
 
-        <p className="mt-16 text-[10px] md:text-[11px] font-light text-neutral-textHelper uppercase text-center tracking-[0.2em] opacity-60">Artesanía & Gestión Studio v1.2</p>
+        <p className="mt-10 text-[12px] text-neutral-textHelper text-center">Acceso exclusivo para usuarios autorizados</p>
       </div>
     </div>
   );

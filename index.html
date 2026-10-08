@@ -3,10 +3,13 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Artesania & Calendario</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Artesania &amp; Calendario</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap"
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700;800;900&display=swap"
     rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600&display=swap"
     rel="stylesheet">
@@ -15,27 +18,33 @@
       theme: {
         extend: {
           colors: {
+            marron: '#7B3F22',
+            taupe: '#8B6B5E',
+            arena: '#DDBFA4',
+            caramelo: '#C68952',
             brand: {
-              DEFAULT: '#CA7859',
-              hover: '#B56C50',
-              pressed: '#A16047',
-              light: '#D28E71',
+              DEFAULT: '#7B3F22',
+              hover: '#6A351C',
+              pressed: '#5A2D17',
+              light: '#A9623F',
+              soft: '#F1E4D8',
             },
             neutral: {
-              base: '#F3EDE6',
-              alt: '#F0E8E0',
+              base: '#FAF7F2',
+              alt: '#F4EDE5',
               surface: '#FFFFFF',
-              sec: '#F7F1EB',
-              border: '#DDD5CD',
-              textMain: '#3D3437',
-              textSec: '#6F6A6D',
-              textHelper: '#A8A9AE',
-              customGray: '#727375',
+              sec: '#F7F2EC',
+              border: '#E7DACB',
+              textMain: '#312620',
+              textSec: '#6E5A4E',
+              textHelper: '#8B7666',
+              customGray: '#7B6B60',
             }
           },
           fontFamily: {
-            sans: ['Manrope', 'sans-serif'],
-          }
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['"Playfair Display"', 'Georgia', 'serif'],
+          },
         }
       }
     }
@@ -43,24 +52,52 @@
   <style>
     :root {
       --vh: 100vh;
+      --marron: #7B3F22;
+      --taupe: #8B6B5E;
+      --arena: #DDBFA4;
+      --caramelo: #C68952;
+      --paper: #FAF7F2;
+      --line: #E7DACB;
     }
 
     body {
-      font-family: 'Manrope', sans-serif;
-      background-color: #F3EDE6;
-      color: #3D3437;
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #FAF7F2;
+      color: #312620;
       margin: 0;
       padding: 0;
       width: 100%;
       overflow: auto;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      font-weight: 300;
-      /* Manrope Light 300 base */
+      font-weight: 400;
+      line-height: 1.5;
+      font-size: 15px;
+    }
+
+    /* Titulares editoriales (Playfair) en títulos de pantalla */
+    h1,
+    h2,
+    h3 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+    }
+
+    :focus-visible {
+      outline: 2px solid #7B3F22;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    ::selection {
+      background: #DDBFA4;
+      color: #312620;
     }
 
     .soft-shadow {
-      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 1px 2px rgba(45, 30, 18, 0.04), 0 8px 24px -14px rgba(45, 30, 18, 0.14);
     }
 
     .custom-scrollbar::-webkit-scrollbar {
@@ -72,7 +109,7 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #DDD5CD;
+      background: #E7DACB;
       border-radius: 10px;
     }
 
@@ -81,13 +118,13 @@
     }
 
     .animate-fade-in {
-      animation: fadeIn 0.4s ease-out;
+      animation: fadeIn 0.3s ease-out;
     }
 
     @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(6px);
       }
 
       to {
@@ -96,30 +133,35 @@
       }
     }
 
-    /* Admin Panel Styles (from entrada-a-la-app-calendario) */
     .premium-card {
       background: #FFFFFF;
-      border-radius: 48px;
-      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      border: 1px solid #DDD5CD;
-      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 1px 2px rgba(45, 30, 18, 0.04), 0 8px 24px -16px rgba(45, 30, 18, 0.12);
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+      border: 1px solid #E7DACB;
+      padding: 20px;
+    }
+
+    @media (min-width: 768px) {
+      .premium-card {
+        padding: 28px;
+      }
     }
 
     .activity-pill {
-      background: #F7F1EB;
-      border-radius: 999px;
-      padding: 24px 40px;
+      background: #FFFFFF;
+      border: 1px solid #E7DACB;
+      border-radius: 16px;
+      padding: 20px 24px;
       display: flex;
       align-items: center;
       transition: all 0.3s ease;
-      color: #3D3437;
+      color: #312620;
     }
 
     .activity-pill:hover {
-      background: #EAE4DE;
-      transform: translateY(-2px);
-      color: #CA7859;
+      border-color: #DDBFA4;
+      background: #FFFDFB;
     }
 
     .day-pill {
@@ -127,41 +169,46 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      width: 72px;
-      height: 110px;
-      border-radius: 999px;
+      width: 64px;
+      height: 88px;
+      border-radius: 16px;
       transition: all 0.2s ease;
       cursor: pointer;
       background: #FFFFFF;
-      border: 1px solid #DDD5CD;
+      border: 1px solid #E7DACB;
+    }
+
+    .day-pill:hover {
+      border-color: #DDBFA4;
     }
 
     .day-pill-active {
-      background-color: #CA7859;
+      background-color: #7B3F22;
       color: white;
-      border-color: #CA7859;
+      border-color: #7B3F22;
     }
 
     .eyebrow {
+      font-family: 'Inter', system-ui, sans-serif;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.2em;
-      color: #6F6A6D;
+      letter-spacing: 0.18em;
+      color: #8B6B5E;
     }
 
     .title-huge {
-      font-size: 48px;
-      font-weight: 800;
-      letter-spacing: -0.04em;
-      text-transform: uppercase;
-      line-height: 0.9;
-      color: #3D3437;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(30px, 8vw, 48px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.02;
+      color: #312620;
     }
 
     .accent-line {
       height: 3px;
-      background-color: #CA7859;
+      background-color: #C68952;
       width: 40px;
       border-radius: 99px;
     }

@@ -2,6 +2,7 @@ import { showError, showWarning } from '../context/toast';
 import React, { useState, useMemo } from 'react';
 import { ClassSession, Student, Teacher } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
+import { isStudentArchived } from '../utils/studentLifecycle';
 interface CalendarViewProps {
   sessions: ClassSession[];
   onAddSession: (session: Omit<ClassSession, 'id'>) => Promise<void>;
@@ -171,7 +172,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
         return fullName === studentName.toUpperCase() || fullName === studentName;
       });
-      return student && student.studentCategory === 'membresia' && student.classesRemaining <= 0;
+      const category = student?.studentCategory || 'membresia';
+      return student && (category === 'membresia' || category === 'temporal') && student.classesRemaining <= 0;
     });
 
     if (studentsWithNoBonos.length > 0) {
@@ -186,18 +188,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
     try {
       // Student updates share an operation lock, so they must be persisted in sequence.
-      // Only present membership students consume one bonus.
+      // Present membership and temporary students consume one bonus.
       for (const studentName of presentStudentNames) {
         const student = students.find(s => {
           const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
           return fullName === studentName.toUpperCase();
         });
 
-        if (student && student.studentCategory === 'membresia' && student.classesRemaining > 0) {
+        const category = student?.studentCategory || 'membresia';
+        if (student && !isStudentArchived(student) && (category === 'membresia' || category === 'temporal') && student.classesRemaining > 0) {
           const nextClassesRemaining = student.classesRemaining - 1;
-          await onUpdateStudent(student.id, {
+          const updates: Partial<Student> = {
             classesRemaining: nextClassesRemaining,
             status: nextClassesRemaining <= 0 ? 'needs_renewal' : student.status
+          };
+          if (category === 'temporal' && nextClassesRemaining <= 0) {
+            updates.archivedAt = new Date().toISOString().split('T')[0];
+          }
+          await onUpdateStudent(student.id, {
+            ...updates
           });
         }
       }
@@ -623,7 +632,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                     const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
                     return fullName === studentName.toUpperCase() || fullName === studentName;
                   });
-                  const isMembership = studentObj?.studentCategory === 'membresia';
+                  const isBonusStudent = studentObj?.studentCategory === 'membresia' || studentObj?.studentCategory === 'temporal';
                   const bonos = studentObj?.classesRemaining ?? 0;
                   const bonosTotal = studentObj?.bonosAsignados ?? 4;
                   return (
@@ -631,7 +640,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="truncate text-[14px] font-medium capitalize text-[#3F2E27]">{studentName.toLowerCase()}</p>
-                          {isMembership && (
+                          {isBonusStudent && (
                             <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[9px] font-semibold ${bonos <= 0 ? 'bg-[#F7E3DF] text-[#9C4235]'
                               : bonos <= Math.ceil(bonosTotal * 0.25) ? 'bg-[#F5E8D4] text-[#916438]'
                                 : 'bg-[#E7F0E8] text-[#47704D]'
@@ -887,6 +896,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                       {(() => {
                         const filtered = students
                           .filter(s => {
+                            if (isStudentArchived(s)) return false;
                             const cat = s.studentCategory || 'membresia';
                             // Filtro por audiencia - 'ambos' muestra todos los tipos
                             const matchesAudience = sessionForm.sessionAudience === 'ambos'

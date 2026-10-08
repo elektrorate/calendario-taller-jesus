@@ -20,75 +20,75 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="animate-fade-in max-w-7xl mx-auto">
 
-      <div className="flex flex-col lg:flex-row gap-16 items-start">
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
 
         {/* COLUMNA IZQUIERDA: ACTIVIDAD DIARIA */}
-        <section className="flex-1 space-y-12">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-[64px] font-extrabold tracking-tight text-[#312A2C] leading-none uppercase">
+        <section className="flex-1 space-y-6">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-textMain">
               Resumen Global
             </h2>
-            <button className="p-2 text-gray-200">
+            <button className="p-2 text-neutral-textHelper hover:text-brand transition-colors">
               <Icon.More />
             </button>
           </div>
 
-          <div className="mb-12 flex flex-wrap items-center gap-4">
-            <div className="px-6 py-3 bg-[#F4EEE8] rounded-full flex items-center gap-3">
-              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-xs font-bold text-[#8A8481] uppercase tracking-widest">
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="px-4 py-2 bg-neutral-alt rounded-full flex items-center gap-2.5">
+              <div className="w-2 h-2 bg-[#20663B] rounded-full animate-pulse"></div>
+              <span className="eyebrow">
                 {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
               </span>
             </div>
-            <div className="px-6 py-3 border border-[#F1E9E2] rounded-full flex items-center gap-3 text-[#312A2C]">
-              <span className="text-xs font-bold uppercase tracking-widest">Red de Producción:</span>
-              <span className="text-xs font-black">ACTIVA</span>
+            <div className="px-4 py-2 border border-neutral-border rounded-full flex items-center gap-2.5 text-neutral-textMain">
+              <span className="text-[11px] font-semibold text-neutral-textSec uppercase tracking-[0.1em]">Red de Producción:</span>
+              <span className="text-[11px] font-bold text-brand">ACTIVA</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 max-w-2xl">
+          <div className="grid grid-cols-1 gap-4 max-w-2xl">
             <ActivityPill
               label="Talleres Activos"
               value={`${activeWorkshops} / ${workshops.length}`}
               status="Operativo"
               percentage={`${workshops.length > 0 ? Math.round((activeWorkshops / workshops.length) * 100) : 0}%`}
-              iconBg="#C17D5C"
+              iconBg="#7B3F22"
             />
             <ActivityPill
               label="Usuarios"
               value={`${adminUsers} / ${totalStudents}`}
               status="Admins / Alumnos"
               percentage={`${temporaryStudents} TEMP`}
-              iconBg="#8B6452"
+              iconBg="#8B6B5E"
             />
             <ActivityPill
               label="Bonos"
               value={`${activeGiftCards} / ${totalGiftCards}`}
               status="Vigentes / Total"
               percentage={`${expiredGiftCards} VENC`}
-              iconBg="#312A2C"
+              iconBg="#312620"
             />
           </div>
         </section>
 
         {/* COLUMNA DERECHA: TARJETA GESTIÓN */}
         <section className="w-full lg:w-[380px] shrink-0">
-          <Card className="!p-16 flex flex-col h-[680px] justify-between border-none bg-white shadow-2xl rounded-[64px] relative overflow-hidden group">
-            <div className="space-y-12">
-              <div className="w-20 h-20 bg-[#C17D5C]/10 rounded-[32px] flex items-center justify-center text-[#C17D5C]">
+          <Card className="!p-4 md:!p-6 flex flex-col justify-between gap-8 relative overflow-hidden group">
+            <div className="space-y-6">
+              <div className="w-14 h-14 bg-brand-soft rounded-2xl flex items-center justify-center text-brand">
                 <Icon.Target />
               </div>
               <div className="space-y-4">
-                <h3 className="text-4xl font-extrabold tracking-tighter text-[#312A2C] uppercase leading-[0.9]">Gestión<br />de Red</h3>
-                <div className="accent-line w-16 h-1 mt-6"></div>
+                <h3 className="text-2xl md:text-3xl font-bold text-neutral-textMain leading-tight">Gestión<br />de Red</h3>
+                <div className="accent-line"></div>
               </div>
-              <p className="text-[17px] text-[#8A8481] font-bold leading-relaxed max-w-[240px]">Configura nuevos centros de producción y supervisa la actividad global.</p>
+              <p className="text-[15px] text-neutral-textSec leading-relaxed max-w-[280px]">Configura nuevos centros de producción y supervisa la actividad global.</p>
             </div>
 
-            <div className="mt-12">
+            <div className="mt-4">
               <Button
                 variant="primary"
-                className="w-full justify-between !py-8 !px-10 shadow-2xl shadow-[#C17D5C]/30 group-hover:scale-105 transition-transform"
+                className="w-full justify-between group-hover:scale-[1.01] transition-transform"
                 onClick={() => navigate('/admin/talleres/nuevo')}
               >
                 NUEVA SEDE
@@ -106,9 +106,9 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Footer Branding */}
-      <div className="mt-32 pb-10 flex flex-col items-center opacity-10">
-        <div className="w-10 h-10 bg-[#312A2C] rounded-[12px] mb-4"></div>
-        <p className="eyebrow !text-[9px]">BARRO & CO. ESTUDIO CENTRAL</p>
+      <div className="mt-16 md:mt-20 pb-8 flex flex-col items-center opacity-10">
+        <div className="w-10 h-10 bg-neutral-textMain rounded-xl mb-4"></div>
+        <p className="eyebrow">BARRO & CO. ESTUDIO CENTRAL</p>
       </div>
     </div>
   );

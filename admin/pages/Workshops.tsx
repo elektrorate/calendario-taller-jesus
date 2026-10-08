@@ -69,18 +69,17 @@ export const Workshops: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
 
       {/* Encabezado con Botón de Creación */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-1">
         <div className="space-y-2">
           <p className="eyebrow">Red de Producción</p>
-          <h1 className="title-huge text-[#312A2C]">Talleres</h1>
+          <h1 className="title-huge">Talleres</h1>
           <div className="accent-line"></div>
         </div>
         <Button
           variant="primary"
-          className="shadow-2xl !py-6 gap-4"
           onClick={() => navigate('/admin/talleres/nuevo')}
         >
           NUEVA SEDE
@@ -89,7 +88,7 @@ export const Workshops: React.FC = () => {
       </div>
 
       {/* Controles de Búsqueda y Filtros */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex justify-center">
           <SearchPill
             value={search}
@@ -98,8 +97,8 @@ export const Workshops: React.FC = () => {
           />
         </div>
 
-        <Card className="!p-8 bg-white/50 backdrop-blur-sm border-[#F1E9E2]">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="!p-4 md:!p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Select
               label="Filtrar por País"
               value={filterPais}
@@ -133,9 +132,9 @@ export const Workshops: React.FC = () => {
       </div>
 
       {/* Listado de Talleres */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="text-[11px] font-extrabold tracking-[0.4em] text-gray-400 uppercase">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1 gap-3">
+          <h2 className="eyebrow">
             RESULTADOS LOCALIZADOS ({filteredWorkshops.length})
           </h2>
           {(filterPais !== 'Todos' || filterCiudad !== 'Todas' || filterEstado !== 'TODOS' || search) && (
@@ -146,7 +145,7 @@ export const Workshops: React.FC = () => {
                 setFilterEstado('TODOS');
                 setSearch('');
               }}
-              className="text-[10px] font-bold text-[#C17D5C] uppercase tracking-widest hover:underline"
+              className="text-[12px] font-semibold text-brand hover:underline shrink-0"
             >
               Limpiar Filtros
             </button>
@@ -195,24 +194,24 @@ export const Workshops: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-6 text-center">
-          <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className="space-y-4 text-center">
+          <div className="w-16 h-16 bg-[#F8E1DA] rounded-full flex items-center justify-center mx-auto">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9E3B2B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           </div>
           <div>
-            <p className="text-lg font-bold text-[#312A2C] mb-2">
-              ¿Estás seguro de eliminar <span className="text-rose-600">{deleteTarget?.nombre}</span>?
+            <p className="text-[15px] font-semibold text-neutral-textMain mb-2">
+              ¿Estás seguro de eliminar <span className="text-[#9E3B2B]">{deleteTarget?.nombre}</span>?
             </p>
-            <p className="text-sm text-[#8A8481]">
+            <p className="text-sm text-neutral-textSec">
               Responsable: <strong>{deleteTarget?.adminName}</strong>
             </p>
           </div>
-          <div className="bg-rose-50 rounded-2xl p-4">
-            <p className="text-xs text-rose-700 font-medium leading-relaxed">
+          <div className="bg-[#FBEAD2] border border-[#EBD5AC] rounded-xl p-4">
+            <p className="text-[12px] text-[#8A5517] font-medium leading-relaxed">
               ⚠️ Esta acción eliminará permanentemente la sede y todos sus datos asociados
               (profesores, alumnos, clases, piezas). Esta acción no se puede deshacer.
             </p>

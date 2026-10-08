@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from './AuthContext';
 import {
     Student, ClassSession, CeramicPiece, GiftCard, AssignedClass,
-    InventoryItem, InventoryMovement, Teacher
+    InventoryItem, InventoryMovement, Teacher, MembershipTier, MEMBERSHIP_PLANS, inferMembershipTier
 } from '../types';
 
 // Import modular operations
@@ -14,6 +14,7 @@ import * as teacherOps from './data/teacherOps';
 import * as pieceOps from './data/pieceOps';
 import * as giftCardOps from './data/giftCardOps';
 import * as inventoryOps from './data/inventoryOps';
+import { isStudentArchived } from '../utils/studentLifecycle';
 
 interface DataContextType {
     // Data
@@ -30,7 +31,7 @@ interface DataContextType {
     addStudent: (student: Omit<Student, 'id'>) => Promise<void>;
     updateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
     deleteStudent: (id: string) => Promise<void>;
-    renewStudent: (id: string, numClasses?: number) => Promise<void>;
+    renewStudent: (id: string, numClasses?: number, membershipTier?: MembershipTier) => Promise<void>;
 
     // Session CRUD
     addSession: (session: Omit<ClassSession, 'id'>) => Promise<void>;
@@ -130,8 +131,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 });
             });
 
-            // Normalize students
-            const normalizedStudents: Student[] = (studentsRes.data || []).map((row: any) => ({
+            const today = new Date().toISOString().split('T')[0];
+
+            // Normalize students and apply lifecycle rules before exposing them to the UI.
+            const normalizedStudents: Student[] = (studentsRes.data || []).map((row: any) => {
+                const studentCategory = row.student_category || 'membresia';
+                const membershipTier = studentCategory === 'temporal' ? undefined : (row.membership_tier || inferMembershipTier(undefined, row.price));
+                const student: Student = {
                 id: row.id, name: row.name, surname: row.surname || undefined,
                 email: row.email || undefined, phone: row.phone,
                 phoneCountry: row.phone_country || undefined,
@@ -145,12 +151,24 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 assignedClasses: assignedMap[row.id] || [],
                 classType: row.class_type || undefined,
                 expiryDate: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : undefined,
-                studentCategory: row.student_category || 'membresia',
+                studentCategory,
+                membershipTier,
+                membershipActivatedAt: row.membership_activated_at || undefined,
+                archivedAt: row.archived_at || undefined,
                 groupName: row.group_name || undefined,
-                bonosAsignados: row.bonos_asignados ?? 4,
+                bonosAsignados: row.bonos_asignados ?? (studentCategory === 'temporal' ? 1 : MEMBERSHIP_PLANS[membershipTier!].bonuses),
                 repetirMensualmente: row.repetir_mensualmente ?? false,
                 createdAt: row.created_at || undefined
-            }));
+                };
+                if (student.studentCategory === 'temporal') {
+                    student.bonosAsignados = Math.min(3, Math.max(1, student.bonosAsignados ?? 1));
+                    student.classesRemaining = Math.min(student.classesRemaining, student.bonosAsignados);
+                    student.repetirMensualmente = false;
+                }
+                return !student.archivedAt && isStudentArchived(student, today)
+                    ? { ...student, archivedAt: today }
+                    : student;
+            });
 
             // Normalize session students
             const sessionStudentsMap: Record<string, any[]> = {};
@@ -200,10 +218,16 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
             setStudents(normalizedStudents);
 
+            const studentsToArchive = normalizedStudents.filter(student => student.archivedAt === today);
+            if (studentsToArchive.length > 0) {
+                Promise.all(studentsToArchive.map(student =>
+                    withTimeout('students.auto_archive', supabase.from('students').update({ archived_at: today }).eq('id', student.id))
+                )).catch(error => console.error('Auto-archive failed:', error));
+            }
+
             // Auto-renewal of expired memberships
-            const today = new Date().toISOString().split('T')[0];
             const studentsToRenew = normalizedStudents.filter(s =>
-                s.repetirMensualmente && s.studentCategory === 'membresia' && s.expiryDate && s.expiryDate < today
+                !s.archivedAt && s.repetirMensualmente && s.studentCategory === 'membresia' && s.expiryDate && s.expiryDate < today
             );
             if (studentsToRenew.length > 0) {
                 (async () => {
@@ -217,13 +241,30 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                             newExpiry.setTime(fromToday.getTime());
                         }
                         const newExpiryStr = newExpiry.toISOString().split('T')[0];
-                        const renewedBonos = st.bonosAsignados ?? 4;
+                        const membershipTier = inferMembershipTier(st.membershipTier, st.price);
+                        const membershipPlan = MEMBERSHIP_PLANS[membershipTier];
+                        const renewedBonos = membershipPlan.bonuses;
                         try {
                             await withTimeout('students.auto_renew', supabase.from('students').update({
-                                classes_remaining: renewedBonos, expiry_date: newExpiryStr, status: 'membresia'
+                                classes_remaining: renewedBonos,
+                                bonos_asignados: renewedBonos,
+                                membership_tier: membershipTier,
+                                price: membershipPlan.price,
+                                membership_activated_at: today,
+                                archived_at: null,
+                                expiry_date: newExpiryStr,
+                                status: 'membresia'
                             }).eq('id', st.id));
                             setStudents(prev => prev.map(s => s.id === st.id ? {
-                                ...s, classesRemaining: renewedBonos, expiryDate: newExpiryStr, status: 'membresia' as const
+                                ...s,
+                                classesRemaining: renewedBonos,
+                                bonosAsignados: renewedBonos,
+                                membershipTier,
+                                price: membershipPlan.price,
+                                membershipActivatedAt: today,
+                                archivedAt: undefined,
+                                expiryDate: newExpiryStr,
+                                status: 'membresia' as const
                             } : s));
                             console.log(`Auto-renewed membership for ${st.name}: ${renewedBonos} bonos, expires ${newExpiryStr}`);
                         } catch (err) { console.error(`Auto-renewal failed for ${st.name}:`, err); }
@@ -295,7 +336,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const addStudent = async (s: Omit<Student, 'id'>) => studentOps.addStudent(getOpsContext(), s);
     const updateStudent = async (id: string, u: Partial<Student>) => studentOps.updateStudent(getOpsContext(), id, u);
     const deleteStudent = async (id: string) => studentOps.deleteStudent(getOpsContext(), id);
-    const renewStudent = async (id: string, n?: number) => studentOps.renewStudent(getOpsContext(), id, n);
+    const renewStudent = async (id: string, n?: number, tier?: MembershipTier) => studentOps.renewStudent(getOpsContext(), id, n, tier);
 
     const addSession = async (s: Omit<ClassSession, 'id'>) => sessionOps.addSession(getOpsContext(), s);
     const updateSession = async (id: string, u: Partial<ClassSession>) => sessionOps.updateSession(getOpsContext(), id, u);

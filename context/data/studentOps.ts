@@ -1,3 +1,4 @@
+import { MEMBERSHIP_PLANS, MembershipTier } from '../../types';
 import type { Student, ClassSession, AssignedClass } from '../../types';
 import { supabase, withTimeout, buildStudentPayload, extractTime, isAbortError, OpsContext } from './shared';
 import { showError, showWarning } from '../toast';
@@ -175,13 +176,23 @@ export const deleteStudent = async (ctx: OpsContext, id: string) => {
     } finally { ctx.operationLockRef.current = false; }
 };
 
-export const renewStudent = async (ctx: OpsContext, id: string, numClasses: number = 4) => {
+export const renewStudent = async (ctx: OpsContext, id: string, numClasses: number = 4, membershipTier: MembershipTier = 'gold') => {
     const student = ctx.students.find(s => s.id === id);
     if (!student) { showError('Alumno no encontrado.'); return; }
-    const nextClasses = (student.classesRemaining ?? 0) + numClasses;
+    const plan = MEMBERSHIP_PLANS[membershipTier] || MEMBERSHIP_PLANS.gold;
+    const renewedClasses = numClasses > 0 ? numClasses : plan.bonuses;
     const today = new Date().toISOString().split('T')[0];
     const baseDate = student.expiryDate && student.expiryDate > today ? new Date(student.expiryDate) : new Date();
     baseDate.setMonth(baseDate.getMonth() + 1);
     const newExpiryDate = baseDate.toISOString().split('T')[0];
-    await updateStudent(ctx, id, { classesRemaining: nextClasses, status: 'membresia', expiryDate: newExpiryDate });
+    await updateStudent(ctx, id, {
+        classesRemaining: renewedClasses,
+        bonosAsignados: plan.bonuses,
+        membershipTier,
+        price: plan.price,
+        membershipActivatedAt: today,
+        archivedAt: undefined,
+        status: 'membresia',
+        expiryDate: newExpiryDate
+    });
 };

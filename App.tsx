@@ -5,6 +5,7 @@ import { DataProvider } from './context/DataContext';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import TalleristaLayout from './components/layout/TalleristaLayout';
 import Login from './components/Login';
+import ResetPassword from './components/ResetPassword';
 
 // Tallerista Pages
 import DashboardPage from './pages/DashboardPage';
@@ -67,6 +68,7 @@ const App: React.FC = () => {
         <Routes>
           {/* Public Route */}
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Root redirect */}
           <Route path="/" element={<RootRedirect />} />

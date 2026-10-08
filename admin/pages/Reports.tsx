@@ -102,11 +102,11 @@ export const Reports: React.FC = () => {
     const dataModelAlerts = globalMetrics.unlinkedGiftCards + globalMetrics.missingExpiryGiftCards + globalMetrics.nullAudienceSessions;
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-6 md:space-y-8 animate-fade-in">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
-                    <p className="text-gray-500">Analiza y descarga los datos del sistema</p>
+                <div className="space-y-1">
+                    <h1 className="text-2xl md:text-3xl font-bold text-neutral-textMain">Reportes</h1>
+                    <p className="text-[15px] text-neutral-textSec">Analiza y descarga los datos del sistema</p>
                 </div>
                 <div className="flex gap-3">
                     {/* Se elimina el botón de exportación de Admins según solicitud visual */}
@@ -114,55 +114,55 @@ export const Reports: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="p-6">
-                    <h3 className="font-bold text-lg mb-6">Talleres por País</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                <Card className="!p-4 md:!p-6">
+                    <h3 className="text-lg font-bold text-neutral-textMain mb-5">Talleres por País</h3>
                     <div className="space-y-4">
                         {Object.entries(countriesCount).map(([pais, count]) => (
                             <div key={pais} className="flex items-center gap-4">
-                                <span className="w-24 text-sm font-semibold">{pais}</span>
-                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-600 rounded-full" style={{ width: `${((count as number) / (workshops.length || 1)) * 100}%` }}></div>
+                                <span className="w-24 shrink-0 text-sm font-semibold text-neutral-textMain">{pais}</span>
+                                <div className="flex-1 h-2 bg-neutral-sec rounded-full overflow-hidden">
+                                    <div className="h-full bg-brand rounded-full" style={{ width: `${((count as number) / (workshops.length || 1)) * 100}%` }}></div>
                                 </div>
-                                <span className="text-sm font-bold">{count}</span>
+                                <span className="text-sm font-bold text-neutral-textMain shrink-0">{count}</span>
                             </div>
                         ))}
                     </div>
                 </Card>
 
-                <Card className="p-6">
-                    <h3 className="font-bold text-lg mb-6">Alertas de Datos</h3>
+                <Card className="!p-4 md:!p-6">
+                    <h3 className="text-lg font-bold text-neutral-textMain mb-5">Alertas de Datos</h3>
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-[#FBEAD2] border border-[#EBD5AC] rounded-xl">
                             <div>
-                                <p className="font-bold text-orange-800">Talleres sin admin general</p>
-                                <p className="text-sm text-orange-600">Requiere atención inmediata</p>
+                                <p className="text-[14px] font-bold text-[#8A5517]">Talleres sin admin general</p>
+                                <p className="text-[13px] text-[#8A5517] opacity-80">Requiere atención inmediata</p>
                             </div>
-                            <span className="text-2xl font-bold text-orange-800">{workshops.filter(w => !w.adminGeneralUserId).length}</span>
+                            <span className="text-2xl font-bold text-[#8A5517] shrink-0">{workshops.filter(w => !w.adminGeneralUserId).length}</span>
                         </div>
-                        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-[#E3EDF6] rounded-xl">
                             <div>
-                                <p className="font-bold text-blue-800">Datos incompletos</p>
-                                <p className="text-sm text-blue-600">Contactos + modelo temporal/bonos/audiencia</p>
+                                <p className="text-[14px] font-bold text-[#2B5C86]">Datos incompletos</p>
+                                <p className="text-[13px] text-[#2B5C86] opacity-80">Contactos + modelo temporal/bonos/audiencia</p>
                             </div>
-                            <span className="text-2xl font-bold text-blue-800">{missingWorkshopContacts + dataModelAlerts}</span>
+                            <span className="text-2xl font-bold text-[#2B5C86] shrink-0">{missingWorkshopContacts + dataModelAlerts}</span>
                         </div>
                     </div>
                 </Card>
             </div>
 
-            <Card className="p-6">
-                <h3 className="font-bold text-lg mb-6">Resumen de Localidades</h3>
+            <Card className="!p-4 md:!p-6">
+                <h3 className="text-lg font-bold text-neutral-textMain mb-5">Resumen de Localidades</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="border-b">
+                        <thead className="border-b border-neutral-border">
                             <tr>
-                                <th className="pb-4 text-xs font-bold text-gray-400 uppercase">País</th>
-                                <th className="pb-4 text-xs font-bold text-gray-400 uppercase">Ciudad</th>
-                                <th className="pb-4 text-xs font-bold text-gray-400 uppercase text-right">Nº Talleres</th>
+                                <th className="pb-3 text-[12px] font-semibold text-neutral-textSec">País</th>
+                                <th className="pb-3 text-[12px] font-semibold text-neutral-textSec">Ciudad</th>
+                                <th className="pb-3 text-[12px] font-semibold text-neutral-textSec text-right">Nº Talleres</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody className="divide-y divide-neutral-border">
                             {workshops.reduce((acc, w) => {
                                 const key = `${w.pais}-${w.ciudad}`;
                                 const found = acc.find(item => item.pais === w.pais && item.ciudad === w.ciudad);
@@ -171,9 +171,9 @@ export const Reports: React.FC = () => {
                                 return acc;
                             }, [] as { pais: string, ciudad: string, count: number }[]).map((item, idx) => (
                                 <tr key={idx}>
-                                    <td className="py-4 text-sm font-semibold">{item.pais}</td>
-                                    <td className="py-4 text-sm text-gray-600">{item.ciudad}</td>
-                                    <td className="py-4 text-sm font-bold text-right">{item.count}</td>
+                                    <td className="py-3 text-sm font-semibold text-neutral-textMain">{item.pais}</td>
+                                    <td className="py-3 text-sm text-neutral-textSec">{item.ciudad}</td>
+                                    <td className="py-3 text-sm font-bold text-neutral-textMain text-right">{item.count}</td>
                                 </tr>
                             ))}
                         </tbody>

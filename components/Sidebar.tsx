@@ -53,41 +53,41 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout }) => 
   ];
 
   return (
-    <div className="w-64 xl:w-72 bg-white border border-neutral-border flex flex-col h-full rounded-[2.5rem] md:rounded-[3.5rem] soft-shadow flex-shrink-0 animate-fade-in overflow-hidden">
-      <div className="p-6 md:p-8 xl:p-10 flex flex-col h-full">
-        <div className="flex items-center space-x-3 md:space-x-4 mb-8 md:mb-12">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-brand rounded-full flex items-center justify-center text-white font-extrabold text-xl md:text-2xl soft-shadow">A</div>
+    <div className="w-64 xl:w-72 bg-white border border-neutral-border flex flex-col h-full rounded-2xl soft-shadow flex-shrink-0 animate-fade-in overflow-hidden">
+      <div className="p-5 xl:p-6 flex flex-col h-full">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white font-semibold text-lg shrink-0">A</div>
           <div className="overflow-hidden">
-            <h1 className="text-base md:text-lg font-extrabold text-neutral-textMain leading-tight truncate uppercase tracking-tight">Alexander</h1>
-            <p className="text-[10px] md:text-[11px] text-neutral-textHelper uppercase font-light tracking-widest">Estudio</p>
+            <h1 className="text-[17px] font-bold text-neutral-textMain leading-tight truncate">Alexander</h1>
+            <p className="text-[10px] text-neutral-textHelper uppercase font-medium tracking-[0.14em]">Estudio</p>
           </div>
         </div>
 
-        <nav className="space-y-2 md:space-y-3 flex-1 overflow-y-auto no-scrollbar py-2">
+        <nav className="space-y-1 flex-1 overflow-y-auto no-scrollbar py-2">
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setView(item.id)}
-              className={`w-full flex items-center space-x-3 md:space-x-4 p-3 md:p-4 rounded-2xl transition-all duration-300 group ${currentView === item.id
-                  ? 'bg-brand text-white soft-shadow'
+              className={`w-full flex items-center gap-3 px-3.5 min-h-[44px] rounded-[10px] transition-colors duration-200 group ${currentView === item.id
+                  ? 'bg-brand text-white'
                   : 'text-neutral-textSec hover:bg-neutral-alt hover:text-brand'
                 }`}
             >
-              <div className={`transition-transform duration-300 shrink-0 ${currentView === item.id ? 'scale-110' : 'group-hover:scale-110'}`}>
+              <div className="transition-transform duration-200 shrink-0 group-hover:scale-105">
                 {item.icon}
               </div>
-              <span className={`text-sm md:text-[16px] tracking-tight truncate uppercase tracking-widest ${currentView === item.id ? 'font-extrabold' : 'font-light'}`}>{item.label}</span>
+              <span className={`text-[14px] truncate ${currentView === item.id ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="mt-6 pt-6 border-t border-neutral-border space-y-4 shrink-0">
+        <div className="mt-4 pt-4 border-t border-neutral-border shrink-0">
           <button
             onClick={onLogout}
-            className="w-full flex items-center space-x-4 py-2 text-neutral-textHelper hover:text-brand transition-colors"
+            className="w-full flex items-center gap-3 px-3.5 min-h-[44px] rounded-[10px] text-neutral-textHelper hover:text-brand hover:bg-neutral-alt transition-colors"
           >
-            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            <span className="text-sm md:text-[16px] font-light uppercase tracking-wider">Salir</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            <span className="text-[14px] font-medium">Salir</span>
           </button>
         </div>
       </div>

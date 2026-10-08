@@ -24,6 +24,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
     notes: ''
   });
   const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
+  const [expandedTeacherId, setExpandedTeacherId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredTeachers = useMemo(() => {
@@ -112,108 +113,81 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-neutral-base px-6 py-4">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div className="flex-1">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden bg-neutral-base">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 md:px-8 lg:px-10 pt-4 md:pt-6 pb-20">
+        <header className="mb-5 animate-fade-in">
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="eyebrow mb-1">Equipo del estudio</p>
+              <h1 className="text-[28px] md:text-[34px] font-bold text-neutral-textMain leading-tight">Gestión de <span className="text-brand italic">profesores</span></h1>
+              <p className="text-[13px] text-neutral-textHelper mt-1">Especialidades, contacto e historial de clases.</p>
+            </div>
+            <button onClick={handleOpenNew} className="min-h-[40px] px-4 py-2 bg-brand text-white rounded-[10px] text-[13px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-brand-hover active:scale-[0.98] transition-all shrink-0"><span className="text-lg leading-none">+</span><span className="hidden sm:inline">Nuevo profesor</span><span className="sm:hidden">Nuevo</span></button>
+          </div>
           <input
             type="text"
-            placeholder="BUSCAR PROFESOR..."
+            placeholder="Buscar por nombre o especialidad..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white px-5 py-3 rounded-full text-[12px] font-extrabold uppercase outline-none border border-neutral-border shadow-sm"
+            className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper"
           />
-        </div>
-        <button
-          onClick={handleOpenNew}
-          className="px-6 py-3 bg-brand text-white rounded-full text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest soft-shadow hover:bg-brand-hover active:scale-95 transition-all"
-        >
-          Nuevo profesor
-        </button>
-      </div>
+        </header>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredTeachers.map(teacher => {
+        <section className="bg-white border border-neutral-border rounded-2xl overflow-hidden animate-fade-in">
+          <div className="hidden md:grid grid-cols-[minmax(220px,1.5fr)_minmax(150px,1fr)_minmax(180px,1.1fr)_110px_180px] gap-4 px-4 py-3 bg-neutral-sec border-b border-neutral-border text-[10px] font-semibold text-neutral-textHelper uppercase tracking-[0.12em]">
+            <span>Profesor</span><span>Especialidad</span><span>Contacto</span><span>Clases</span><span>Acciones</span>
+          </div>
+          {filteredTeachers.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-[14px] font-semibold text-neutral-textMain">No hay profesores</p>
+              <p className="text-[13px] text-neutral-textHelper mt-1">Prueba con otro nombre o especialidad.</p>
+            </div>
+          ) : filteredTeachers.map(teacher => {
             const fullName = `${teacher.name} ${teacher.surname || ''}`.trim();
-            const completedCount = completedSessions.filter(s => s.teacherId === teacher.id || s.teacherSubstituteId === teacher.id).length;
+            const teacherSessions = completedSessions.filter(s => s.teacherId === teacher.id || s.teacherSubstituteId === teacher.id);
+            const completedCount = teacherSessions.length;
+            const isExpanded = expandedTeacherId === teacher.id;
             return (
-              <div key={teacher.id} className="bg-white p-6 rounded-[2rem] border border-neutral-border soft-shadow flex flex-col gap-4">
-                <div>
-                  <p className="text-[16px] font-extrabold text-neutral-textMain uppercase tracking-tight">{fullName}</p>
-                  <p className="text-[11px] font-light text-neutral-textHelper uppercase tracking-widest mt-1">
-                    {teacher.specialty || 'Sin especialidad'}
-                  </p>
-                </div>
-                <div className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper">
-                  Clases concluidas: {completedCount}
-                </div>
-                {(teacher.email || teacher.phone) && (
-                  <div className="text-[11px] font-light text-neutral-textSec space-y-1">
-                    {teacher.email && <p>{teacher.email}</p>}
-                    {teacher.phone && <p>{teacher.phone}</p>}
+              <React.Fragment key={teacher.id}>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(220px,1.5fr)_minmax(150px,1fr)_minmax(180px,1.1fr)_110px_180px] gap-3 md:gap-4 items-center px-3 md:px-4 py-3 border-b border-neutral-border hover:bg-neutral-base transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-brand-soft text-brand flex items-center justify-center font-bold text-[12px] shrink-0">{teacher.name.charAt(0)}</div>
+                    <div className="min-w-0"><h3 className="text-[14px] font-semibold text-neutral-textMain truncate">{fullName}</h3><p className="text-[11px] text-neutral-textHelper truncate mt-0.5">{teacher.specialty || 'Sin especialidad'}{(teacher.phone || teacher.email) ? ` · ${teacher.phone || teacher.email}` : ''}</p></div>
                   </div>
-                )}
-                <div className="flex gap-2 mt-auto">
-                  <button
-                    onClick={() => handleOpenEdit(teacher)}
-                    className="flex-1 py-2 bg-neutral-textMain text-white rounded-xl text-[10px] font-extrabold uppercase tracking-widest"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => setTeacherToDelete(teacher.id)}
-                    className="px-4 py-2 bg-red-50 text-red-400 rounded-xl text-[10px] font-extrabold uppercase tracking-widest"
-                  >
-                    Eliminar
-                  </button>
+                  <span className="hidden md:inline-flex justify-self-start px-2 py-1 rounded-md bg-neutral-sec text-neutral-textSec text-[11px] font-semibold truncate max-w-full">{teacher.specialty || 'Sin especialidad'}</span>
+                  <div className="hidden md:block min-w-0 text-[12px] text-neutral-textSec truncate">{teacher.email || teacher.phone || 'Sin contacto'}</div>
+                  <span className="justify-self-end md:justify-self-start text-[13px] font-semibold text-neutral-textMain">{completedCount} <span className="text-[11px] text-neutral-textHelper">clases</span></span>
+                  <div className="col-span-2 md:col-span-1 flex items-center justify-end gap-2 pt-2 md:pt-0 border-t border-neutral-border md:border-0">
+                    <button onClick={() => setExpandedTeacherId(isExpanded ? null : teacher.id)} className="min-h-[32px] px-2.5 py-1.5 rounded-[8px] text-[11px] font-semibold text-neutral-textSec border border-neutral-border hover:border-arena hover:text-brand transition-colors">Historial</button>
+                    <button onClick={() => handleOpenEdit(teacher)} className="min-h-[32px] px-2.5 py-1.5 rounded-[8px] text-[11px] font-semibold text-brand border border-brand/20 hover:bg-brand-soft transition-colors">Editar</button>
+                    <button onClick={() => setTeacherToDelete(teacher.id)} className="hidden sm:inline-flex min-h-[32px] px-2.5 py-1.5 rounded-[8px] text-[11px] font-semibold text-[#9E3B2B] border border-[#EFC9BE] hover:bg-[#F8E1DA] transition-colors">Eliminar</button>
+                  </div>
                 </div>
-                <div className="pt-4 mt-2 border-t border-neutral-border">
-                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-textHelper mb-2">Historial de clases concluidas</p>
-                  <div className="space-y-2">
-                    {completedSessions
-                      .filter(s => s.teacherId === teacher.id || s.teacherSubstituteId === teacher.id)
-                      .sort((a, b) => `${b.date} ${b.startTime}`.localeCompare(`${a.date} ${a.startTime}`))
-                      .slice(0, 3)
-                      .map(s => {
-                        const isSub = s.teacherSubstituteId === teacher.id;
-                        return (
-                          <div key={s.id} className="bg-neutral-sec/60 p-3 rounded-xl border border-neutral-border">
-                            <p className="text-[11px] font-extrabold text-neutral-textMain uppercase tracking-tight">
-                              {formatSessionDate(s.date)} · {s.startTime} - {s.endTime}
-                            </p>
-                            <p className="text-[9px] font-light text-neutral-textHelper uppercase tracking-widest mt-1">
-                              {s.classType.toUpperCase()} · {s.students.length} alumnos
-                            </p>
-                            {isSub && (
-                              <p className="text-[9px] font-extrabold uppercase tracking-widest text-brand mt-1">
-                                Reemplazo de {getTeacherName(s.teacherId)}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    {completedSessions.filter(s => s.teacherId === teacher.id || s.teacherSubstituteId === teacher.id).length === 0 && (
-                      <div className="py-4 text-center border border-dashed border-neutral-border rounded-xl text-[9px] font-light uppercase tracking-widest text-neutral-textHelper">
-                        Sin clases concluidas
+                {isExpanded && (
+                  <div className="px-4 md:px-6 py-3 bg-neutral-sec border-b border-neutral-border animate-fade-in">
+                    <p className="text-[11px] font-semibold text-neutral-textSec mb-2">Historial de clases concluidas</p>
+                    {teacherSessions.length === 0 ? (
+                      <p className="text-[12px] text-neutral-textHelper italic">Sin clases concluidas</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        {teacherSessions.sort((a, b) => `${b.date} ${b.startTime}`.localeCompare(`${a.date} ${a.startTime}`)).slice(0, 3).map(s => {
+                          const isSub = s.teacherSubstituteId === teacher.id;
+                          return <div key={s.id} className="p-3 bg-white rounded-xl border border-neutral-border"><p className="text-[12px] font-semibold text-neutral-textMain">{formatSessionDate(s.date)} · {s.startTime} - {s.endTime}</p><p className="text-[11px] text-neutral-textHelper mt-1">{s.classType} · {s.students.length} alumnos</p>{isSub && <p className="text-[11px] font-semibold text-brand mt-1">Reemplazo de {getTeacherName(s.teacherId)}</p>}</div>;
+                        })}
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
+                )}
+              </React.Fragment>
             );
           })}
-          {filteredTeachers.length === 0 && (
-            <div className="col-span-full py-16 text-center opacity-40 border-2 border-dashed border-neutral-border rounded-[2rem]">
-              <p className="text-[12px] font-bold uppercase tracking-[0.2em]">No hay profesores</p>
-            </div>
-          )}
-        </div>
+        </section>
       </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-8 md:p-10 soft-shadow relative animate-fade-in border border-neutral-border max-h-[85dvh] overflow-y-auto custom-scrollbar">
-            <h3 className="text-[22px] md:text-[26px] font-extrabold text-neutral-textMain uppercase tracking-tight mb-6">
+          <div className="bg-white w-full max-w-2xl rounded-2xl p-4 md:p-6 soft-shadow relative animate-fade-in border border-neutral-border max-h-[85dvh] overflow-y-auto custom-scrollbar">
+            <h3 className="text-[22px] md:text-[26px] font-bold text-neutral-textMain mb-5">
               {editingTeacher ? 'Editar profesor' : 'Nuevo profesor'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -222,46 +196,46 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Nombre"
-                  className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
+                  className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper"
                 />
                 <input
                   value={form.surname}
                   onChange={(e) => setForm({ ...form, surname: e.target.value })}
                   placeholder="Apellido"
-                  className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
+                  className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper"
                 />
               </div>
               <input
                 value={form.specialty}
                 onChange={(e) => setForm({ ...form, specialty: e.target.value })}
                 placeholder="Especialidad"
-                className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
+                className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper"
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="Email"
-                  className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
+                  className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper"
                 />
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="Teléfono"
-                  className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light"
+                  className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper"
                 />
               </div>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 placeholder="Notas"
-                className="w-full p-4 bg-neutral-sec border border-neutral-border rounded-xl text-[14px] font-light min-h-[120px] resize-none"
+                className="w-full min-h-[120px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper resize-none"
               />
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-4 bg-brand text-white rounded-2xl font-extrabold uppercase tracking-widest text-[12px] soft-shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex-1 min-h-[44px] px-4 py-2.5 bg-brand text-white rounded-[10px] text-[14px] font-semibold hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 >
                   {isSubmitting ? 'Guardando...' : 'Guardar'}
                 </button>
@@ -269,7 +243,7 @@ const TeachersView: React.FC<TeachersViewProps> = ({ teachers, sessions, onAddTe
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => setShowModal(false)}
-                  className="px-6 py-4 bg-neutral-alt text-neutral-textSec rounded-2xl font-extrabold uppercase tracking-widest text-[12px] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="min-h-[44px] px-4 py-2.5 border border-neutral-border bg-white rounded-[10px] text-[14px] font-semibold text-neutral-textSec hover:border-arena transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>

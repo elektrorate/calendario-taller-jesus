@@ -19,6 +19,21 @@ export interface AssignedClass {
   status?: 'present' | 'absent' | 'pending';
 }
 
+export type MembershipTier = 'plata' | 'gold' | 'platinum';
+
+export const MEMBERSHIP_PLANS: Record<MembershipTier, { label: string; price: number; bonuses: number }> = {
+  plata: { label: 'Plata', price: 90, bonuses: 3 },
+  gold: { label: 'Gold', price: 120, bonuses: 4 },
+  platinum: { label: 'Platinum', price: 180, bonuses: 8 }
+};
+
+export const inferMembershipTier = (tier?: string, price?: number): MembershipTier => {
+  if (tier === 'plata' || tier === 'gold' || tier === 'platinum') return tier;
+  if (price === MEMBERSHIP_PLANS.plata.price) return 'plata';
+  if (price === MEMBERSHIP_PLANS.platinum.price) return 'platinum';
+  return 'gold';
+};
+
 export interface Student {
   id: string;
   name: string;
@@ -39,6 +54,9 @@ export interface Student {
   classType?: string;
   expiryDate?: string;
   studentCategory?: 'membresia' | 'temporal';
+  membershipTier?: MembershipTier;
+  membershipActivatedAt?: string;
+  archivedAt?: string;
   groupName?: string;
   bonosAsignados?: number;
   repetirMensualmente?: boolean;

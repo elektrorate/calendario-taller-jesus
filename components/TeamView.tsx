@@ -168,96 +168,96 @@ const TeamView: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col overflow-hidden bg-neutral-base">
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 md:px-12 pt-8 pb-32">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-12 pt-6 pb-32">
 
                 {/* Feedback toast */}
                 {feedback && (
-                    <div className={`fixed top-6 right-6 z-[200] px-6 py-4 rounded-2xl shadow-xl text-[13px] font-extrabold uppercase tracking-widest animate-fade-in ${feedback.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                    <div className={`fixed top-6 right-6 z-[200] px-5 py-3.5 rounded-2xl shadow-xl text-[13px] font-semibold animate-fade-in ${feedback.type === 'success' ? 'bg-[#20663B] text-white' : 'bg-[#9E3B2B] text-white'}`}>
                         {feedback.message}
                     </div>
                 )}
 
                 {/* Header */}
-                <header className="mb-12 animate-fade-in text-center md:text-left">
-                    <p className="text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-[0.2em] mb-4">GESTIÓN DE EQUIPO</p>
-                    <h1 className="text-[36px] md:text-[52px] font-black text-neutral-textMain leading-none uppercase tracking-tighter">
+                <header className="mb-6 animate-fade-in text-center md:text-left">
+                    <p className="eyebrow mb-3">Gestión de equipo</p>
+                    <h1 className="text-[34px] md:text-[48px] font-bold text-neutral-textMain leading-tight">
                         Equipo de <span className="text-brand">Trabajo</span>
                     </h1>
-                    <p className="text-[14px] md:text-[16px] font-light text-neutral-textSec mt-5 max-w-xl mx-auto md:mx-0">
+                    <p className="text-[14px] md:text-[15px] text-neutral-textSec mt-4 max-w-xl mx-auto md:mx-0">
                         Gestiona los colaboradores de tu taller. Ellos tendrán acceso similar al tuyo, pero no podrán crear otros colaboradores.
                     </p>
                 </header>
 
                 {/* Actions bar */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                     <div className="flex gap-3 w-full md:w-auto">
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="flex-1 md:flex-none px-8 py-4 bg-neutral-textMain text-white rounded-full text-[12px] font-extrabold shadow-lg uppercase tracking-widest hover:bg-black active:scale-95 transition-all"
+                            className="flex-1 md:flex-none min-h-[44px] px-4 py-2.5 bg-brand text-white rounded-[10px] text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-brand-hover active:scale-95 transition-all"
                         >
-                            + NUEVO COLABORADOR
+                            + Nuevo colaborador
                         </button>
 
                     </div>
-                    <div className="text-[11px] font-extrabold text-neutral-textHelper uppercase tracking-widest">
-                        {staff.length} COLABORADOR{staff.length !== 1 ? 'ES' : ''} REGISTRADO{staff.length !== 1 ? 'S' : ''}
+                    <div className="text-[12px] font-semibold text-neutral-textHelper">
+                        {staff.length} Colaborador{staff.length !== 1 ? 'es' : ''} Registrado{staff.length !== 1 ? 's' : ''}
                     </div>
                 </div>
 
                 {/* Staff list */}
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-3 border-brand border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 border-[3px] border-brand border-t-transparent rounded-full animate-spin"></div>
                     </div>
                 ) : staff.length === 0 ? (
-                    <div className="bg-white/40 border-2 border-dashed border-neutral-border p-16 rounded-[2.5rem] text-center">
-                        <svg className="w-16 h-16 mx-auto text-neutral-border mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        <p className="text-neutral-textHelper font-light uppercase text-[12px] tracking-widest mb-2">Aún no tienes colaboradores</p>
-                        <p className="text-neutral-textSec text-[11px] font-light">Agrega miembros a tu equipo para que te ayuden a gestionar el taller.</p>
+                    <div className="bg-white/60 border border-dashed border-neutral-border p-8 md:p-12 rounded-2xl text-center">
+                        <svg className="w-14 h-14 mx-auto text-neutral-border mb-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <p className="text-neutral-textHelper text-[13px] mb-2">Aún no tienes colaboradores</p>
+                        <p className="text-neutral-textSec text-[13px]">Agrega miembros a tu equipo para que te ayuden a gestionar el taller.</p>
                     </div>
                 ) : (
-                    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         {staff.map((member) => {
                             const isMe = member.email === currentUserEmail;
                             return (
                                 <div
                                     key={member.id}
-                                    className="p-8 bg-white rounded-[2.5rem] border border-neutral-border soft-shadow hover:border-brand-light transition-all flex flex-col h-full animate-fade-in"
+                                    className="p-4 md:p-6 bg-white rounded-2xl border border-neutral-border hover:border-arena transition-all flex flex-col h-full animate-fade-in"
                                 >
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-14 h-14 rounded-2xl bg-brand flex items-center justify-center text-white font-extrabold text-[22px] shadow-inner shrink-0">
+                                    <div className="flex items-center gap-3 mb-5">
+                                        <div className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center text-white font-bold text-[18px] shrink-0">
                                             {member.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="overflow-hidden">
-                                            <h4 className="font-extrabold text-neutral-textMain text-[18px] leading-tight uppercase tracking-tight truncate">
+                                            <h4 className="font-bold text-neutral-textMain text-[17px] leading-tight truncate">
                                                 {member.name}
-                                                {isMe && <span className="text-[10px] ml-2 text-brand font-bold">( TÚ )</span>}
+                                                {isMe && <span className="text-[11px] ml-2 text-brand font-semibold">( TÚ )</span>}
                                             </h4>
-                                            <p className="text-[12px] font-light text-neutral-textSec truncate mt-0.5">{member.email}</p>
+                                            <p className="text-[13px] text-neutral-textSec truncate mt-0.5">{member.email}</p>
                                         </div>
                                     </div>
 
                                     <div className="space-y-3 flex-1">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">ROL</span>
-                                            <span className={`px-3 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border ${member.role === 'tallerista' ? 'bg-brand/10 text-brand border-brand/20' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
-                                                {member.role === 'tallerista' ? 'TALLERISTA' : 'STAFF'}
+                                        <div className="flex justify-between items-center gap-3">
+                                            <span className="text-[12px] font-semibold text-neutral-textSec">Rol</span>
+                                            <span className={`px-3 py-1 rounded-lg text-[11px] font-semibold border ${member.role === 'tallerista' ? 'bg-brand-soft text-brand border-arena' : 'bg-neutral-sec text-neutral-textSec border-neutral-border'}`}>
+                                                {member.role === 'tallerista' ? 'Tallerista' : 'Staff'}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">INGRESO</span>
-                                            <span className="text-[12px] font-bold text-neutral-textMain">{formatDate(member.joinedAt)}</span>
+                                        <div className="flex justify-between items-center gap-3">
+                                            <span className="text-[12px] font-semibold text-neutral-textSec">Ingreso</span>
+                                            <span className="text-[13px] font-semibold text-neutral-textMain">{formatDate(member.joinedAt)}</span>
                                         </div>
                                     </div>
 
                                     {!isMe && (
-                                        <div className="pt-6 mt-6 border-t border-neutral-border">
+                                        <div className="pt-4 mt-4 border-t border-neutral-border">
                                             <button
                                                 onClick={() => handleDeleteStaff(member.id, member.name)}
                                                 disabled={actionLoading}
-                                                className="w-full text-red-400 hover:text-red-600 font-extrabold uppercase text-[10px] tracking-[0.2em] transition-colors py-2 disabled:opacity-50"
+                                                className="w-full min-h-[44px] py-2 text-[13px] font-semibold text-[#9E3B2B] hover:text-[#8A3325] transition-colors disabled:opacity-50"
                                             >
-                                                ELIMINAR DEL EQUIPO
+                                                Eliminar del equipo
                                             </button>
                                         </div>
                                     )}
@@ -271,54 +271,54 @@ const TeamView: React.FC = () => {
             {/* ─── CREATE STAFF MODAL ─── */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-neutral-textMain/40 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-lg rounded-[3rem] soft-shadow relative animate-fade-in border border-neutral-border overflow-hidden">
-                        <button onClick={() => setShowCreateModal(false)} className="absolute top-8 right-8 text-neutral-textHelper hover:text-brand transition-colors z-20">
-                            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <div className="bg-white w-full max-w-lg rounded-2xl soft-shadow relative animate-fade-in border border-neutral-border overflow-hidden">
+                        <button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-neutral-textHelper hover:text-brand transition-colors z-20">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-                        <div className="p-10 md:p-12">
-                            <h3 className="text-[28px] font-black text-neutral-textMain uppercase tracking-tight leading-none mb-2">Nuevo Colaborador</h3>
-                            <p className="text-neutral-textSec text-[14px] mb-8 font-light">Agrega un miembro a tu equipo de trabajo.</p>
+                        <div className="p-4 md:p-6">
+                            <h3 className="text-[24px] font-bold text-neutral-textMain leading-none mb-2">Nuevo Colaborador</h3>
+                            <p className="text-neutral-textSec text-[14px] mb-5">Agrega un miembro a tu equipo de trabajo.</p>
 
-                            <form onSubmit={handleCreateStaff} className="space-y-5">
+                            <form onSubmit={handleCreateStaff} className="space-y-4">
                                 <div>
-                                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">NOMBRE COMPLETO</label>
+                                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Nombre completo</label>
                                     <input
                                         required
                                         value={createForm.nombre}
                                         onChange={(e) => setCreateForm({ ...createForm, nombre: e.target.value })}
                                         placeholder="Ej: María García"
-                                        className="w-full px-5 py-4 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all"
+                                        className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper transition-all"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">EMAIL</label>
+                                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Email</label>
                                     <input
                                         required
                                         type="email"
                                         value={createForm.email}
                                         onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                                         placeholder="colaborador@email.com"
-                                        className="w-full px-5 py-4 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all"
+                                        className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper transition-all"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">CONTRASEÑA</label>
+                                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Contraseña</label>
                                     <input
                                         required
                                         type="password"
                                         value={createForm.password}
                                         onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                                         placeholder="Mínimo 6 caracteres"
-                                        className="w-full px-5 py-4 bg-neutral-sec border border-neutral-border rounded-2xl text-[15px] font-light focus:border-brand outline-none transition-all"
+                                        className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper transition-all"
                                     />
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={actionLoading}
-                                    className="w-full py-5 bg-brand text-white rounded-full font-black uppercase tracking-[0.2em] text-[15px] hover:bg-brand-hover active:scale-[0.98] transition-all soft-shadow mt-4 disabled:opacity-50"
+                                    className="w-full min-h-[44px] px-4 py-2.5 bg-brand text-white rounded-[10px] font-semibold text-[15px] hover:bg-brand-hover active:scale-[0.98] transition-all mt-4 disabled:opacity-50"
                                 >
-                                    {actionLoading ? 'CREANDO...' : 'CREAR COLABORADOR'}
+                                    {actionLoading ? 'Creando...' : 'Crear colaborador'}
                                 </button>
                             </form>
                         </div>

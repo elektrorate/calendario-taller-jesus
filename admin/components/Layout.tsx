@@ -10,21 +10,22 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const getTitle = () => {
     const path = location.pathname;
-    if (path === '/admin' || path === '/admin/') return 'CONTROL PANEL';
-    if (path.startsWith('/admin/talleres')) return 'WORKSHOP NETWORK';
-    if (path === '/admin/reportes') return 'MARKET ANALYTICS';
-    if (path === '/admin/equipo') return 'GESTIÓN DEL EQUIPO';
-    return 'ADMIN';
+    if (path === '/admin' || path === '/admin/') return 'Panel de control';
+    if (path.startsWith('/admin/talleres')) return 'Talleres';
+    if (path === '/admin/reportes') return 'Reportes';
+    if (path === '/admin/equipo') return 'Equipo';
+    return 'Admin';
   };
 
   const navItems = [
-    { to: '/admin', label: 'INICIO', icon: <Icon.Home /> },
-    { to: '/admin/talleres', label: 'TALLERES', icon: <Icon.Workshop /> },
-    { to: '/admin/reportes', label: 'REPORTES', icon: <Icon.Chart /> },
-    { to: '/admin/equipo', label: 'EQUIPO', icon: <Icon.IdCard /> },
+    { to: '/admin', label: 'Inicio', icon: <Icon.Home /> },
+    { to: '/admin/talleres', label: 'Talleres', icon: <Icon.Workshop /> },
+    { to: '/admin/reportes', label: 'Reportes', icon: <Icon.Chart /> },
+    { to: '/admin/equipo', label: 'Equipo', icon: <Icon.IdCard /> },
   ];
 
   const handleRefresh = () => {
@@ -40,8 +41,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     globalMetrics.unlinkedGiftCards +
     globalMetrics.missingExpiryGiftCards +
     globalMetrics.nullAudienceSessions;
-  const displayName = currentUser?.nombre || (isLoggingOut ? 'CERRANDO SESIÓN' : 'ADMIN');
-  const displayStatus = currentUser ? 'ACTIVO' : (isLoggingOut ? 'CERRANDO' : 'SIN SESIÓN');
+  const displayName = currentUser?.nombre || (isLoggingOut ? 'Cerrando sesión' : 'Admin');
+  const displayStatus = currentUser ? 'Activo' : (isLoggingOut ? 'Cerrando' : 'Sin sesión');
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -53,27 +54,27 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   };
 
   return (
-    <div className="min-h-screen bg-[#F3EDE6] lg:pl-[320px]">
+    <div className="min-h-screen bg-neutral-base lg:pl-[300px]">
 
       {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[320px] bg-white border-r border-[#DDD5CD] flex-col p-12 z-50 overflow-y-auto no-scrollbar">
-        <div className="flex flex-col items-center mb-16">
-          <div className="w-16 h-16 bg-[#3D3437] rounded-[24px] flex items-center justify-center font-bold text-3xl text-white shadow-xl mb-6 tracking-tighter cursor-pointer" onClick={() => navigate('/admin')}>B</div>
-          <span className="text-xl font-extrabold tracking-tighter text-[#3D3437] uppercase">Barro & Co.</span>
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[300px] bg-white border-r border-neutral-border flex-col p-7 z-50 overflow-y-auto no-scrollbar">
+        <div className="flex flex-col items-start mb-10 px-2">
+          <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center font-bold text-xl text-white mb-4 cursor-pointer" onClick={() => navigate('/admin')}>B</div>
+          <span className="font-display text-[22px] font-bold text-neutral-textMain">Barro &amp; Co.</span>
           <div className="accent-line mt-3"></div>
         </div>
 
-        <nav className="space-y-4">
+        <nav className="space-y-1">
           {navItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/admin'}
-              className={({ isActive }) => `flex items-center gap-6 px-8 py-5 rounded-[28px] transition-all font-bold text-[12px] tracking-[0.15em] uppercase ${isActive ? 'bg-[#3D3437] text-white shadow-lg' : 'text-[#A8A9AE] hover:text-[#3D3437] hover:bg-[#F7F1EB]'}`}
+              className={({ isActive }) => `flex items-center gap-3 px-3.5 min-h-[44px] rounded-[10px] transition-colors duration-200 font-medium text-[14px] ${isActive ? 'bg-brand text-white' : 'text-neutral-textSec hover:text-brand hover:bg-neutral-alt'}`}
             >
               {({ isActive }) => (
                 <>
-                  <span className={`${isActive ? '' : 'opacity-40'}`}>{item.icon}</span>
+                  <span className={isActive ? '' : 'opacity-50'}>{item.icon}</span>
                   {item.label}
                 </>
               )}
@@ -82,26 +83,26 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </nav>
 
         {/* Sección Inferior del Sidebar */}
-        <div className="mt-auto pt-10 flex flex-col gap-6">
+        <div className="mt-auto pt-8 flex flex-col gap-4">
           <Button
             variant="primary"
-            size="sm"
-            className="w-full !rounded-[32px] !py-7 shadow-xl shadow-[#CA7859]/20 gap-4 bg-[#CA7859] hover:bg-[#B56C50]"
+            size="md"
+            className="w-full"
             onClick={() => navigate('/admin/talleres/nuevo')}
           >
-            NUEVA SEDE
+            Nueva sede
             <Icon.ArrowUpRight />
           </Button>
 
-          <div className="p-7 bg-[#F7F1EB] rounded-[48px] flex items-center gap-4 border border-[#DDD5CD] shadow-sm">
-            <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-sm shrink-0 bg-white">
+          <div className="p-4 bg-neutral-sec rounded-2xl flex items-center gap-3 border border-neutral-border">
+            <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm shrink-0 bg-white">
               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} alt="Admin" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-[13px] font-extrabold truncate uppercase tracking-tighter text-[#3D3437] leading-none mb-1">{displayName}</p>
+              <p className="text-[13px] font-semibold truncate text-neutral-textMain leading-tight mb-0.5">{displayName}</p>
               <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${currentUser ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                <p className={`text-[10px] font-bold uppercase tracking-widest leading-none ${currentUser ? 'text-emerald-600' : 'text-amber-600'}`}>{displayStatus}</p>
+                <div className={`w-1.5 h-1.5 rounded-full ${currentUser ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                <p className={`text-[11px] font-medium ${currentUser ? 'text-emerald-600' : 'text-amber-600'}`}>{displayStatus}</p>
               </div>
             </div>
           </div>
@@ -109,29 +110,41 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full flex items-center gap-4 px-8 py-4 eyebrow !text-[12px] hover:text-[#CA7859] transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full flex items-center gap-3 px-3.5 min-h-[44px] rounded-[10px] text-[14px] font-medium text-neutral-textHelper hover:text-brand hover:bg-neutral-alt transition-colors group disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <span className="opacity-30 group-hover:opacity-100 transition-opacity rotate-180"><Icon.Logout /></span>
-            {isLoggingOut ? 'DESCONECTANDO...' : 'DESCONECTAR'}
+            <span className="opacity-40 group-hover:opacity-100 transition-opacity rotate-180"><Icon.Logout /></span>
+            {isLoggingOut ? 'Desconectando…' : 'Desconectar'}
           </button>
         </div>
       </aside>
 
-      {/* TopBar Minimal */}
-      <header className="fixed top-0 left-0 lg:left-[320px] right-0 h-28 bg-[#F3EDE6]/80 backdrop-blur-xl z-40 px-12 flex items-center justify-between">
-        <h1 className="text-[14px] font-extrabold tracking-widest text-[#3D3437] uppercase">{getTitle()}</h1>
+      {/* TopBar */}
+      <header className="fixed top-0 left-0 lg:left-[300px] right-0 h-16 lg:h-20 bg-neutral-base/90 backdrop-blur-xl z-40 px-4 md:px-6 lg:px-12 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => setIsMenuOpen(true)}
+            aria-label="Abrir menú"
+            className="lg:hidden w-11 h-11 -ml-2 flex flex-col justify-center items-start gap-[5px] shrink-0 hover:opacity-60 transition-opacity"
+          >
+            <div className="w-5 h-[2px] bg-neutral-textMain rounded-full"></div>
+            <div className="w-5 h-[2px] bg-neutral-textMain rounded-full"></div>
+            <div className="w-3.5 h-[2px] bg-neutral-textMain rounded-full"></div>
+          </button>
+          <h1 className="text-[18px] lg:text-[20px] text-neutral-textMain truncate">{getTitle()}</h1>
+        </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 md:gap-5">
           <button
             onClick={handleRefresh}
-            className={`text-[#A8A9AE] hover:text-[#3D3437] transition-all ${isRefreshing ? 'animate-spin text-[#CA7859]' : ''}`}
+            aria-label="Sincronizar"
+            className={`w-11 h-11 flex items-center justify-center text-neutral-textHelper hover:text-brand transition-all ${isRefreshing ? 'animate-spin text-brand' : ''}`}
           >
             <Icon.Refresh />
           </button>
-          <button className="text-[#A8A9AE] hover:text-[#3D3437] transition-all relative">
+          <button aria-label="Alertas" className="w-11 h-11 flex items-center justify-center text-neutral-textHelper hover:text-brand transition-all relative">
             <Icon.Bell />
             {alertsCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#CA7859] border-2 border-[#F3EDE6] rounded-full flex items-center justify-center text-[8px] text-white font-bold">
+              <span className="absolute top-2 right-2 w-4 h-4 bg-brand border-2 border-neutral-base rounded-full flex items-center justify-center text-[9px] text-white font-semibold">
                 {alertsCount}
               </span>
             )}
@@ -139,8 +152,68 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       </header>
 
+      {/* Menú Móvil */}
+      {isMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/35 backdrop-blur-sm z-[100] animate-fade-in lg:hidden"
+            onClick={() => setIsMenuOpen(false)}
+          />
+          <div className="fixed top-0 left-0 h-full w-[280px] bg-white z-[110] shadow-2xl flex flex-col overflow-hidden rounded-r-3xl lg:hidden animate-fade-in">
+            <div className="px-5 py-5 border-b border-neutral-border flex justify-between items-start gap-4">
+              <div>
+                <span className="font-display text-[20px] font-bold text-neutral-textMain">Barro &amp; Co.</span>
+                <p className="text-[11px] text-neutral-textHelper uppercase tracking-[0.14em] font-medium mt-0.5">Panel de administración</p>
+              </div>
+              <button onClick={() => setIsMenuOpen(false)} aria-label="Cerrar menú" className="w-10 h-10 -mr-2 rounded-full text-neutral-textMain hover:bg-neutral-sec flex items-center justify-center transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-1">
+              {navItems.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/admin'}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={({ isActive }) => `flex items-center gap-3 px-4 min-h-[44px] rounded-[10px] transition-colors duration-200 font-medium text-[15px] ${isActive ? 'bg-brand text-white' : 'text-neutral-textMain hover:bg-neutral-alt'}`}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={isActive ? '' : 'opacity-50'}>{item.icon}</span>
+                      {item.label}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="p-4 border-t border-neutral-border flex flex-col gap-3">
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => { setIsMenuOpen(false); navigate('/admin/talleres/nuevo'); }}
+              >
+                Nueva sede
+                <Icon.ArrowUpRight />
+              </Button>
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="w-full flex items-center gap-3 px-4 min-h-[44px] rounded-[10px] text-[14px] font-medium text-neutral-textHelper hover:text-brand hover:bg-neutral-alt transition-colors disabled:opacity-60"
+              >
+                <span className="rotate-180"><Icon.Logout /></span>
+                {isLoggingOut ? 'Desconectando…' : 'Desconectar'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Main Content */}
-      <main className="pt-32 px-12 lg:px-20 pb-32">
+      <main className="pt-20 lg:pt-28 px-4 md:px-6 lg:px-12 pb-24 lg:pb-20">
         {children}
       </main>
 

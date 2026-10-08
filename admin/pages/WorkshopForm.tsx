@@ -181,55 +181,55 @@ export const WorkshopForm: React.FC = () => {
     }
   };
 
-  const labelClass = "block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-4";
-  const selectClass = "w-full h-14 px-6 rounded-[20px] bg-gray-50 border border-[#E6E6E6] focus:bg-white focus:border-[#F4D000] focus:ring-4 focus:ring-[#F4D000]/10 outline-none transition-all font-medium text-sm appearance-none";
+  const labelClass = "block text-[12px] font-semibold text-neutral-textSec mb-1.5";
+  const selectClass = "w-full min-h-[44px] px-4 py-2.5 pr-10 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-[15px] text-neutral-textMain appearance-none";
 
   return (
-    <div className="max-w-3xl mx-auto space-y-12 animate-fade-in pb-20">
+    <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 animate-fade-in pb-20">
 
       {/* Header Visual */}
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-3">
         <Badge variant={adminConfirmed ? 'success' : 'yellow'}>
           {adminConfirmed ? 'PASO 1 COMPLETADO' : 'CONFIGURACIÓN INICIAL'}
         </Badge>
-        <h1 className="text-5xl font-extrabold tracking-tighter">
+        <h1 className="text-3xl md:text-4xl font-bold text-neutral-textMain">
           {isEdit ? 'Actualizar Sede' : 'Nuevo Registro'}
         </h1>
-        <div className="flex justify-center items-center gap-4 text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em]">
-          <span className={currentStep === 1 ? 'text-[#111111]' : ''}>01 RESPONSABLE</span>
-          <div className="w-8 h-px bg-gray-200"></div>
-          <span className={currentStep === 2 ? 'text-[#111111]' : ''}>02 TALLER</span>
+        <div className="flex justify-center items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em]">
+          <span className={currentStep === 1 ? 'text-brand' : 'text-neutral-textHelper'}>01 RESPONSABLE</span>
+          <div className="w-8 h-px bg-neutral-border"></div>
+          <span className={currentStep === 2 ? 'text-brand' : 'text-neutral-textHelper'}>02 TALLER</span>
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
 
         {/* PASO 1: ADMINISTRADOR */}
         <Card className={`relative transition-all duration-500 ${currentStep === 2 && !isEdit ? 'opacity-40 grayscale-[0.5]' : ''}`}>
-          <div className="flex items-center gap-4 border-b border-gray-100 pb-6 mb-8">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold transition-colors ${adminConfirmed ? 'bg-green-500 text-white shadow-lg' : 'bg-[#1A1A1A] text-[#F4D000]'}`}>
+          <div className="flex items-center gap-4 border-b border-neutral-border pb-4 mb-5">
+            <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-[14px] transition-colors shrink-0 ${adminConfirmed ? 'bg-[#20663B] text-white' : 'bg-brand text-white'}`}>
               {adminConfirmed ? '✓' : '01'}
             </div>
-            <div className="flex-1">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-extrabold tracking-[0.2em] uppercase">Registro de Administrador Taller</h3>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center gap-2">
+                <h3 className="text-[15px] font-bold text-neutral-textMain">Registro de Administrador Taller</h3>
                 {adminConfirmed && currentStep === 2 && (
                   <button
                     type="button"
                     onClick={() => { setAdminConfirmed(false); setCurrentStep(1); }}
-                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 uppercase tracking-widest"
+                    className="text-[12px] font-semibold text-brand hover:text-brand-hover transition-colors flex items-center gap-1.5 shrink-0"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     Editar
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-gray-400 font-bold">DATOS DEL ADMINISTRADOR DEL CENTRO</p>
+              <p className="text-[11px] font-semibold text-neutral-textHelper mt-0.5">DATOS DEL ADMINISTRADOR DEL CENTRO</p>
             </div>
           </div>
 
-          <form onSubmit={handleCreateAdmin} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleCreateAdmin} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Nombre y Apellidos *"
                 placeholder="Ej: David Casals"
@@ -246,7 +246,7 @@ export const WorkshopForm: React.FC = () => {
                 disabled={adminConfirmed && currentStep === 2}
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Teléfono Móvil"
                 placeholder="+34 600 000 000"
@@ -265,8 +265,8 @@ export const WorkshopForm: React.FC = () => {
             </div>
 
             {!adminConfirmed && (
-              <div className="flex justify-end pt-4">
-                <Button type="submit" variant="dark" className="w-full md:w-auto shadow-2xl" disabled={isSubmitting}>
+              <div className="flex justify-end pt-3">
+                <Button type="submit" variant="primary" className="w-full md:w-auto" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <div className="flex items-center gap-2">
                       <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
@@ -278,9 +278,9 @@ export const WorkshopForm: React.FC = () => {
             )}
 
             {adminConfirmed && currentStep === 2 && !isEdit && (
-              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100">
-                <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">✓</div>
-                <p className="text-xs font-bold text-green-700 uppercase tracking-tight truncate flex-1">
+              <div className="flex items-center gap-3 p-4 bg-[#DFF0E4] rounded-2xl border border-[#BFDECB]">
+                <div className="w-8 h-8 bg-[#20663B] text-white rounded-full flex items-center justify-center text-xs shrink-0">✓</div>
+                <p className="text-[13px] font-semibold text-[#20663B] truncate flex-1">
                   Responsable confirmado: <span className="underline ml-1">{adminData.nombre}</span>
                 </p>
               </div>
@@ -290,19 +290,19 @@ export const WorkshopForm: React.FC = () => {
 
         {/* PASO 2: TALLER */}
         {(currentStep === 2 || isEdit) && (
-          <Card className="animate-fade-in-up shadow-2xl border-[#F4D000]/20">
-            <div className="flex items-center gap-4 border-b border-gray-100 pb-6 mb-8">
-              <div className="w-12 h-12 bg-[#F4D000] text-[#111111] rounded-full flex items-center justify-center font-bold shadow-lg">
+          <Card className="animate-fade-in">
+            <div className="flex items-center gap-4 border-b border-neutral-border pb-4 mb-5">
+              <div className="w-11 h-11 bg-brand text-white rounded-full flex items-center justify-center font-bold text-[14px] shrink-0">
                 02
               </div>
-              <div>
-                <h3 className="text-sm font-extrabold tracking-[0.2em] uppercase">Configuración de Sede</h3>
-                <p className="text-[10px] text-gray-400 font-bold">DATOS FÍSICOS Y CONTACTO DEL TALLER</p>
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-bold text-neutral-textMain">Configuración de Sede</h3>
+                <p className="text-[11px] font-semibold text-neutral-textHelper mt-0.5">DATOS FÍSICOS Y CONTACTO DEL TALLER</p>
               </div>
             </div>
 
-            <form onSubmit={handleFinalizeWorkshop} className="space-y-8">
-              <div className="space-y-6">
+            <form onSubmit={handleFinalizeWorkshop} className="space-y-5">
+              <div className="space-y-4">
                 <Input
                   label="Nombre Comercial del Centro *"
                   placeholder="Ej: Terracotta Studio BCN"
@@ -310,29 +310,39 @@ export const WorkshopForm: React.FC = () => {
                   onChange={e => setWorkshopData({ ...workshopData, nombre: e.target.value })}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>País de Operación *</label>
-                    <select
-                      className={selectClass}
-                      value={workshopData.pais}
-                      onChange={e => setWorkshopData({ ...workshopData, pais: e.target.value, ciudad: '' })}
-                    >
-                      <option value="">Selecciona...</option>
-                      {countryList.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select
+                        className={selectClass}
+                        value={workshopData.pais}
+                        onChange={e => setWorkshopData({ ...workshopData, pais: e.target.value, ciudad: '' })}
+                      >
+                        <option value="">Selecciona...</option>
+                        {countryList.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-textHelper">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className={labelClass}>Ciudad *</label>
-                    <select
-                      className={selectClass}
-                      value={workshopData.ciudad}
-                      onChange={e => setWorkshopData({ ...workshopData, ciudad: e.target.value })}
-                      disabled={!workshopData.pais}
-                    >
-                      <option value="">Selecciona...</option>
-                      {(countriesData[workshopData.pais] || []).map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select
+                        className={selectClass}
+                        value={workshopData.ciudad}
+                        onChange={e => setWorkshopData({ ...workshopData, ciudad: e.target.value })}
+                        disabled={!workshopData.pais}
+                      >
+                        <option value="">Selecciona...</option>
+                        {(countriesData[workshopData.pais] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-textHelper">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -343,7 +353,7 @@ export const WorkshopForm: React.FC = () => {
                   onChange={e => setWorkshopData({ ...workshopData, direccion: e.target.value })}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Email Público del Taller"
                     placeholder="info@terracotta.com"
@@ -359,13 +369,13 @@ export const WorkshopForm: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row gap-4 pt-6">
+              <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-5 border-t border-neutral-border">
                 {!isEdit && (
-                  <Button type="button" variant="outline" className="flex-1 !py-6" onClick={() => setCurrentStep(1)}>
+                  <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCurrentStep(1)}>
                     VOLVER AL PASO 1
                   </Button>
                 )}
-                <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="flex-[2] shadow-[0_20px_40px_rgba(244,208,0,0.3)] !py-6 text-xs tracking-widest uppercase disabled:opacity-60 disabled:cursor-not-allowed">
+                <Button type="submit" variant="primary" disabled={isSubmitting} className="w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed">
                   {isSubmitting ? 'GUARDANDO...' : (isEdit ? 'GUARDAR CAMBIOS' : 'CONFIRMAR Y CREAR TALLER')}
                 </Button>
               </div>
@@ -374,11 +384,11 @@ export const WorkshopForm: React.FC = () => {
         )}
       </div>
 
-      <div className="flex justify-center pt-8">
+      <div className="flex justify-center pt-4">
         <button
           type="button"
           onClick={() => navigate('/admin/talleres')}
-          className="text-[10px] font-extrabold text-gray-400 uppercase tracking-[0.2em] hover:text-black transition-colors"
+          className="min-h-[44px] px-4 text-[12px] font-semibold text-neutral-textHelper hover:text-[#9E3B2B] transition-colors"
         >
           CANCELAR PROCESO DE REGISTRO
         </button>

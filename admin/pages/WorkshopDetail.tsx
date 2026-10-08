@@ -43,22 +43,22 @@ export const WorkshopDetail: React.FC = () => {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-10 animate-fade-in">
+        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
 
             {/* Header Profile */}
-            <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                <div className="w-32 h-32 rounded-[40px] bg-[#F4EEE8] flex items-center justify-center text-[#C17D5C] shadow-xl border border-[#F1E9E2]">
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 text-center md:text-left">
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-brand-soft flex items-center justify-center text-brand border border-neutral-border shrink-0">
                     <Icon.IdCard />
                 </div>
                 <div className="flex-1 space-y-2">
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        <h1 className="text-4xl font-extrabold tracking-tight">{workshop.nombre}</h1>
+                    <div className="flex flex-col md:flex-row items-center gap-3">
+                        <h1 className="text-3xl md:text-4xl font-bold">{workshop.nombre}</h1>
                         <Badge variant={workshop.estado === WorkshopStatus.ACTIVE ? 'yellow' : 'outline'}>{workshop.estado}</Badge>
                     </div>
-                    <p className="text-xl text-[#6B6B6B] font-medium">
+                    <p className="text-[15px] md:text-lg text-neutral-textSec font-medium">
                         {[workshop.ciudad, workshop.pais].filter(Boolean).join(', ') || 'Ubicación no registrada'}
                     </p>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
+                    <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-3">
                         <Button variant="dark" size="sm" onClick={() => navigate('/admin/talleres')}>&larr; Volver</Button>
                         <Button variant="outline" size="sm" onClick={() => navigate(`/admin/talleres/editar/${workshop.id}`)}>Editar Taller</Button>
                         <Button variant="outline" size="sm" onClick={toggleStatus}>Cambiar Estado</Button>
@@ -67,57 +67,57 @@ export const WorkshopDetail: React.FC = () => {
             </div>
 
             {/* Grid Modules */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
 
-                <Card className="space-y-6">
-                    <h3 className="text-xs font-extrabold tracking-[0.2em] text-[#111111] border-b border-[#E6E6E6] pb-4">INFORMACIÓN</h3>
+                <Card className="space-y-5">
+                    <h3 className="eyebrow border-b border-neutral-border pb-3">INFORMACIÓN</h3>
                     <div className="space-y-4">
                         <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Dirección</p>
-                            <p className="font-bold">{workshop.direccion || 'No registrada'}</p>
+                            <p className="text-[12px] font-semibold text-neutral-textSec mb-1">Dirección</p>
+                            <p className="text-[15px] font-semibold text-neutral-textMain">{workshop.direccion || 'No registrada'}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Email</p>
+                                <p className="text-[12px] font-semibold text-neutral-textSec mb-1">Email</p>
                                 {workshop.emailTaller ? (
-                                    <a href={`mailto:${workshop.emailTaller}`} className="font-bold truncate text-sm text-[#C17D5C] hover:underline block">{workshop.emailTaller}</a>
+                                    <a href={`mailto:${workshop.emailTaller}`} className="text-[14px] font-semibold truncate text-brand hover:underline block">{workshop.emailTaller}</a>
                                 ) : (
-                                    <p className="font-bold truncate text-sm text-gray-400">No registrado</p>
+                                    <p className="text-[14px] font-medium truncate text-neutral-textHelper">No registrado</p>
                                 )}
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Teléfono</p>
+                                <p className="text-[12px] font-semibold text-neutral-textSec mb-1">Teléfono</p>
                                 {workshop.telefonoTaller ? (
-                                    <a href={`tel:${workshop.telefonoTaller}`} className="font-bold text-sm text-[#C17D5C] hover:underline">{workshop.telefonoTaller}</a>
+                                    <a href={`tel:${workshop.telefonoTaller}`} className="text-[14px] font-semibold text-brand hover:underline">{workshop.telefonoTaller}</a>
                                 ) : (
-                                    <p className="font-bold text-sm text-gray-400">No registrado</p>
+                                    <p className="text-[14px] font-medium text-neutral-textHelper">No registrado</p>
                                 )}
                             </div>
                         </div>
                     </div>
                 </Card>
 
-                <Card className="space-y-6">
-                    <h3 className="text-xs font-extrabold tracking-[0.2em] text-[#111111] border-b border-[#E6E6E6] pb-4">ADMIN GENERAL</h3>
+                <Card className="space-y-5">
+                    <h3 className="eyebrow border-b border-neutral-border pb-3">ADMIN GENERAL</h3>
                     {adminGeneral ? (
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm border border-gray-200 shrink-0">
+                            <div className="w-14 h-14 rounded-full bg-neutral-sec flex items-center justify-center overflow-hidden border border-neutral-border shrink-0">
                                 <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${adminGeneral.nombre}`} alt={adminGeneral.nombre} className="w-full h-full" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="font-bold truncate">{adminGeneral.nombre}</p>
-                                <p className="text-xs text-gray-500 font-medium truncate">{adminGeneral.email}</p>
+                                <p className="text-[15px] font-semibold text-neutral-textMain truncate">{adminGeneral.nombre}</p>
+                                <p className="text-[13px] text-neutral-textSec truncate">{adminGeneral.email}</p>
                             </div>
                         </div>
                     ) : (
                         <div className="py-4 text-center">
-                            <p className="text-sm text-gray-400 font-medium">Sin responsable asignado</p>
+                            <p className="text-sm text-neutral-textHelper font-medium">Sin responsable asignado</p>
                         </div>
                     )}
                 </Card>
 
                 {/* Mapa real con Google Maps embed */}
-                <Card className="md:col-span-2 !p-0 overflow-hidden h-72 border-none relative group">
+                <Card className="md:col-span-2 !p-0 overflow-hidden h-72 relative group">
                     <iframe
                         title={`Ubicación de ${workshop.nombre}`}
                         src={mapEmbedUrl}

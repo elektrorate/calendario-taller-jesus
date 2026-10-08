@@ -1,5 +1,6 @@
 import { showError, showWarning } from '../context/toast';
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { CeramicPiece, PieceStatus, Student } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
 
@@ -51,96 +52,69 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
   const cat = studentCategory || 'membresia';
 
   return (
-    <div className={`bg-white rounded-[2rem] p-6 md:p-8 soft-shadow border border-neutral-border hover:border-brand-light transition-all relative flex flex-col group h-full overflow-hidden ${isHistory ? 'opacity-75' : ''}`}>
-      <div className="absolute top-0 left-0 w-full h-1 bg-neutral-alt overflow-hidden">
-        <div
-          className={`h-full transition-all duration-700 ease-out ${getStatusColor(piece.status)}`}
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+    <div className={`relative grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(210px,1.25fr)_minmax(220px,1.45fr)_minmax(120px,.75fr)_auto] gap-3 md:gap-4 items-center px-3 md:px-4 py-3 bg-white border-b border-neutral-border last:border-b-0 hover:bg-neutral-base transition-colors group overflow-hidden ${isHistory ? 'opacity-75' : ''}`}>
+      <div className={`absolute top-0 left-0 h-1 transition-all duration-700 ease-out ${getStatusColor(piece.status)}`} style={{ width: `${progress}%` }} />
 
-      <div className="flex justify-between items-start mb-4 pt-2">
-        <div className="flex items-start gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shadow-inner shrink-0 ${getStatusColor(piece.status)}`}>
-            {piece.owner.charAt(0)}
+      <div className="min-w-0 flex items-center gap-3 pt-1">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-[12px] shrink-0 ${getStatusColor(piece.status)}`}>
+          {piece.owner.charAt(0)}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-semibold text-neutral-textMain text-[14px] leading-tight truncate">{piece.owner}</h3>
+            <span className="hidden sm:inline text-[10px] font-semibold text-neutral-textHelper shrink-0">#ID-{piece.id.slice(-4).toUpperCase()}</span>
           </div>
-          <div>
-            <h3 className="font-extrabold text-neutral-textMain text-[17px] leading-tight uppercase tracking-tight line-clamp-1 pr-4">
-              {piece.owner}
-            </h3>
-            <p className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest mt-1">#ID-{piece.id.slice(-4).toUpperCase()}</p>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border ${CATEGORY_BADGE[cat] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
+              {CATEGORY_LABELS[cat] || cat}
+            </span>
+            {groupName && <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-sec text-neutral-textSec">{groupName}</span>}
           </div>
         </div>
-        <button onClick={() => onEdit(piece)} className="text-neutral-textHelper hover:text-brand transition-colors p-1">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-        </button>
       </div>
 
-      {/* Category badge */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        <span className={`inline-block px-2.5 py-0.5 rounded-lg text-[8px] font-extrabold uppercase tracking-widest border ${CATEGORY_BADGE[cat] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
-          {CATEGORY_LABELS[cat] || cat}
-        </span>
-        {groupName && (
-          <span className="inline-block px-2.5 py-0.5 rounded-lg text-[8px] font-extrabold uppercase tracking-widest bg-neutral-sec text-neutral-textHelper border border-neutral-border">
-            {groupName}
-          </span>
-        )}
-      </div>
-
-      <div className="flex-1 flex flex-col">
-        <p className="text-[16px] font-light text-neutral-textMain mb-4 leading-snug">
-          {piece.description}
-        </p>
-
-        {piece.glazeType && (
-          <div className="mb-4 inline-flex items-center gap-2 px-2.5 py-1 bg-brand/5 border border-brand/10 rounded-lg self-start">
-            <span className="text-[9px] font-extrabold text-brand uppercase tracking-wider">ESMALTE:</span>
-            <span className="text-[12px] font-light text-neutral-textMain uppercase">{piece.glazeType}</span>
-          </div>
-        )}
-
+      <div className="min-w-0 hidden md:block">
+        <p className="text-[14px] text-neutral-textMain truncate">{piece.description}</p>
+        <div className="flex items-center gap-2 mt-1">
+          {piece.glazeType && <span className="text-[11px] text-neutral-textSec truncate"><span className="font-semibold text-brand">Esmalte:</span> {piece.glazeType}</span>}
+          {isHistory && piece.deliveryDate && <span className="text-[11px] text-neutral-textHelper shrink-0">· {new Date(piece.deliveryDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+        </div>
         {piece.extraCommentary && (
-          <div className="mb-6 p-4 bg-neutral-sec/50 rounded-2xl border border-neutral-border/30">
-            <p className="text-[13px] font-light text-neutral-textSec italic leading-snug">
-              "{displayText}"
-            </p>
-            {hasLongComment && (
-              <button onClick={() => setIsExpanded(!isExpanded)} className="mt-2 text-[9px] font-extrabold text-brand uppercase tracking-widest hover:underline">
-                {isExpanded ? 'Ver menos' : 'Ver más'}
-              </button>
-            )}
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-[11px] text-neutral-textHelper italic truncate">"{displayText}"</p>
+            {hasLongComment && <button onClick={() => setIsExpanded(!isExpanded)} className="text-[11px] font-semibold text-brand hover:underline shrink-0">{isExpanded ? 'menos' : 'más'}</button>}
           </div>
         )}
+      </div>
 
-        {/* Delivery date for history items */}
-        {isHistory && piece.deliveryDate && (
-          <div className="mb-4 text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">
-            ENTREGADO: {new Date(piece.deliveryDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
-          </div>
-        )}
-
-        <div className="mb-6 mt-auto">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-[9px] font-extrabold text-neutral-textHelper uppercase tracking-widest">ESTADO</span>
-            <span className="text-[9px] font-extrabold text-neutral-textMain uppercase tracking-widest">{progress}%</span>
-          </div>
-          <span className={`inline-block w-full text-center px-3 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-widest border ${getStatusColor(piece.status)} text-white shadow-sm`}>
-            {getStatusLabel(piece.status)}
-          </span>
+      <div className="hidden md:block min-w-0">
+        <div className="flex justify-between items-center mb-1">
+          <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-semibold ${getStatusColor(piece.status)} text-white`}>{getStatusLabel(piece.status)}</span>
+          <span className="text-[11px] font-semibold text-neutral-textMain">{progress}%</span>
+        </div>
+        <div className="w-full h-1.5 bg-neutral-alt rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${getStatusColor(piece.status)}`} style={{ width: `${progress}%` }} />
         </div>
       </div>
 
-      <div className="pt-1">
+      <div className="col-span-2 md:col-span-1 md:col-start-4 flex items-center justify-end gap-2 pt-2 md:pt-0 border-t border-neutral-border md:border-0">
+        <p className="md:hidden flex-1 min-w-0 text-[13px] text-neutral-textMain truncate">{piece.description}</p>
+        <div className="md:hidden flex flex-col items-end gap-1">
+          <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-semibold ${getStatusColor(piece.status)} text-white`}>{progress}%</span>
+          <span className="text-[10px] text-neutral-textHelper">{getStatusLabel(piece.status)}</span>
+        </div>
+        <button onClick={() => onEdit(piece)} aria-label={`Editar pieza de ${piece.owner}`} className="w-8 h-8 flex items-center justify-center rounded-[8px] text-neutral-textHelper hover:text-brand hover:bg-brand-soft transition-colors shrink-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+        </button>
         <button
           disabled={!action || isUpdating}
           onClick={handleStatusUpdate}
-          className={`w-full py-4 rounded-xl text-[12px] font-extrabold uppercase tracking-widest transition-all ${!action || isUpdating
-            ? 'bg-neutral-alt text-neutral-textHelper cursor-not-allowed border border-neutral-border shadow-none opacity-50'
-            : 'bg-neutral-textMain text-white hover:bg-black active:scale-[0.98] soft-shadow'
+          className={`min-h-[36px] md:min-h-[40px] px-3 py-1.5 rounded-[8px] text-[11px] md:text-[12px] font-semibold transition-all ml-auto ${!action || isUpdating
+            ? 'bg-neutral-sec text-neutral-textHelper cursor-not-allowed border border-neutral-border opacity-50'
+            : 'bg-brand text-white hover:bg-brand-hover active:scale-[0.98]'
             }`}
         >
-          {isUpdating ? 'PROCESANDO...' : (action ? action.label : 'FINALIZADO')}
+          {isUpdating ? 'Procesando...' : (action ? action.label : 'Finalizado')}
         </button>
       </div>
     </div>
@@ -165,11 +139,13 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
   const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('todos');
   const [showHistory, setShowHistory] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<'all' | 'day' | 'week'>('all');
   const [dateValue, setDateValue] = useState<string>(new Date().toISOString().split('T')[0]);
   const [groupFilter, setGroupFilter] = useState<string>('todos');
   const [pieceToDelete, setPieceToDelete] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [headerActions, setHeaderActions] = useState<HTMLElement | null>(null);
 
   const [form, setForm] = useState({
     owner: '',
@@ -395,98 +371,134 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
     return `${fmt(start)} – ${fmt(end)}`;
   }, [dateFilter, dateValue]);
 
-  return (
-    <div className="h-full flex flex-col overflow-hidden px-6 lg:px-10 bg-neutral-base">
+  const activeFilterCount = [
+    categoryFilter !== 'todos',
+    groupFilter !== 'todos',
+    dateFilter !== 'all',
+    filterStatus !== 'all'
+  ].filter(Boolean).length;
 
-      {/* ─── HEADER: Search + Filters ─── */}
-      <header className="pt-8 shrink-0 space-y-5 mb-6">
+  useEffect(() => {
+    setHeaderActions(document.getElementById('tallerista-header-actions'));
+  }, []);
 
-        {/* Row 1: Search + New Piece */}
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          <div className="relative flex-1 w-full">
-            <div className="flex items-center bg-white border border-neutral-border rounded-full soft-shadow overflow-hidden">
-              <svg className="w-5 h-5 text-neutral-textHelper ml-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <input
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); if (!e.target.value.trim()) setSelectedOwner(null); }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Buscar por nombre de alumno..."
-                className="w-full px-4 py-3.5 bg-transparent text-[12px] font-extrabold uppercase tracking-widest outline-none"
-              />
-              {(searchQuery || selectedOwner) && (
-                <button
-                  onClick={() => { setSearchQuery(''); setSelectedOwner(null); }}
-                  className="mr-4 text-neutral-textHelper hover:text-brand transition-colors shrink-0"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              )}
-            </div>
-
-            {/* Suggestions dropdown */}
-            {showSuggestions && suggestions.length > 0 && !selectedOwner && (
-              <div className="absolute left-0 right-0 mt-2 bg-white border border-neutral-border rounded-2xl soft-shadow z-30 overflow-hidden max-h-64 overflow-y-auto">
-                {suggestions.map((name) => {
-                  const student = ownerStudentMap[name.toUpperCase()];
-                  const cat = student?.studentCategory || 'membresia';
-                  const pieceCount = pieces.filter(p => p.owner.toUpperCase() === name.toUpperCase()).length;
-                  return (
-                    <button
-                      key={name}
-                      onMouseDown={() => { setSelectedOwner(name); setSearchQuery(name); setShowSuggestions(false); }}
-                      className="w-full text-left px-5 py-3.5 hover:bg-neutral-alt transition-colors flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center text-brand font-extrabold text-sm shrink-0">
-                          {name.charAt(0)}
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="text-[12px] font-extrabold text-neutral-textMain uppercase tracking-widest truncate">{name}</p>
-                          <span className={`text-[8px] font-extrabold uppercase tracking-widest`} style={{ color: cat === 'membresia' ? '#B7A67B' : '#d97706' }}>
-                            {CATEGORY_LABELS[cat] || 'Regular'}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest shrink-0">
-                        {pieceCount} pieza{pieceCount !== 1 ? 's' : ''}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
+  const renderSearchControl = (className: string) => (
+    <div className={`relative ${className}`}>
+      <div className="flex items-center bg-white border border-neutral-border rounded-[8px] overflow-hidden">
+        <svg className="w-4 h-4 text-neutral-textHelper ml-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <input
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); if (!e.target.value.trim()) setSelectedOwner(null); }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          placeholder="Buscar por nombre de alumno..."
+          className="w-full min-h-[36px] px-3 bg-transparent text-[12px] text-neutral-textMain outline-none placeholder:text-neutral-textHelper"
+        />
+        {(searchQuery || selectedOwner) && (
           <button
-            onClick={handleCreateClick}
-            className="w-full md:w-auto px-10 py-4 bg-brand text-white rounded-full text-[13px] font-black soft-shadow uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-brand-hover active:scale-95 transition-all shrink-0"
+            onClick={() => { setSearchQuery(''); setSelectedOwner(null); }}
+            className="mr-2 text-neutral-textHelper hover:text-brand transition-colors shrink-0"
+            aria-label="Limpiar búsqueda"
           >
-            NUEVA PIEZA
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
+        )}
+      </div>
+      {showSuggestions && suggestions.length > 0 && !selectedOwner && (
+        <div className="absolute left-0 right-0 mt-1.5 bg-white border border-neutral-border rounded-xl soft-shadow z-50 overflow-hidden max-h-64 overflow-y-auto">
+          {suggestions.map((name) => {
+            const student = ownerStudentMap[name.toUpperCase()];
+            const cat = student?.studentCategory || 'membresia';
+            const pieceCount = pieces.filter(p => p.owner.toUpperCase() === name.toUpperCase()).length;
+            return (
+              <button
+                key={name}
+                onMouseDown={() => { setSelectedOwner(name); setSearchQuery(name); setShowSuggestions(false); }}
+                className="w-full text-left px-3 py-2 hover:bg-neutral-sec transition-colors flex items-center justify-between gap-3"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-semibold text-neutral-textMain truncate">{name}</span>
+                  <span className={`text-[10px] font-semibold ${cat === 'membresia' ? 'text-brand' : 'text-caramelo'}`}>{CATEGORY_LABELS[cat] || 'Regular'}</span>
+                </span>
+                <span className="text-[11px] font-semibold text-neutral-textHelper shrink-0">{pieceCount} pieza{pieceCount !== 1 ? 's' : ''}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderFilterButton = () => (
+    <button
+      onClick={() => setShowFilters(!showFilters)}
+      aria-expanded={showFilters}
+      className={`min-h-[36px] px-3 rounded-[8px] text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 border transition-colors shrink-0 ${showFilters || activeFilterCount > 0
+        ? 'bg-brand text-white border-brand'
+        : 'bg-white text-neutral-textSec border-neutral-border hover:border-arena hover:text-brand'
+        }`}
+    >
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 6h18M6 12h12M10 18h4" /></svg>
+      <span className="hidden sm:inline">Filtros</span>{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+    </button>
+  );
+
+  const renderCreateButton = () => (
+    <button
+      onClick={handleCreateClick}
+      className="min-h-[36px] px-3 rounded-[8px] bg-brand text-white text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-brand-hover active:scale-[0.98] transition-all shrink-0"
+    >
+      <span className="text-sm leading-none">+</span>
+      <span className="hidden sm:inline">Nueva pieza</span>
+      <span className="sm:hidden">Nueva</span>
+    </button>
+  );
+
+  const piecesHeaderActions = headerActions ? createPortal(
+    <div className="hidden sm:flex items-center gap-1.5 md:gap-2 min-w-0">
+      {renderSearchControl('hidden sm:block w-[180px] md:w-[250px] lg:w-[295px]')}
+      {renderFilterButton()}
+      {renderCreateButton()}
+    </div>,
+    headerActions
+  ) : null;
+
+  return (
+    <>
+      {piecesHeaderActions}
+    <div className="h-full min-h-0 flex flex-col overflow-hidden px-1.5 md:px-1.5 lg:px-1.5 bg-neutral-base">
+
+      {/* ─── MOBILE TOOLS ─── */}
+      <header className="pt-2 md:pt-3 shrink-0 space-y-3 mb-3">
+        <div className="sm:hidden space-y-2">
+          {renderSearchControl('w-full')}
+          <div className="flex items-center justify-end gap-2">
+            {renderFilterButton()}
+            {renderCreateButton()}
+          </div>
         </div>
 
         {/* Selected owner profile banner */}
         {selectedOwner && (
-          <div className="bg-white rounded-2xl border border-neutral-border soft-shadow p-5 flex items-center justify-between animate-fade-in">
+          <div className="bg-white rounded-2xl border border-neutral-border p-4 md:p-5 flex items-center justify-between animate-fade-in">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center text-white font-extrabold text-xl shadow-inner">
+              <div className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center text-white font-bold text-xl shrink-0">
                 {selectedOwner.charAt(0)}
               </div>
               <div>
-                <h3 className="text-[18px] font-black text-neutral-textMain uppercase tracking-tight">{selectedOwner}</h3>
-                <div className="flex items-center gap-2 mt-1">
+                <h3 className="text-[18px] font-bold text-neutral-textMain">{selectedOwner}</h3>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {selectedStudent && (
-                    <span className={`inline-block px-2.5 py-0.5 rounded-lg text-[8px] font-extrabold uppercase tracking-widest border ${CATEGORY_BADGE[selectedStudent.studentCategory || 'membresia'] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
+                    <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${CATEGORY_BADGE[selectedStudent.studentCategory || 'membresia'] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
                       {CATEGORY_LABELS[selectedStudent.studentCategory || 'membresia']}
                     </span>
                   )}
                   {selectedStudent?.groupName && (
-                    <span className="inline-block px-2.5 py-0.5 rounded-lg text-[8px] font-extrabold uppercase tracking-widest bg-neutral-sec text-neutral-textHelper border border-neutral-border">
+                    <span className="inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-sec text-neutral-textSec border border-neutral-border">
                       {selectedStudent.groupName}
                     </span>
                   )}
-                  <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">
+                  <span className="text-[12px] font-semibold text-neutral-textHelper">
                     {selectedOwnerPieceCount} pieza{selectedOwnerPieceCount !== 1 ? 's' : ''} registrada{selectedOwnerPieceCount !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -494,22 +506,24 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
             </div>
             <button
               onClick={() => { setSelectedOwner(null); setSearchQuery(''); }}
-              className="px-5 py-2.5 bg-neutral-sec text-neutral-textHelper rounded-full text-[10px] font-extrabold uppercase tracking-widest hover:bg-neutral-alt transition-colors"
+              className="min-h-[40px] px-4 py-2 bg-white border border-neutral-border text-neutral-textSec rounded-[10px] text-[13px] font-semibold hover:border-arena hover:text-brand transition-colors shrink-0"
             >
               VER TODAS
             </button>
           </div>
         )}
 
+        {showFilters && (
+          <div className="rounded-2xl bg-neutral-sec border border-neutral-border p-3 md:p-4 space-y-3 animate-fade-in">
         {/* Row 2: Category filter + Group filter */}
         <div className="flex flex-wrap gap-2 items-center">
           {(['todos', 'membresia', 'temporal'] as const).map(cat => (
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat)}
-              className={`px-3.5 py-1.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest border transition-all ${categoryFilter === cat
-                ? 'bg-neutral-textMain text-white border-neutral-textMain'
-                : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
+              className={`px-3.5 py-2 min-h-[40px] rounded-[10px] text-[13px] font-semibold border transition-all ${categoryFilter === cat
+                ? 'bg-brand text-white border-brand'
+                : 'bg-white text-neutral-textSec border-neutral-border hover:border-arena hover:text-brand'
                 }`}
             >
               {cat === 'todos' ? 'Todas categorías' : CATEGORY_LABELS[cat]} ({categoryCounts[cat] || 0})
@@ -523,9 +537,9 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
               <select
                 value={groupFilter}
                 onChange={(e) => setGroupFilter(e.target.value)}
-                className={`px-3.5 py-1.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest border appearance-none cursor-pointer transition-all ${groupFilter !== 'todos'
-                  ? 'bg-purple-600 text-white border-purple-600'
-                  : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
+                className={`px-3.5 py-2 min-h-[40px] rounded-[10px] text-[13px] font-semibold border appearance-none cursor-pointer transition-all ${groupFilter !== 'todos'
+                  ? 'bg-brand text-white border-brand'
+                  : 'bg-white text-neutral-textSec border-neutral-border hover:border-arena'
                   }`}
               >
                 <option value="todos">TODOS LOS GRUPOS</option>
@@ -537,7 +551,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
 
         {/* Row 3: Date filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-white p-1 rounded-full border border-neutral-border soft-shadow">
+          <div className="flex bg-white p-1 rounded-[10px] border border-neutral-border">
             {([
               { key: 'all', label: 'SIN FILTRO' },
               { key: 'day', label: 'POR DÍA' },
@@ -546,7 +560,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
               <button
                 key={opt.key}
                 onClick={() => setDateFilter(opt.key)}
-                className={`px-4 py-2 rounded-full text-[9px] font-extrabold uppercase tracking-widest transition-all ${dateFilter === opt.key ? 'bg-brand text-white shadow-sm' : 'text-neutral-textHelper hover:text-brand'}`}
+                className={`px-4 py-2 rounded-[10px] text-[13px] font-semibold transition-all ${dateFilter === opt.key ? 'bg-brand text-white' : 'text-neutral-textSec hover:text-brand'}`}
               >
                 {opt.label}
               </button>
@@ -557,22 +571,22 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
               type="date"
               value={dateValue}
               onChange={(e) => setDateValue(e.target.value)}
-              className="px-4 py-2 bg-white border border-neutral-border rounded-full text-[11px] font-extrabold text-neutral-textMain outline-none focus:border-brand cursor-pointer"
+              className="min-h-[40px] px-3.5 py-2 bg-white border border-neutral-border rounded-[10px] text-[14px] text-neutral-textMain outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 cursor-pointer"
             />
           )}
           {dateFilter === 'week' && (
-            <span className="text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest">{weekLabel}</span>
+            <span className="text-[13px] font-semibold text-neutral-textSec">{weekLabel}</span>
           )}
         </div>
 
         {/* Row 4: Status filter + History toggle */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-white p-1.5 rounded-full border border-neutral-border soft-shadow overflow-x-auto no-scrollbar">
+          <div className="flex bg-white p-1 rounded-[10px] border border-neutral-border overflow-x-auto no-scrollbar">
             {(['all', '1era_quema', 'esmaltado', 'a_recogida'] as const).map(s => (
               <button
                 key={s}
                 onClick={() => setFilterStatus(s)}
-                className={`px-4 md:px-6 lg:px-8 py-3 rounded-full text-[12px] lg:text-[13px] uppercase tracking-widest transition-all whitespace-nowrap ${filterStatus === s ? 'bg-brand text-white font-black soft-shadow' : 'text-neutral-textSec font-black hover:text-brand'}`}
+                className={`px-4 md:px-6 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all whitespace-nowrap ${filterStatus === s ? 'bg-brand text-white' : 'text-neutral-textSec hover:text-brand'}`}
               >
                 {s === 'all' ? 'TODAS' : getStatusLabel(s as PieceStatus)}
               </button>
@@ -582,29 +596,31 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
           {/* History toggle button */}
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`flex items-center gap-2 px-5 py-3 rounded-full text-[11px] font-extrabold uppercase tracking-widest transition-all border ${showHistory
-              ? 'bg-neutral-textMain text-white border-neutral-textMain'
-              : 'bg-white text-neutral-textHelper border-neutral-border hover:border-neutral-textHelper'
+            className={`flex items-center gap-2 min-h-[40px] px-4 py-2 rounded-[10px] text-[13px] font-semibold transition-all border ${showHistory
+              ? 'bg-brand text-white border-brand'
+              : 'bg-white text-neutral-textSec border-neutral-border hover:border-arena hover:text-brand'
               }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             HISTORIAL ({historyPieces.length})
           </button>
         </div>
+          </div>
+        )}
       </header>
 
       {/* ─── PIECES GRID (Active) ─── */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-32">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-20">
         {filteredPieces.length === 0 && !showHistory ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <svg className="w-16 h-16 text-neutral-border mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-            <p className="text-[14px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">Sin piezas activas</p>
-            <p className="text-[12px] font-light text-neutral-textSec">
+            <p className="text-[15px] font-semibold text-neutral-textSec mb-2">Sin piezas activas</p>
+            <p className="text-[14px] text-neutral-textSec">
               {selectedOwner ? `${selectedOwner} no tiene piezas en proceso.` : 'No hay piezas que coincidan con los filtros.'}
             </p>
           </div>
         ) : (
-          <div className="space-y-12">
+          <div className="space-y-10">
             {(['1era_quema', 'esmaltado', 'a_recogida'] as const).map(statusKey => {
               if (filterStatus !== 'all' && filterStatus !== statusKey) return null;
               const currentGroup = groupedPieces[statusKey] || [];
@@ -612,14 +628,14 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
 
               return (
                 <section key={statusKey} className="animate-fade-in">
-                  <div className="flex items-center gap-4 mb-6 sticky top-0 bg-neutral-base/95 backdrop-blur-md z-10 py-2">
-                    <div className={`w-3 h-8 rounded-full ${getStatusColor(statusKey)} shadow-sm`}></div>
-                    <h3 className="text-[22px] font-extrabold text-neutral-textMain uppercase tracking-tight">
+                  <div className="flex items-center gap-3 mb-3 sticky top-0 bg-neutral-base/95 backdrop-blur-md z-10 py-2">
+                    <div className={`w-1.5 h-6 rounded-full ${getStatusColor(statusKey)}`}></div>
+                    <h3 className="text-[19px] md:text-[21px] font-bold text-neutral-textMain">
                       {getStatusLabel(statusKey)}
-                      <span className="ml-3 text-neutral-textHelper text-[14px] font-light">({currentGroup.length})</span>
+                      <span className="ml-2 text-neutral-textHelper text-[13px] font-medium">({currentGroup.length})</span>
                     </h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="bg-white border border-neutral-border rounded-2xl overflow-hidden">
                     {currentGroup.map(piece => {
                       const student = getStudentForPiece(piece);
                       return (
@@ -645,19 +661,19 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
             {/* ─── HISTORY SECTION (collapsible) ─── */}
             {showHistory && (
               <section className="animate-fade-in">
-                <div className="flex items-center gap-4 mb-6 sticky top-0 bg-neutral-base/95 backdrop-blur-md z-10 py-2">
-                  <div className="w-3 h-8 rounded-full bg-neutral-textHelper shadow-sm"></div>
-                  <h3 className="text-[22px] font-extrabold text-neutral-textMain uppercase tracking-tight">
+                <div className="flex items-center gap-3 mb-3 sticky top-0 bg-neutral-base/95 backdrop-blur-md z-10 py-2">
+                  <div className="w-1.5 h-6 rounded-full bg-neutral-textHelper"></div>
+                  <h3 className="text-[19px] md:text-[21px] font-bold text-neutral-textMain">
                     Historial de Piezas Entregadas
-                    <span className="ml-3 text-neutral-textHelper text-[14px] font-light">({filteredHistoryPieces.length})</span>
+                    <span className="ml-2 text-neutral-textHelper text-[13px] font-medium">({filteredHistoryPieces.length})</span>
                   </h3>
                 </div>
                 {filteredHistoryPieces.length === 0 ? (
-                  <div className="bg-white/40 border-2 border-dashed border-neutral-border p-12 rounded-[2.5rem] text-center">
-                    <p className="text-neutral-textHelper font-light uppercase text-[12px] tracking-widest">No hay piezas entregadas que coincidan con los filtros.</p>
+                  <div className="bg-white border border-dashed border-neutral-border p-10 rounded-2xl text-center">
+                    <p className="text-[14px] text-neutral-textHelper">No hay piezas entregadas que coincidan con los filtros.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="bg-white border border-neutral-border rounded-2xl overflow-hidden">
                     {filteredHistoryPieces.map(piece => {
                       const student = getStudentForPiece(piece);
                       return (
@@ -687,25 +703,25 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
       {/* ─── MODAL ─── */}
       {showModal && (
         <div className="fixed inset-0 bg-neutral-textMain/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] soft-shadow relative animate-fade-in flex flex-col border border-neutral-border overflow-hidden">
-            <button onClick={() => setShowModal(false)} className="absolute top-8 right-8 text-neutral-textHelper hover:text-neutral-textMain transition-colors z-20">
+          <div className="bg-white w-full max-w-lg rounded-2xl soft-shadow relative animate-fade-in flex flex-col border border-neutral-border overflow-hidden">
+            <button onClick={() => setShowModal(false)} className="absolute top-5 right-5 text-neutral-textHelper hover:text-neutral-textMain transition-colors z-20">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <div className="p-10 lg:p-12 overflow-y-auto custom-scrollbar">
-              <h3 className="text-[28px] lg:text-[32px] font-extrabold text-neutral-textMain mb-2 uppercase tracking-tight leading-none">
+            <div className="p-6 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
+              <h3 className="text-[26px] md:text-[30px] font-bold text-neutral-textMain mb-2 leading-tight">
                 {editingPiece ? 'EDITAR PIEZA' : 'REGISTRAR PIEZA'}
               </h3>
-              <p className="text-neutral-textSec text-[14px] lg:text-[16px] mb-8 font-light">Define los detalles para el seguimiento en el taller.</p>
+              <p className="text-neutral-textSec text-[14px] mb-6">Define los detalles para el seguimiento en el taller.</p>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">PROPIETARIO</label>
+                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">PROPIETARIO</label>
                     <select
                       required
                       value={form.owner}
                       onChange={(e) => setForm({ ...form, owner: e.target.value })}
-                      className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[16px] focus:outline-none focus:border-brand appearance-none"
+                      className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain appearance-none cursor-pointer focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none"
                     >
                       <option value="" disabled>Seleccionar Alumno</option>
                       {sortedStudents.map(student => (
@@ -716,11 +732,11 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">ESTADO ACTUAL</label>
+                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">ESTADO ACTUAL</label>
                     <select
                       value={form.status}
                       onChange={(e) => setForm({ ...form, status: e.target.value as PieceStatus })}
-                      className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[14px] appearance-none cursor-pointer focus:outline-none focus:border-brand"
+                      className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain appearance-none cursor-pointer focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none"
                     >
                       <option value="1era_quema">1ª QUEMA</option>
                       <option value="esmaltado">ESMALTADO</option>
@@ -731,23 +747,23 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">DESCRIPCIÓN DE LA OBRA</label>
-                  <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[16px] focus:outline-none focus:border-brand" placeholder="Ej: Jarrón con textura" />
+                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">DESCRIPCIÓN DE LA OBRA</label>
+                  <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none" placeholder="Ej: Jarrón con textura" />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">TIPO DE ESMALTE / ACABADO</label>
-                  <input value={form.glazeType} onChange={(e) => setForm({ ...form, glazeType: e.target.value })} className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[16px] focus:outline-none focus:border-brand" placeholder="Ej: Blanco Mate" />
+                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">TIPO DE ESMALTE / ACABADO</label>
+                  <input value={form.glazeType} onChange={(e) => setForm({ ...form, glazeType: e.target.value })} className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none" placeholder="Ej: Blanco Mate" />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">FECHA DE ENTREGA</label>
-                  <input type="date" value={form.deliveryDate} onChange={(e) => setForm({ ...form, deliveryDate: e.target.value })} className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[16px] focus:outline-none focus:border-brand" />
+                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">FECHA DE ENTREGA</label>
+                  <input type="date" value={form.deliveryDate} onChange={(e) => setForm({ ...form, deliveryDate: e.target.value })} className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none" />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-neutral-textHelper uppercase tracking-widest mb-2">NOTAS ADICIONALES</label>
-                  <textarea value={form.extraCommentary} onChange={(e) => setForm({ ...form, extraCommentary: e.target.value })} className="w-full px-5 py-3.5 bg-neutral-sec border border-neutral-border rounded-xl font-light text-[15px] min-h-[100px] resize-none focus:outline-none focus:border-brand" placeholder="..." />
+                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">NOTAS ADICIONALES</label>
+                  <textarea value={form.extraCommentary} onChange={(e) => setForm({ ...form, extraCommentary: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper min-h-[100px] resize-none focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none" placeholder="..." />
                 </div>
 
                 <div className="pt-4 flex gap-3">
@@ -755,12 +771,12 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
                     <button
                       type="button"
                       onClick={() => setPieceToDelete(editingPiece.id)}
-                      className="px-6 py-4 text-red-400 font-extrabold uppercase text-[11px] tracking-widest"
+                      className="min-h-[44px] px-4 py-2.5 rounded-[10px] text-[14px] font-semibold text-[#9E3B2B] hover:bg-[#F8E1DA] transition-colors"
                     >
                       Eliminar
                     </button>
                   )}
-                  <button type="submit" disabled={isSubmitting} className="flex-1 py-5 bg-brand text-white rounded-2xl font-extrabold soft-shadow uppercase tracking-widest text-[16px] hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                  <button type="submit" disabled={isSubmitting} className="flex-1 min-h-[44px] px-4 py-2.5 bg-brand text-white rounded-[10px] text-[14px] font-semibold hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed">
                     {isSubmitting ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
                   </button>
                 </div>
@@ -786,6 +802,7 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
         onCancel={() => setPieceToDelete(null)}
       />
     </div>
+    </>
   );
 };
 

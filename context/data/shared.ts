@@ -1,6 +1,6 @@
 import React from 'react';
 import { supabase } from '../../supabaseClient';
-import type { Student, ClassSession, AssignedClass } from '../../types';
+import { inferMembershipTier, Student, ClassSession, AssignedClass } from '../../types';
 
 export { supabase };
 
@@ -86,6 +86,9 @@ export const buildStudentPayload = (student: Partial<Student>) => {
     if (student.classType !== undefined) payload.class_type = student.classType || null;
     if (student.expiryDate !== undefined) payload.expiry_date = student.expiryDate || null;
     if (student.studentCategory !== undefined) payload.student_category = student.studentCategory || 'membresia';
+    if (student.membershipTier !== undefined) payload.membership_tier = student.membershipTier || null;
+    if (student.membershipActivatedAt !== undefined) payload.membership_activated_at = student.membershipActivatedAt || null;
+    if (student.archivedAt !== undefined) payload.archived_at = student.archivedAt || null;
     if (student.groupName !== undefined) payload.group_name = student.groupName || null;
     if (student.bonosAsignados !== undefined) payload.bonos_asignados = student.bonosAsignados;
     if (student.repetirMensualmente !== undefined) payload.repetir_mensualmente = student.repetirMensualmente;
@@ -121,7 +124,7 @@ export const mapStudentRowToModel = (row: any): Student => ({
     birthDay: row.birth_day ? String(row.birth_day) : undefined,
     birthMonth: row.birth_month ? String(row.birth_month) : undefined,
     birthYear: row.birth_year ? String(row.birth_year) : undefined,
-    classesRemaining: row.classes_remaining ?? 0,
+    classesRemaining: row.student_category === 'temporal' ? Math.min(row.classes_remaining ?? 0, Math.min(3, Math.max(1, row.bonos_asignados ?? 1))) : (row.classes_remaining ?? 0),
     status: row.status || 'new',
     paymentMethod: row.payment_method || undefined,
     notes: row.notes || undefined,
@@ -131,9 +134,12 @@ export const mapStudentRowToModel = (row: any): Student => ({
     classType: row.class_type || undefined,
     expiryDate: row.expiry_date ? new Date(row.expiry_date).toISOString().split('T')[0] : undefined,
     studentCategory: row.student_category || 'membresia',
+    membershipTier: row.student_category === 'temporal' ? undefined : (row.membership_tier || inferMembershipTier(undefined, row.price)),
+    membershipActivatedAt: row.membership_activated_at || undefined,
+    archivedAt: row.archived_at || undefined,
     groupName: row.group_name || undefined,
-    bonosAsignados: row.bonos_asignados ?? 4,
-    repetirMensualmente: row.repetir_mensualmente ?? false,
+    bonosAsignados: row.student_category === 'temporal' ? Math.min(3, Math.max(1, row.bonos_asignados ?? 1)) : (row.bonos_asignados ?? 4),
+    repetirMensualmente: row.student_category === 'temporal' ? false : (row.repetir_mensualmente ?? false),
     createdAt: row.created_at || undefined
 });
 

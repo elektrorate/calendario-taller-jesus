@@ -330,26 +330,26 @@ export const TeamManagement: React.FC = () => {
        RENDER
        ──────────────────────────────── */
     return (
-        <div className="animate-fade-in max-w-5xl mx-auto space-y-16">
+        <div className="animate-fade-in max-w-5xl mx-auto space-y-8 md:space-y-12">
 
             {/* ── HEADER ── */}
             <div>
-                <h2 className="text-[52px] font-extrabold tracking-tight text-[#312A2C] leading-none uppercase">
-                    Gestión del <span className="text-[#C17D5C]">Equipo</span>
+                <h2 className="text-[34px] sm:text-[42px] md:text-[48px] font-bold text-neutral-textMain leading-tight">
+                    Gestión del <span className="text-brand">Equipo</span>
                 </h2>
-                <p className="text-[16px] font-medium text-[#8A8481] mt-4 max-w-xl">
+                <p className="text-[15px] text-neutral-textSec mt-3 max-w-xl">
                     Edita tus datos de administrador, cambia tu contraseña y gestiona las credenciales de talleristas.
                 </p>
             </div>
 
             {/* ── SECCIÓN 1: Datos del Administrador ── */}
-            <section className="bg-white rounded-[48px] border border-[#F1E9E2] p-10 md:p-14 space-y-8">
+            <section className="bg-white rounded-2xl border border-neutral-border p-4 md:p-6 space-y-6">
                 <div>
-                    <p className="text-[11px] font-extrabold text-[#C17D5C] uppercase tracking-[0.2em] mb-2">MI PERFIL</p>
-                    <h3 className="text-[28px] font-extrabold text-[#312A2C] uppercase tracking-tight">Datos del Administrador</h3>
+                    <p className="eyebrow mb-2">MI PERFIL</p>
+                    <h3 className="text-[24px] md:text-[26px] font-bold text-neutral-textMain">Datos del Administrador</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
                         label="Nombre completo"
                         value={adminForm.nombre}
@@ -364,26 +364,26 @@ export const TeamManagement: React.FC = () => {
                     />
                 </div>
 
-                <div className="flex items-center gap-4 rounded-[24px] bg-[#F4EEE8]/60 p-5 border border-[#F1E9E2]">
-                    <div className="w-3 h-3 bg-[#C17D5C] rounded-full shrink-0"></div>
-                    <p className="text-[13px] text-[#8A8481] font-medium">
-                        Email: <span className="font-bold text-[#312A2C]">{currentUser?.email || '—'}</span>
-                        <span className="ml-2 text-[11px] text-[#8A8481] uppercase">(no editable)</span>
+                <div className="flex items-center gap-3 rounded-2xl bg-neutral-sec p-4 border border-neutral-border">
+                    <div className="w-3 h-3 bg-brand rounded-full shrink-0"></div>
+                    <p className="text-[14px] text-neutral-textSec">
+                        Email: <span className="font-semibold text-neutral-textMain">{currentUser?.email || '—'}</span>
+                        <span className="ml-2 text-[12px] text-neutral-textHelper">(no editable)</span>
                     </p>
                 </div>
 
-                <Button variant="dark" size="md" onClick={handleSaveAdmin} disabled={adminSaving}>
+                <Button variant="dark" size="md" className="!bg-brand hover:!bg-brand-hover" onClick={handleSaveAdmin} disabled={adminSaving}>
                     {adminSaving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
                 </Button>
             </section>
 
             {/* ── SECCIÓN 2: Cambiar Contraseña ── */}
-            <section className="bg-white rounded-[48px] border border-[#F1E9E2] p-10 md:p-14 space-y-8">
+            <section className="bg-white rounded-2xl border border-neutral-border p-4 md:p-6 space-y-6">
                 <div>
-                    <p className="text-[11px] font-extrabold text-[#C17D5C] uppercase tracking-[0.2em] mb-2">SEGURIDAD</p>
-                    <h3 className="text-[28px] font-extrabold text-[#312A2C] uppercase tracking-tight">Cambiar Contraseña</h3>
+                    <p className="eyebrow mb-2">SEGURIDAD</p>
+                    <h3 className="text-[24px] md:text-[26px] font-bold text-neutral-textMain">Cambiar Contraseña</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="Nueva contraseña" type="password" value={pwForm.newPassword}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPwForm({ ...pwForm, newPassword: e.target.value })}
                         placeholder="Mínimo 6 caracteres" />
@@ -391,21 +391,21 @@ export const TeamManagement: React.FC = () => {
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPwForm({ ...pwForm, confirmPassword: e.target.value })}
                         placeholder="Repite la contraseña" />
                 </div>
-                <Button variant="dark" size="md" onClick={handleChangePassword} disabled={pwSaving}>
+                <Button variant="dark" size="md" className="!bg-brand hover:!bg-brand-hover" onClick={handleChangePassword} disabled={pwSaving}>
                     {pwSaving ? 'ACTUALIZANDO...' : 'ACTUALIZAR CONTRASEÑA'}
                 </Button>
             </section>
 
             {/* ── SECCIÓN 3: Credenciales del Equipo ── */}
-            <section className="bg-white rounded-[48px] border border-[#F1E9E2] p-10 md:p-14 space-y-8">
+            <section className="bg-white rounded-2xl border border-neutral-border p-4 md:p-6 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
-                        <p className="text-[11px] font-extrabold text-[#C17D5C] uppercase tracking-[0.2em] mb-2">CREDENCIALES</p>
-                        <h3 className="text-[28px] font-extrabold text-[#312A2C] uppercase tracking-tight">Equipo de Trabajo</h3>
-                        <p className="text-[13px] text-[#8A8481] font-medium mt-1">Talleristas — edita sus datos o restablece contraseñas.</p>
+                        <p className="eyebrow mb-2">CREDENCIALES</p>
+                        <h3 className="text-[24px] md:text-[26px] font-bold text-neutral-textMain">Equipo de Trabajo</h3>
+                        <p className="text-[14px] text-neutral-textSec mt-1">Talleristas — edita sus datos o restablece contraseñas.</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                        <span className="px-5 py-2 bg-[#F4EEE8] rounded-full text-[11px] font-extrabold text-[#8A8481] uppercase tracking-widest">
+                        <span className="px-3 py-1.5 bg-brand-soft rounded-[10px] text-[13px] font-semibold text-brand">
                             {team.length} miembro{team.length !== 1 ? 's' : ''}
                         </span>
                     </div>
@@ -413,56 +413,56 @@ export const TeamManagement: React.FC = () => {
 
                 {/* Search */}
                 <div className="relative max-w-md">
-                    <svg className="absolute left-5 top-1/2 -translate-y-1/2 text-[#8A8481]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="absolute left-5 top-1/2 -translate-y-1/2 text-neutral-textHelper" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16" y2="16" />
                     </svg>
                     <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                         placeholder="Buscar por nombre, email o rol..."
-                        className="w-full h-14 pl-14 pr-6 rounded-full bg-[#F7F1EB] border border-[#F1E9E2] focus:border-[#C17D5C] focus:ring-4 focus:ring-[#C17D5C]/10 outline-none transition-all font-medium text-sm" />
+                        className="w-full min-h-[44px] pl-14 pr-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper" />
                 </div>
 
                 {/* List */}
                 {teamLoading ? (
                     <div className="flex items-center justify-center py-16">
-                        <div className="w-8 h-8 border-3 border-[#C17D5C] border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 border-[3px] border-brand border-t-transparent rounded-full animate-spin"></div>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="py-16 text-center bg-[#F7F1EB]/50 border-2 border-dashed border-[#F1E9E2] rounded-[32px]">
-                        <p className="text-[13px] font-extrabold text-[#8A8481] uppercase tracking-widest">
+                    <div className="py-16 text-center bg-neutral-sec border border-dashed border-neutral-border rounded-2xl">
+                        <p className="text-[14px] font-semibold text-neutral-textHelper">
                             {search ? 'Sin resultados para tu búsqueda' : 'No hay miembros del equipo registrados'}
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {filtered.map(member => (
                             <div key={member.id}
-                                className="flex flex-col md:flex-row md:items-center gap-4 p-6 md:p-8 bg-[#F7F1EB]/40 hover:bg-[#F7F1EB] rounded-[28px] border border-[#F1E9E2] transition-all group">
-                                <div className="w-14 h-14 rounded-full border-2 border-white overflow-hidden shadow-sm shrink-0 bg-white">
+                                className="flex flex-col md:flex-row md:items-center gap-4 p-4 md:p-6 bg-neutral-sec hover:bg-neutral-alt rounded-2xl transition-colors group">
+                                <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-white">
                                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.email}`} alt={member.full_name} className="w-full h-full" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[16px] font-extrabold text-[#312A2C] uppercase tracking-tight truncate leading-tight">{member.full_name}</p>
-                                    <p className="text-[12px] text-[#8A8481] font-medium truncate mt-0.5">{member.email}</p>
-                                    {member.phone && <p className="text-[11px] text-[#8A8481] font-medium mt-0.5">📞 {member.phone}</p>}
+                                    <p className="text-[16px] font-semibold text-neutral-textMain truncate leading-tight">{member.full_name}</p>
+                                    <p className="text-[13px] text-neutral-textSec truncate mt-0.5">{member.email}</p>
+                                    {member.phone && <p className="text-[13px] text-neutral-textSec mt-0.5">📞 {member.phone}</p>}
                                     <div className="flex flex-wrap gap-2 mt-2">
-                                        <span className={`px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${member.role === 'tallerista' ? 'bg-[#C17D5C]/10 text-[#C17D5C]' : 'bg-[#312A2C]/10 text-[#312A2C]'}`}>
+                                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${member.role === 'tallerista' ? 'bg-brand-soft text-brand' : 'bg-white text-neutral-textMain'}`}>
                                             {roleLabel(member.role)}
                                         </span>
                                         {member.sede_name && (
-                                            <span className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest bg-white border border-[#F1E9E2] text-[#8A8481]">
+                                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-neutral-border text-neutral-textSec">
                                                 {member.sede_name}
                                             </span>
                                         )}
                                     </div>
                                 </div>
                                 <div className="flex gap-2 shrink-0">
-                                    <Button variant="dark" size="sm" className="!px-5 !py-3" onClick={() => openEditMember(member)}>
+                                    <Button variant="dark" size="sm" className="!px-5 !py-3 !bg-brand hover:!bg-brand-hover" onClick={() => openEditMember(member)}>
                                         EDITAR
                                     </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="!px-5 !py-3 !border-red-300 !text-red-600 hover:!bg-red-50"
+                                        className="!px-5 !py-3 !border-[#EFC9BE] !text-[#9E3B2B] hover:!bg-[#F8E1DA]"
                                         onClick={() => { setDeleteMember(member); setDeleteConfirmText(''); }}
                                     >
                                         ELIMINAR
@@ -480,27 +480,27 @@ export const TeamManagement: React.FC = () => {
                 footer={
                     <>
                         <Button variant="outline" size="sm" onClick={() => setEditMember(null)}>CANCELAR</Button>
-                        <Button variant="dark" size="sm" onClick={handleSaveMember} disabled={editSaving}>
+                        <Button variant="dark" size="sm" className="!bg-brand hover:!bg-brand-hover" onClick={handleSaveMember} disabled={editSaving}>
                             {editSaving ? 'GUARDANDO...' : 'GUARDAR'}
                         </Button>
                     </>
                 }>
-                <div className="space-y-6">
-                    <div className="flex items-center gap-4 p-5 bg-[#F7F1EB] rounded-[24px] border border-[#F1E9E2]">
-                        <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white shrink-0">
+                <div className="space-y-5">
+                    <div className="flex items-center gap-4 p-4 bg-neutral-sec rounded-2xl">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-white shrink-0">
                             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${editMember?.email}`} alt="" className="w-full h-full" />
                         </div>
                         <div>
-                            <p className="text-[14px] font-extrabold text-[#312A2C] uppercase tracking-tight">{editMember?.full_name}</p>
-                            <p className="text-[12px] text-[#8A8481]">{editMember?.email} <span className="text-[10px] uppercase">(no editable)</span></p>
+                            <p className="text-[15px] font-semibold text-neutral-textMain">{editMember?.full_name}</p>
+                            <p className="text-[13px] text-neutral-textSec">{editMember?.email} <span className="text-[12px] text-neutral-textHelper">(no editable)</span></p>
                         </div>
                     </div>
                     <Input label="Nombre completo" value={editForm.nombre}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, nombre: e.target.value })} />
                     <Input label="Teléfono" value={editForm.telefono}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, telefono: e.target.value })} />
-                    <div className="border-t border-[#F1E9E2] pt-6">
-                        <p className="text-[10px] font-extrabold text-[#C17D5C] uppercase tracking-widest mb-4">RESTABLECER CONTRASEÑA</p>
+                    <div className="border-t border-neutral-border pt-5">
+                        <p className="eyebrow mb-3">RESTABLECER CONTRASEÑA</p>
                         <Input label="Nueva contraseña (dejar vacío para no cambiar)" type="password" value={editForm.newPassword}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, newPassword: e.target.value })}
                             placeholder="Mínimo 6 caracteres" />
@@ -517,7 +517,7 @@ export const TeamManagement: React.FC = () => {
                         <Button
                             variant="dark"
                             size="sm"
-                            className="!bg-red-600 hover:!bg-red-700"
+                            className="!bg-[#9E3B2B] hover:!bg-[#8A3325]"
                             onClick={handleDeleteMember}
                             disabled={deleting || deleteConfirmText !== 'ELIMINAR'}
                         >
@@ -525,25 +525,25 @@ export const TeamManagement: React.FC = () => {
                         </Button>
                     </>
                 }>
-                <div className="space-y-6">
-                    <div className="flex items-center gap-4 p-5 bg-red-50 rounded-[24px] border border-red-200">
-                        <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white shrink-0">
+                <div className="space-y-5">
+                    <div className="flex items-center gap-4 p-4 bg-[#F8E1DA] border border-[#EFC9BE] rounded-2xl">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-white shrink-0">
                             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${deleteMember?.email}`} alt="" className="w-full h-full" />
                         </div>
                         <div>
-                            <p className="text-[14px] font-extrabold text-[#312A2C] uppercase tracking-tight">{deleteMember?.full_name}</p>
-                            <p className="text-[12px] text-[#8A8481]">{deleteMember?.email}</p>
-                            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${deleteMember?.role === 'tallerista' ? 'bg-[#C17D5C]/10 text-[#C17D5C]' : 'bg-[#312A2C]/10 text-[#312A2C]'}`}>
+                            <p className="text-[15px] font-semibold text-neutral-textMain">{deleteMember?.full_name}</p>
+                            <p className="text-[13px] text-neutral-textSec">{deleteMember?.email}</p>
+                            <span className={`inline-block mt-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${deleteMember?.role === 'tallerista' ? 'bg-white text-brand' : 'bg-white text-neutral-textMain'}`}>
                                 {roleLabel(deleteMember?.role || '')}
                             </span>
                         </div>
                     </div>
 
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
-                        <p className="text-[13px] text-red-800 font-medium">
+                    <div className="p-4 bg-[#F8E1DA] border border-[#EFC9BE] rounded-2xl">
+                        <p className="text-[13px] text-[#9E3B2B]">
                             <strong>Esta accion es irreversible.</strong> Se eliminara permanentemente:
                         </p>
-                        <ul className="mt-2 text-[12px] text-red-700 list-disc list-inside space-y-1">
+                        <ul className="mt-2 text-[13px] text-[#9E3B2B] list-disc list-inside space-y-1">
                             <li>La cuenta de usuario</li>
                             <li>Su perfil y datos asociados</li>
                             <li>Su acceso a la plataforma</li>
@@ -551,14 +551,14 @@ export const TeamManagement: React.FC = () => {
                     </div>
 
                     <div>
-                        <p className="text-[11px] font-extrabold text-[#8A8481] uppercase tracking-widest mb-3">
+                        <p className="text-[12px] font-semibold text-neutral-textSec mb-2">
                             Escribe ELIMINAR para confirmar:
                         </p>
                         <Input
                             value={deleteConfirmText}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeleteConfirmText(e.target.value)}
                             placeholder="ELIMINAR"
-                            className={deleteConfirmText === 'ELIMINAR' ? '!border-green-500 !ring-green-100' : ''}
+                            className={deleteConfirmText === 'ELIMINAR' ? '!border-[#BFDECB] !ring-[#DFF0E4]' : ''}
                         />
                     </div>
                 </div>
