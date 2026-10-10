@@ -6,21 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
-const adminEmail = 'erick@kgbycia.com';
-
-const decodeJwtPayload = (token: string) => {
-  const parts = token.split('.');
-  if (parts.length < 2) return null;
-  let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-  const pad = payload.length % 4;
-  if (pad) payload += '='.repeat(4 - pad);
-  try {
-    return JSON.parse(atob(payload));
-  } catch {
-    return null;
-  }
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -34,8 +19,9 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return new Response(JSON.stringify({ error: 'Missing server configuration' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -43,12 +29,21 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';
-
-  const body = await req.json();
-  const accessTokenFromBody = body?.accessToken as string | undefined;
-  const effectiveAuthHeader = authHeader || (accessTokenFromBody ? `Bearer ${accessTokenFromBody}` : '');
-  if (!effectiveAuthHeader) {
+  if (!authHeader.toLowerCase().startsWith('bearer ')) {
     return new Response(JSON.stringify({ error: 'Missing auth header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const accessToken = authHeader.slice(7).trim();
+  const authClient = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } }
+  });
+  const { data: { user }, error: authError } = await authClient.auth.getUser(accessToken);
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
@@ -57,6 +52,20 @@ serve(async (req) => {
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false }
   });
+  const { data: callerProfile, error: profileError } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+  if (profileError || callerProfile?.role !== 'super_admin') {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const userId = user.id;
+  const body = await req.json();
 
   const logActivity = async (actionName: string, tenantId?: string, details?: string) => {
     try {
@@ -70,33 +79,6 @@ serve(async (req) => {
       // ignore if table doesn't exist
     }
   };
-
-  const token = effectiveAuthHeader.startsWith('Bearer ')
-    ? effectiveAuthHeader.slice(7)
-    : effectiveAuthHeader;
-  const payload = decodeJwtPayload(token);
-  const userId = payload?.sub as string | undefined;
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Invalid JWT' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  const { data: adminUser, error: adminUserError } = await adminClient.auth.admin.getUserById(userId);
-  if (adminUserError || !adminUser?.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  if (adminUser.user.email?.toLowerCase() !== adminEmail) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
 
   const { email, password, name, phone } = body || {};
   if (!email || !password) {

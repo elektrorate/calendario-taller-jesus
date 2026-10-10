@@ -1,6 +1,6 @@
 import { showError, showWarning } from '../context/toast';
 import React, { useState, useMemo } from 'react';
-import { ClassSession, Student, Teacher } from '../types';
+import { ClassSession, GiftCard, Student, Teacher } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
 import { isStudentArchived } from '../utils/studentLifecycle';
 interface CalendarViewProps {
@@ -9,13 +9,24 @@ interface CalendarViewProps {
   onUpdateSession: (id: string, updates: Partial<ClassSession>) => Promise<void>;
   onDeleteSession: (id: string) => Promise<void>;
   onUpdateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
+  onRedeemGiftCardSession: (giftCardId: string, sessionId: string, studentId?: string) => Promise<void>;
+  onReverseGiftCardSession: (giftCardId: string, sessionId: string, studentId?: string) => Promise<void>;
+  giftCards: GiftCard[];
   students: Student[];
   teachers: Teacher[];
 }
 
 type CalendarMode = 'day' | 'month';
+type AttendanceStatus = 'present' | 'absent' | 'pending';
 
-const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onUpdateSession, onDeleteSession, onUpdateStudent, students, teachers }) => {
+const getAttendanceStatus = (attendance: ClassSession['attendance'] | undefined, studentName: string): AttendanceStatus => {
+  const directStatus = attendance?.[studentName];
+  if (directStatus) return directStatus;
+  const matchingEntry = Object.entries(attendance || {}).find(([name]) => name.toUpperCase() === studentName.toUpperCase());
+  return matchingEntry?.[1] || 'pending';
+};
+
+const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onUpdateSession, onDeleteSession, onUpdateStudent, onRedeemGiftCardSession, onReverseGiftCardSession, giftCards, students, teachers }) => {
   const [viewMode, setViewMode] = useState<CalendarMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -26,8 +37,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [attendanceSession, setAttendanceSession] = useState<ClassSession | null>(null);
+  const [isEditingAttendance, setIsEditingAttendance] = useState(false);
+  const [attendanceEditBaseline, setAttendanceEditBaseline] = useState<{ attendance: ClassSession['attendance']; substituteId: string } | null>(null);
   const [substituteId, setSubstituteId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [noBonosNames, setNoBonosNames] = useState<string[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   const HOUR_HEIGHT = 140;
@@ -43,6 +57,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     privateReason: '',
     sessionAudience: 'membresia' as 'membresia' | 'temporal' | 'ambos'
   });
+
+  const getGiftCardIdForStudent = (session: ClassSession, student?: Student, forReverse = false) => {
+    if (!student) return undefined;
+    const today = formatDateKey(new Date());
+    const isUsable = (card: GiftCard) => card.status === 'active'
+      && !card.consumedAt
+      && (card.sessionsRemaining || 0) > 0
+      && (!card.expiryDate || card.expiryDate.slice(0, 10) >= today);
+    const linkedId = session.giftCardIdByStudentId?.[student.id];
+    const linkedCard = linkedId ? giftCards.find(card => card.id === linkedId) : undefined;
+    if (linkedId && linkedCard && (forReverse ? linkedCard.status !== 'cancelled' : isUsable(linkedCard))) return linkedId;
+    return giftCards.find(card => card.recipientStudentId === student.id
+      && (forReverse ? (card.status !== 'cancelled' && (card.sessionsUsed || 0) > 0) : isUsable(card)))?.id;
+  };
 
   const formatDateKey = (date: Date) => {
     const year = date.getFullYear();
@@ -99,7 +127,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   const getSessionBadgeClasses = (type: ClassSession['classType']) => {
     switch (type) {
       case 'torno':
-        return 'bg-neutral-textMain';
+        return 'bg-[#20663B]';
       case 'coworking':
         return 'bg-green-500';
       case 'workshop':
@@ -149,11 +177,107 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   // Abrir modal de Control de Asistencia (Nueva funcionalidad separada)
   const handleOpenAttendanceModal = (session: ClassSession) => {
     setAttendanceSession(session);
+    setIsEditingAttendance(false);
+    setAttendanceEditBaseline(null);
     setSubstituteId(session.teacherSubstituteId || '');
     setShowAttendanceModal(true);
   };
 
-  const finalizeAttendance = async () => {
+  const beginAttendanceEdit = () => {
+    if (!attendanceSession) return;
+    setAttendanceEditBaseline({
+      attendance: { ...(attendanceSession.attendance || {}) },
+      substituteId: substituteId
+    });
+    setIsEditingAttendance(true);
+  };
+
+  const cancelAttendanceEdit = () => {
+    if (attendanceEditBaseline) {
+      setAttendanceSession(prev => prev ? {
+        ...prev,
+        attendance: attendanceEditBaseline.attendance,
+        teacherSubstituteId: attendanceEditBaseline.substituteId || undefined
+      } : prev);
+      setSubstituteId(attendanceEditBaseline.substituteId);
+    }
+    setIsEditingAttendance(false);
+    setAttendanceEditBaseline(null);
+  };
+
+  const saveEditedAttendance = async () => {
+    if (!attendanceSession || !attendanceEditBaseline || isSubmitting) return;
+    const previousAttendance = attendanceEditBaseline.attendance || {};
+    const nextAttendance = attendanceSession.attendance || {};
+
+    setIsSubmitting(true);
+    try {
+      for (const studentName of attendanceSession.students) {
+        const previousStatus = getAttendanceStatus(previousAttendance, studentName);
+        const nextStatus = getAttendanceStatus(nextAttendance, studentName);
+        if (previousStatus === nextStatus) continue;
+
+        const student = students.find(item => {
+          const fullName = `${item.name} ${item.surname || ''}`.trim().toUpperCase();
+          return fullName === studentName.toUpperCase() || item.name.toUpperCase() === studentName.toUpperCase();
+        });
+        const category = student?.studentCategory || 'membresia';
+        if (!student || (category !== 'membresia' && category !== 'temporal')) continue;
+
+        const wasPresent = previousStatus === 'present';
+        const isPresent = nextStatus === 'present';
+        if (wasPresent === isPresent) continue;
+
+        const giftCardId = getGiftCardIdForStudent(attendanceSession, student, wasPresent && !isPresent);
+        if (category === 'temporal' && !giftCardId) {
+          throw new Error(`El alumno temporal ${studentName} no tiene una Gift Card activa vinculada.`);
+        }
+        if (giftCardId) {
+          if (wasPresent && !isPresent) await onReverseGiftCardSession(giftCardId, attendanceSession.id, student.id);
+          if (!wasPresent && isPresent) await onRedeemGiftCardSession(giftCardId, attendanceSession.id, student.id);
+          continue;
+        }
+
+        const maxBonuses = student.bonosAsignados ?? (category === 'temporal' ? 3 : 4);
+        const nextClassesRemaining = isPresent
+          ? Math.max(0, student.classesRemaining - 1)
+          : Math.min(maxBonuses, student.classesRemaining + 1);
+        const updates: Partial<Student> = { classesRemaining: nextClassesRemaining };
+
+        if (isPresent && nextClassesRemaining <= 0) {
+          updates.status = 'needs_renewal';
+          if (category === 'temporal') updates.archivedAt = new Date().toISOString().split('T')[0];
+        } else if (!isPresent && student.status === 'needs_renewal' && nextClassesRemaining > 0) {
+          updates.status = 'membresia';
+        }
+        if (!isPresent && nextClassesRemaining > 0 && student.archivedAt) {
+          updates.archivedAt = '';
+        }
+
+        await onUpdateStudent(student.id, updates);
+      }
+
+      await onUpdateSession(attendanceSession.id, {
+        attendance: nextAttendance,
+        teacherSubstituteId: substituteId
+      });
+      setAttendanceSession(prev => prev ? {
+        ...prev,
+        attendance: nextAttendance,
+        teacherSubstituteId: substituteId || undefined
+      } : prev);
+      setIsEditingAttendance(false);
+      setAttendanceEditBaseline(null);
+      setShowAttendanceModal(false);
+    } catch (err: any) {
+      console.error('Error editando control de asistencia:', err);
+      showError(`No se pudo guardar la corrección. ${err?.message || 'Error de conexión. Intenta de nuevo.'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const finalizeAttendance = async (allowNoBonos = false) => {
     if (!attendanceSession) return;
     if (attendanceSession.completedAt) {
       showError('Esta sesión ya fue finalizada.');
@@ -167,20 +291,33 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       .filter(([, status]) => status === 'present')
       .map(([name]) => name);
 
+    const temporalStudentsWithoutGiftCard = presentStudentNames.filter(studentName => {
+      const student = students.find(s => {
+        const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
+        return fullName === studentName.toUpperCase();
+      });
+      return student?.studentCategory === 'temporal' && !getGiftCardIdForStudent(attendanceSession, student);
+    });
+    if (temporalStudentsWithoutGiftCard.length > 0) {
+      showError(`No se puede finalizar: ${temporalStudentsWithoutGiftCard.join(', ')} no tiene una Gift Card activa vinculada.`);
+      return;
+    }
+
     const studentsWithNoBonos = presentStudentNames.filter(studentName => {
       const student = students.find(s => {
         const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
         return fullName === studentName.toUpperCase() || fullName === studentName;
       });
+      if (getGiftCardIdForStudent(attendanceSession, student)) return false;
       const category = student?.studentCategory || 'membresia';
       return student && (category === 'membresia' || category === 'temporal') && student.classesRemaining <= 0;
     });
 
     if (studentsWithNoBonos.length > 0) {
-      const proceed = confirm(
-        `⚠️ Los siguientes alumnos no tienen bonos disponibles:\n\n${studentsWithNoBonos.join('\n')}\n\n¿Deseas continuar igualmente?`
-      );
-      if (!proceed) return;
+      if (!allowNoBonos) {
+        setNoBonosNames(studentsWithNoBonos);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -196,6 +333,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
         });
 
         const category = student?.studentCategory || 'membresia';
+        const giftCardId = getGiftCardIdForStudent(attendanceSession, student);
+        if (giftCardId) {
+          await onRedeemGiftCardSession(giftCardId, attendanceSession.id, student?.id);
+          continue;
+        }
         if (student && !isStudentArchived(student) && (category === 'membresia' || category === 'temporal') && student.classesRemaining > 0) {
           const nextClassesRemaining = student.classesRemaining - 1;
           const updates: Partial<Student> = {
@@ -214,10 +356,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
       await onUpdateSession(attendanceSession.id, {
         completedAt,
         attendance: finalAttendance,
-        teacherSubstituteId: substituteId || undefined
+        teacherSubstituteId: substituteId
       });
 
-      setAttendanceSession(prev => prev ? { ...prev, completedAt, teacherSubstituteId: substituteId || undefined } : prev);
+      setAttendanceSession(prev => prev ? { ...prev, completedAt, attendance: finalAttendance, teacherSubstituteId: substituteId || undefined } : prev);
+      setIsEditingAttendance(false);
+      setAttendanceEditBaseline(null);
       setShowAttendanceModal(false);
     } catch (err: any) {
       console.error('Error finalizando control de asistencia:', err);
@@ -333,6 +477,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     return map;
   }, [sessions]);
 
+  const getMonthlyDensity = (daySessions: ClassSession[]) => {
+    if (daySessions.length === 0) return 'low' as const;
+    if (daySessions.some(session => session.classType === 'feriado')) return 'full' as const;
+
+    const capacity = daySessions.reduce((total, session) => total + (session.classType === 'torno' ? 5 : 8), 0);
+    const occupied = daySessions.reduce((total, session) => total + session.students.length, 0);
+    const occupancy = capacity > 0 ? occupied / capacity : 0;
+
+    if (occupancy >= 0.9 || daySessions.length >= 4) return 'full' as const;
+    if (occupancy >= 0.55 || daySessions.length >= 3) return 'high' as const;
+    return 'medium' as const;
+  };
+
+  const getMonthlyCalendarClass = (daySessions: ClassSession[]) => {
+    if (daySessions.some(session => session.classType === 'feriado')) return 'full' as const;
+
+    const hasTorno = daySessions.some(session => session.classType === 'torno');
+    const hasOtherSession = daySessions.some(session => session.classType !== 'torno');
+
+    if (hasTorno && hasOtherSession) return 'mixed' as const;
+    if (hasTorno) return 'torno' as const;
+    return getMonthlyDensity(daySessions);
+  };
+
   const renderDayView = () => {
     const dateKey = formatDateKey(selectedDate);
     const daySessions = sessions.filter(s => s.date === dateKey);
@@ -362,20 +530,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
     });
 
     return (
-      <div className="flex-1 flex flex-col h-full overflow-hidden animate-fade-in">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-6 md:px-10 pt-4 pb-3">
-          <h3 className="text-[20px] md:text-[26px] font-semibold text-neutral-textMain tracking-tight">{dayTitle}</h3>
+      <div className="flex-1 flex flex-col h-full overflow-hidden animate-fade-in bg-neutral-base">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-4 md:px-10 pt-4 pb-3">
+          <div>
+            <p className="eyebrow text-brand">Agenda diaria</p>
+            <h3 className="ui-page-title mt-1 text-neutral-textMain">{dayTitle}</h3>
+          </div>
           <div className="flex items-center gap-3 md:gap-6">
-            <div className="flex bg-[#EDE7DF] p-1 rounded-full border border-[#E4DDD4] w-full md:w-auto">
-              <button onClick={() => setViewMode('day')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'day' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>DIA</button>
-              <button onClick={() => setViewMode('month')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>MES</button>
+            <div className="flex w-full rounded-[13px] border border-neutral-border bg-neutral-sec p-1 md:w-auto">
+              <button onClick={() => setViewMode('day')} className={`flex-1 rounded-[10px] px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest transition-all md:flex-none ${viewMode === 'day' ? 'bg-brand text-white shadow-sm' : 'text-neutral-textHelper hover:text-brand'}`}>Día</button>
+              <button onClick={() => setViewMode('month')} className={`flex-1 rounded-[10px] px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest transition-all md:flex-none ${viewMode === 'month' ? 'bg-brand text-white shadow-sm' : 'text-neutral-textHelper hover:text-brand'}`}>Mes</button>
             </div>
-            <button onClick={() => handleOpenSessionModal()} className="px-5 py-2.5 md:px-7 bg-[#B7A67B] text-white rounded-full text-[11px] font-semibold uppercase tracking-widest shadow-sm hover:brightness-95 active:scale-95 transition-all">NUEVA SESION</button>
+            <button onClick={() => handleOpenSessionModal()} className="whitespace-nowrap rounded-[12px] bg-brand px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-brand-hover active:scale-95 md:px-6">Nueva sesión</button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-6 md:px-10 mb-5 overflow-x-auto pb-2 no-scrollbar shrink-0">
-          <div className="w-9 h-9 rounded-xl border border-neutral-border/30 bg-white flex items-center justify-center text-neutral-textHelper">
+        <div className="flex items-center gap-2.5 px-4 md:px-10 mb-4 overflow-x-auto pb-2 no-scrollbar shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-neutral-border bg-white text-neutral-textHelper">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
           </div>
           {weekDays.map((date, i) => {
@@ -385,21 +556,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
               <button
                 key={i}
                 onClick={() => setSelectedDate(new Date(date))}
-                className={`flex flex-col items-center min-w-[82px] md:min-w-[96px] px-4 py-3 rounded-2xl transition-all border ${isSelected ? 'bg-[#B7A67B] border-[#B7A67B] text-white shadow-md' : 'bg-white border-neutral-border/40 text-neutral-textMain hover:border-neutral-border/70'}`}
+                className={`flex min-w-[70px] flex-col items-center rounded-[13px] border px-3 py-2.5 transition-all md:min-w-[82px] ${isSelected ? 'border-brand bg-brand text-white shadow-md' : 'border-neutral-border bg-white text-neutral-textMain hover:border-brand/50'}`}
               >
-                <span className={`text-[10px] font-semibold capitalize mb-1 ${isSelected ? 'text-white/80' : 'text-neutral-textHelper'}`}>{dName}</span>
-                <span className={`text-[20px] md:text-[22px] font-semibold leading-none ${isSelected ? 'text-white' : 'text-neutral-textMain'}`}>{date.getDate()}</span>
+                <span className={`text-[12px] font-semibold capitalize mb-1 ${isSelected ? 'text-white/80' : 'text-neutral-textHelper'}`}>{dName}</span>
+                <span className={`text-[14px] font-semibold leading-none ${isSelected ? 'text-white' : 'text-neutral-textMain'}`}>{date.getDate()}</span>
               </button>
             );
           })}
         </div>
 
-        <div className="relative flex-1 overflow-hidden bg-[#F4F1ED] border-t border-neutral-border/30">
+        <div className="relative flex-1 overflow-hidden border-t border-neutral-border bg-neutral-sec">
           <div className="h-full overflow-y-auto custom-scrollbar px-6 md:px-10 pt-4 pb-32">
             <div className="relative pl-20" style={{ minHeight: `${hours.length * HOUR_HEIGHT}px` }}>
               {hours.map((hour) => (
-                <div key={hour} className="relative flex items-start border-t border-neutral-border/30 h-[140px]">
-                  <span className="-ml-20 w-20 text-left text-[11px] font-medium text-neutral-textHelper -mt-2 uppercase tracking-wider">{hour === 24 ? '00' : hour}:00</span>
+                <div key={hour} className="relative flex h-[140px] items-start border-t border-neutral-border/60">
+                  <span className="-ml-20 w-20 text-left text-[12px] font-medium text-neutral-textHelper -mt-2 uppercase tracking-wider">{hour === 24 ? '00' : hour}:00</span>
                 </div>
               ))}
 
@@ -413,34 +584,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   return (
                     <div
                       key={session.id}
-                      className="absolute rounded-[2rem] bg-white shadow-md border border-neutral-border/30 transition-all z-10 p-6 md:p-7 flex flex-col items-start overflow-hidden group cursor-pointer"
-                      style={{ top: `${topOffset}px`, left: `calc(${leftOffset}% + 80px)`, width: `calc(${widthPercent}% - 92px)`, minHeight: '190px' }}
+                      className="group absolute z-10 flex cursor-pointer flex-col items-start overflow-hidden rounded-[16px] border border-neutral-border bg-white p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:border-brand/40 md:p-5"
+                      style={{ top: `${topOffset}px`, left: `calc(${leftOffset}% + 80px)`, width: `calc(${widthPercent}% - 92px)`, minHeight: '152px' }}
                       onClick={() => handleOpenSessionModal(session)}
                     >
                       <div className="flex w-full flex-col items-start gap-2 pr-14 mb-4">
-                        <span className="text-[16px] md:text-[18px] font-semibold text-neutral-textMain leading-none">{session.startTime} - {session.endTime}</span>
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-semibold uppercase tracking-[0.2em] text-white ${getSessionBadgeClasses(session.classType)}`}>{getSessionLabel(session).toUpperCase()}</span>
+                        <span className="text-[14px] font-semibold text-neutral-textMain leading-none">{session.startTime} - {session.endTime}</span>
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-[0.14em] text-white ${getSessionBadgeClasses(session.classType)}`}>{getSessionLabel(session).toUpperCase()}</span>
                       </div>
-                      <div className="text-[11px] font-medium text-neutral-textHelper uppercase tracking-widest mb-4">
+                      <div className="text-[13.75px] font-medium text-neutral-textHelper uppercase tracking-widest mb-4">
                         <span>Profesor/a: </span>
                         <span className="text-[#B07D4E] font-semibold">{getTeacherName(session.teacherId)}</span>
                         {getTeacherSpecialty(session.teacherId) && (
-                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
+                           <span className="block text-[12.5px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             {getTeacherSpecialty(session.teacherId)}
                           </span>
                         )}
                         {session.classType === 'workshop' && session.workshopName && (
-                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
+                           <span className="block text-[12.5px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             {session.workshopName}
                           </span>
                         )}
                         {session.classType === 'privada' && session.privateReason && (
-                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
+                           <span className="block text-[12.5px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             {session.privateReason}
                           </span>
                         )}
                         {session.classType === 'feriado' && (
-                          <span className="block text-[10px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
+                           <span className="block text-[12.5px] font-medium text-neutral-textSec uppercase tracking-widest mt-1">
                             Vacaciones
                           </span>
                         )}
@@ -466,7 +637,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                           return (
                             <div key={idx} className="flex items-center gap-2.5">
                               <div className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`}></div>
-                              <span className={`text-[12px] md:text-[13px] font-medium truncate ${att === 'absent' ? 'text-red-400 line-through opacity-60' : (att === 'present' ? 'text-green-600' : 'text-neutral-textMain')}`}>{studentName.toLowerCase()}</span>
+                               <span className={`text-[15px] md:text-[16.25px] font-medium truncate ${att === 'absent' ? 'text-red-400 line-through opacity-60' : (att === 'present' ? 'text-green-600' : 'text-neutral-textMain')}`}>{studentName.toLowerCase()}</span>
                             </div>
                           );
                         })}
@@ -475,7 +646,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleOpenAttendanceModal(session); }}
-                        className="absolute right-4 top-4 z-20 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/80 bg-[#C68952] text-white shadow-[0_6px_18px_rgba(123,63,34,0.3)] transition-all hover:-translate-y-0.5 hover:bg-[#B87543] hover:shadow-[0_8px_22px_rgba(123,63,34,0.38)] focus:outline-none focus:ring-2 focus:ring-[#7B3F22] focus:ring-offset-2 active:translate-y-0"
+                        className="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-[13px] border-2 border-white/80 bg-brand text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 active:translate-y-0"
                         title="Control de Asistencia"
                         aria-label="Abrir control de asistencia"
                       >
@@ -493,49 +664,80 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[#F6F1EC]">
+    <div className="flex h-full flex-col overflow-hidden bg-neutral-base">
       {viewMode === 'day' ? renderDayView() : (
-        <div className="flex-1 bg-white rounded-t-[2.5rem] md:rounded-t-[3rem] border-x border-t border-neutral-border p-4 md:p-8 flex flex-col items-center overflow-y-auto custom-scrollbar">
-          <div className="w-full max-w-4xl flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <h3 className="text-[18px] md:text-[22px] font-semibold text-neutral-textMain tracking-tight">
-              Calendario mensual
-            </h3>
-            <div className="flex items-center gap-3 md:gap-6">
-              <div className="flex bg-[#EDE7DF] p-1 rounded-full border border-[#E4DDD4] w-full md:w-auto">
-                <button onClick={() => setViewMode('day')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'day' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>DIA</button>
-                <button onClick={() => setViewMode('month')} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-white text-neutral-textMain shadow-sm' : 'text-neutral-textHelper'}`}>MES</button>
-              </div>
-              <button onClick={() => handleOpenSessionModal()} className="px-5 py-2.5 md:px-7 bg-[#B7A67B] text-white rounded-full text-[11px] font-semibold uppercase tracking-widest shadow-sm hover:brightness-95 active:scale-95 transition-all">NUEVA SESION</button>
-            </div>
-          </div>
-          <div className="w-full max-w-md flex justify-between items-center mb-8">
-            <button onClick={() => setSelectedDate(new Date(selectedDate.setMonth(selectedDate.getMonth() - 1)))} className="p-2 text-neutral-customGray hover:text-brand"><svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M15 19l-7-7 7-7" /></svg></button>
-            <h3 className="text-[16px] md:text-lg font-extrabold text-neutral-textMain uppercase tracking-widest">{selectedDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</h3>
-            <button onClick={() => setSelectedDate(new Date(selectedDate.setMonth(selectedDate.getMonth() + 1)))} className="p-2 text-neutral-customGray hover:text-brand"><svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M9 5l7 7-7 7" /></svg></button>
-          </div>
-          <div className="w-full max-w-4xl grid grid-cols-7 gap-1.5 md:gap-3">
-            {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => <div key={d} className="text-center text-[10px] md:text-[11px] font-extrabold text-neutral-textHelper uppercase mb-1">{d}</div>)}
-            {monthDays.map((item, i) => {
-              const isSelected = item.date.toDateString() === selectedDate.toDateString();
-              const dayKey = formatDateKey(item.date);
-              const daySessions = sessionsByDate[dayKey] || [];
-              const activeSessions = daySessions.filter(s => s.classType !== 'feriado');
-              return (
-                <div key={i} onClick={() => { setSelectedDate(item.date); setViewMode('day'); }} className={`aspect-square rounded-xl md:rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all border ${!item.currentMonth ? 'opacity-10' : 'opacity-100'} ${isSelected ? 'bg-brand text-white border-brand' : 'bg-neutral-sec/50 border-neutral-border hover:bg-white'}`}>
-                  <span className="text-[14px] md:text-lg font-extrabold">{item.date.getDate()}</span>
-                  {activeSessions.length > 0 && (
-                    <div className="mt-1 flex items-center gap-1">
-                      {activeSessions.slice(0, 3).map((session, idx) => (
-                        <span key={`${session.id}-${idx}`} className={`w-2 h-2 rounded-full ${getSessionBadgeClasses(session.classType)}`}></span>
-                      ))}
-                      {activeSessions.length > 3 && (
-                        <span className="text-[9px] font-extrabold text-neutral-textHelper">+{activeSessions.length - 3}</span>
-                      )}
-                    </div>
-                  )}
+        <div className="flex-1 overflow-y-auto px-3 pb-16 pt-3 custom-scrollbar md:px-6 md:pb-10 md:pt-5">
+          <div className="calendar-month-stage mx-auto w-full max-w-5xl p-2 md:p-4">
+            <div className="calendar-month-surface p-3 md:p-5 lg:p-7">
+              <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className="calendar-black-icon shrink-0" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="3" /><path d="M8 2v4M16 2v4M3 9h18" /></svg>
+                  </div>
+                  <div>
+                    <p className="eyebrow text-brand">Agenda del estudio</p>
+                    <h3 className="ui-page-title mt-1 text-neutral-textMain">Calendario mensual</h3>
+                  </div>
                 </div>
-              );
-            })}
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-end md:self-auto">
+                  <button type="button" onClick={() => handleOpenSessionModal()} className="inline-flex h-[38px] min-h-0 items-center justify-center whitespace-nowrap rounded-full bg-brand px-4 text-[11px] font-semibold leading-none text-white transition hover:bg-brand-hover sm:px-5">Nueva sesión</button>
+                  <button type="button" onClick={() => setViewMode('day')} className="inline-flex h-[38px] min-h-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-sec px-4 text-[12px] font-semibold leading-none text-neutral-textMain transition hover:bg-brand-soft hover:text-brand" aria-label="Volver a la vista diaria">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 12H5m6-6-6 6 6 6" /></svg>
+                    <span className="hidden sm:inline">Vista diaria</span><span className="sm:hidden">Día</span>
+                  </button>
+                  <button type="button" onClick={() => setSelectedDate(new Date())} className="inline-flex h-[38px] min-h-0 items-center justify-center whitespace-nowrap rounded-full bg-neutral-sec px-5 text-[12px] font-semibold leading-none text-neutral-textMain transition hover:bg-brand-soft hover:text-brand">Ver todo</button>
+                  <button type="button" onClick={() => setSelectedDate(new Date())} aria-label="Volver a hoy" title="Volver a hoy" className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-neutral-sec leading-none text-neutral-textMain transition hover:bg-brand-soft hover:text-brand">
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 12a8 8 0 1 0 2.34-5.66L4 8.68M4 4v4.68h4.68" /></svg>
+                  </button>
+                </div>
+              </header>
+
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-neutral-border pb-4 md:gap-x-7">
+                {[
+                  ['low', 'Baja'],
+                  ['medium', 'Media'],
+                  ['high', 'Alta'],
+                  ['full', 'Completa'],
+                  ['torno', 'Torno'],
+                  ['mixed', 'Mixto']
+                ].map(([density, label]) => (
+                  <div key={density} className="flex items-center gap-2 text-[13px] font-medium text-neutral-textSec">
+                    <span className={`calendar-legend-dot calendar-legend-${density}`} />
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <button type="button" aria-label="Mes anterior" onClick={() => setSelectedDate(current => { const next = new Date(current); next.setMonth(next.getMonth() - 1); return next; })} className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-textSec transition hover:bg-brand-soft hover:text-brand"><svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m15 19-7-7 7-7" /></svg></button>
+                  <h4 className="text-center text-[20px] font-semibold capitalize tracking-tight text-neutral-textMain">{selectedDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</h4>
+                <button type="button" aria-label="Mes siguiente" onClick={() => setSelectedDate(current => { const next = new Date(current); next.setMonth(next.getMonth() + 1); return next; })} className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-textSec transition hover:bg-brand-soft hover:text-brand"><svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m9 5 7 7-7 7" /></svg></button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-7 gap-1 md:gap-2.5">
+                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => <div key={day} className="pb-1 text-center text-[12px] font-semibold text-neutral-textSec">{day}</div>)}
+                {monthDays.map((item, index) => {
+                  const isSelected = item.date.toDateString() === selectedDate.toDateString();
+                  const dayKey = formatDateKey(item.date);
+                  const daySessions = sessionsByDate[dayKey] || [];
+                   const density = getMonthlyCalendarClass(daySessions);
+                  const densityClass = `calendar-density-${density}`;
+                  const countLabel = daySessions.length === 1 ? '1 sesión' : `${daySessions.length} sesiones`;
+                  return (
+                    <button
+                      type="button"
+                      key={`${dayKey}-${index}`}
+                      onClick={() => { setSelectedDate(new Date(item.date)); setViewMode('day'); }}
+                      aria-label={`${item.date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}${daySessions.length ? `, ${countLabel}` : ', sin sesiones'}`}
+                      className={`calendar-density-cell ${densityClass} ${!item.currentMonth ? 'calendar-density-muted' : ''} ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-brand' : ''}`}
+                    >
+                      <span className="text-[14px] font-semibold leading-none">{item.date.getDate()}</span>
+                      {item.currentMonth && daySessions.length > 0 && <span className="calendar-density-count">{countLabel}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -557,8 +759,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
           >
             <header className="flex shrink-0 items-center justify-between border-b border-[#E8D9CC] px-5 pb-3 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-8 sm:py-4">
               <div className="min-w-0 pr-4 sm:flex sm:items-baseline sm:gap-4">
-                <h3 id="attendance-modal-title" className="shrink-0 font-['Playfair_Display'] text-[24px] font-semibold leading-none text-[#7B3F22] sm:text-[27px]">Control de asistencia</h3>
-                <p className="mt-1.5 truncate text-[11px] text-[#8B6B5E] first-letter:uppercase sm:mt-0 sm:text-[12px]">{formatSessionDate(attendanceSession.date)}</p>
+                <h3 id="attendance-modal-title" className="ui-section-title shrink-0 font-['Playfair_Display'] text-[#7B3F22]">Control de asistencia</h3>
+                <p className="ui-meta mt-1.5 truncate first-letter:uppercase sm:mt-0">{formatSessionDate(attendanceSession.date)}</p>
               </div>
               <button
                 type="button"
@@ -579,30 +781,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   <span className="text-[11px] font-semibold text-[#6E5145]">{getSessionLabel(attendanceSession)}</span>
                   <span className="text-[11px] text-[#8B6B5E]">{getTeacherName(attendanceSession.teacherId)}</span>
                   {attendanceSession.completedAt && (
-                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-[7px] bg-[#E7F0E8] px-2 py-1 text-[9px] font-semibold text-[#47704D]">
+                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-[7px] bg-[#E7F0E8] px-2 py-1 text-[12px] font-semibold text-[#47704D]">
                       <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="m5 13 4 4L19 7" /></svg>
                       Finalizada
                     </span>
                   )}
                 </div>
                 {(attendanceSession.workshopName || attendanceSession.privateReason || attendanceSession.classType === 'feriado') && (
-                  <p className="mt-1.5 text-[11px] text-[#8B6B5E]">
+                  <p className="ui-meta mt-1.5">
                     {attendanceSession.workshopName || attendanceSession.privateReason || 'Vacaciones'}
                   </p>
                 )}
                 {attendanceSession.completedAt && (
-                  <p className="mt-1.5 text-[10px] text-[#6B876F]">Completada el {new Date(attendanceSession.completedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="ui-meta mt-1.5 text-[#47704D]">Completada el {new Date(attendanceSession.completedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                 )}
               </div>
 
               <div className="mb-5">
-                <label htmlFor="attendance-substitute" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Reemplazo</label>
+                <label htmlFor="attendance-substitute" className="ui-label mb-2 block uppercase tracking-[0.14em] text-[#7B3F22]">Reemplazo</label>
                 <div className="relative">
                 <select
                   id="attendance-substitute"
                   value={substituteId}
                   onChange={(e) => setSubstituteId(e.target.value)}
-                  disabled={!!attendanceSession.completedAt}
+                   disabled={!!attendanceSession.completedAt && !isEditingAttendance}
                   className="h-11 w-full appearance-none rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 pr-10 text-[13px] text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20 disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   <option value="">Sin reemplazo</option>
@@ -615,8 +817,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
               </div>
 
               <div className="mb-2 flex items-center justify-between gap-3">
-                <h4 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Alumnos</h4>
-                <span className="text-[11px] text-[#8B6B5E]">{attendanceSession.students.length} asignados</span>
+                <h4 className="ui-label uppercase tracking-[0.14em] text-[#7B3F22]">Alumnos</h4>
+                <span className="ui-meta">{attendanceSession.students.length} asignados</span>
               </div>
 
               <div className="overflow-hidden rounded-[12px] border border-[#E8D9CC] bg-white">
@@ -626,7 +828,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                 </div>
               ) : (
                 attendanceSession.students.map((studentName, idx) => {
-                  const status = attendanceSession.attendance?.[studentName] || 'pending';
+                  const status = getAttendanceStatus(attendanceSession.attendance, studentName);
                   // Find student object to show bonos info
                   const studentObj = students.find(s => {
                     const fullName = `${s.name} ${s.surname || ''}`.trim().toUpperCase();
@@ -641,7 +843,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         <div className="flex items-center gap-2">
                           <p className="truncate text-[14px] font-medium capitalize text-[#3F2E27]">{studentName.toLowerCase()}</p>
                           {isBonusStudent && (
-                            <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[9px] font-semibold ${bonos <= 0 ? 'bg-[#F7E3DF] text-[#9C4235]'
+                            <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[12px] font-semibold ${bonos <= 0 ? 'bg-[#F7E3DF] text-[#9C4235]'
                               : bonos <= Math.ceil(bonosTotal * 0.25) ? 'bg-[#F5E8D4] text-[#916438]'
                                 : 'bg-[#E7F0E8] text-[#47704D]'
                               }`}>
@@ -649,7 +851,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                             </span>
                           )}
                         </div>
-                        <span className={`mt-1 block text-[10px] font-medium ${status === 'present' ? 'text-[#47704D]' : status === 'absent' ? 'text-[#9C4235]' : 'text-[#9B8175]'}`}>
+                        <span className={`ui-meta mt-1 block font-medium ${status === 'present' ? 'text-[#47704D]' : status === 'absent' ? 'text-[#9C4235]' : 'text-[#9B8175]'}`}>
                           {status === 'present' ? 'Asiste' : status === 'absent' ? 'No asiste' : 'Pendiente'}
                         </span>
                       </div>
@@ -657,9 +859,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         <button
                           type="button"
                           onClick={() => handleMarkAttendance(studentName, 'present')}
-                          disabled={!!attendanceSession.completedAt}
-                          className={`flex h-10 w-10 items-center justify-center rounded-[9px] border transition focus:outline-none focus:ring-2 focus:ring-[#6B876F] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${status === 'present' ? 'border-[#5F8065] bg-[#5F8065] text-white' : 'border-[#D8E4D9] bg-[#F4F8F4] text-[#5F8065] hover:bg-[#E7F0E8]'}`}
-                          title={attendanceSession.completedAt ? "Sesión ya finalizada" : "Marcar Asistencia"}
+                           disabled={!!attendanceSession.completedAt && !isEditingAttendance}
+                           className={`flex h-10 w-10 items-center justify-center rounded-[9px] border transition focus:outline-none focus:ring-2 focus:ring-[#6B876F] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${status === 'present' ? 'border-[#5F8065] bg-[#5F8065] text-white' : 'border-[#D8E4D9] bg-[#F4F8F4] text-[#5F8065] hover:bg-[#E7F0E8]'}`}
+                           title={attendanceSession.completedAt && !isEditingAttendance ? "Sesión ya finalizada" : "Marcar Asistencia"}
                           aria-label={`Marcar asistencia de ${studentName}`}
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="m5 13 4 4L19 7" /></svg>
@@ -667,14 +869,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                         <button
                           type="button"
                           onClick={() => handleMarkAttendance(studentName, 'absent')}
-                          disabled={!!attendanceSession.completedAt}
-                          className={`flex h-10 w-10 items-center justify-center rounded-[9px] border transition focus:outline-none focus:ring-2 focus:ring-[#9C4235] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${status === 'absent' ? 'border-[#9C4235] bg-[#9C4235] text-white' : 'border-[#EBCFC9] bg-[#FCF4F2] text-[#9C4235] hover:bg-[#F7E3DF]'}`}
-                          title={attendanceSession.completedAt ? "Sesión ya finalizada" : "Marcar Falta"}
+                           disabled={!!attendanceSession.completedAt && !isEditingAttendance}
+                           className={`flex h-10 w-10 items-center justify-center rounded-[9px] border transition focus:outline-none focus:ring-2 focus:ring-[#9C4235] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${status === 'absent' ? 'border-[#9C4235] bg-[#9C4235] text-white' : 'border-[#EBCFC9] bg-[#FCF4F2] text-[#9C4235] hover:bg-[#F7E3DF]'}`}
+                           title={attendanceSession.completedAt && !isEditingAttendance ? "Sesión ya finalizada" : "Marcar Falta"}
                           aria-label={`Marcar falta de ${studentName}`}
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18 18 6M6 6l12 12" /></svg>
                         </button>
-                        {status !== 'pending' && !attendanceSession.completedAt && (
+                        {status !== 'pending' && (!attendanceSession.completedAt || isEditingAttendance) && (
                           <button
                             type="button"
                             onClick={() => handleMarkAttendance(studentName, 'pending')}
@@ -695,13 +897,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
             <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-[#E8D9CC] bg-white/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-8 sm:py-4">
               {attendanceSession.completedAt ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAttendanceModal(false)}
-                  className="h-11 rounded-[10px] bg-[#C68952] px-6 text-[12px] font-semibold text-white shadow-[0_5px_14px_rgba(123,63,34,0.16)] transition hover:bg-[#B87543] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2"
-                >
-                  Cerrar
-                </button>
+                isEditingAttendance ? (
+                  <>
+                    <button type="button" onClick={cancelAttendanceEdit} disabled={isSubmitting} className="min-h-10 px-3 text-[12px] font-medium text-[#8B6B5E] transition hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:opacity-50">Cancelar edición</button>
+                    <button type="button" onClick={saveEditedAttendance} disabled={isSubmitting} className="h-11 rounded-[10px] bg-[#C68952] px-5 text-[12px] font-semibold text-white shadow-[0_5px_14px_rgba(123,63,34,0.16)] transition hover:bg-[#B87543] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-6">
+                      {isSubmitting ? 'Guardando…' : 'Guardar cambios'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={beginAttendanceEdit} className="h-11 rounded-[10px] border border-[#DDBFA4] bg-white px-5 text-[12px] font-semibold text-[#7B3F22] transition hover:bg-[#F8EEE5] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2">Editar asistencia</button>
+                    <button type="button" onClick={() => setShowAttendanceModal(false)} className="h-11 rounded-[10px] bg-[#C68952] px-6 text-[12px] font-semibold text-white shadow-[0_5px_14px_rgba(123,63,34,0.16)] transition hover:bg-[#B87543] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2">Cerrar</button>
+                  </>
+                )
               ) : (
                 <>
                   <button type="button" onClick={() => setShowAttendanceModal(false)} disabled={isSubmitting} className="min-h-10 px-3 text-[12px] font-medium text-[#8B6B5E] transition hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952] focus:ring-offset-2 disabled:opacity-50">Cancelar</button>
@@ -737,10 +945,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
           >
             <header className="flex shrink-0 items-center justify-between border-b border-[#E8D9CC] px-5 pb-3 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-8 sm:py-4">
               <div className="min-w-0 pr-4 sm:flex sm:items-baseline sm:gap-4">
-                <h3 id="session-modal-title" className="shrink-0 font-['Playfair_Display'] text-[24px] font-semibold leading-none text-[#7B3F22] sm:text-[27px]">
+                <h3 id="session-modal-title" className="ui-section-title shrink-0 font-['Playfair_Display'] text-[#7B3F22]">
                   {editingSessionId ? 'Editar sesión' : 'Nueva sesión'}
                 </h3>
-                <p className="mt-1.5 truncate text-[11px] text-[#8B6B5E] first-letter:uppercase sm:mt-0 sm:text-[12px]">
+                <p className="ui-meta mt-1.5 truncate first-letter:uppercase sm:mt-0">
                   {sessionForm.date ? formatSessionDate(sessionForm.date) : 'Fecha no seleccionada'}
                 </p>
               </div>
@@ -764,11 +972,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                     <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Horario</legend>
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block">
-                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8B6B5E]">Inicio</span>
+                        <span className="ui-label mb-1 block uppercase tracking-[0.12em] text-[#8B6B5E]">Inicio</span>
                         <input aria-label="Hora de inicio" type="time" value={sessionForm.startTime} onChange={(e) => setSessionForm({ ...sessionForm, startTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`h-10 w-full rounded-[9px] border border-[#DDBFA4] bg-white px-3 text-[13px] font-medium text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20 ${sessionForm.classType === 'feriado' ? 'cursor-not-allowed opacity-55' : ''}`} />
                       </label>
                       <label className="block">
-                        <span className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8B6B5E]">Fin</span>
+                        <span className="ui-label mb-1 block uppercase tracking-[0.12em] text-[#8B6B5E]">Fin</span>
                         <input aria-label="Hora de fin" type="time" value={sessionForm.endTime} onChange={(e) => setSessionForm({ ...sessionForm, endTime: e.target.value })} disabled={sessionForm.classType === 'feriado'} className={`h-10 w-full rounded-[9px] border border-[#DDBFA4] bg-white px-3 text-[13px] font-medium text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20 ${sessionForm.classType === 'feriado' ? 'cursor-not-allowed opacity-55' : ''}`} />
                       </label>
                     </div>
@@ -778,7 +986,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                   </fieldset>
 
                   <div>
-                    <label htmlFor="session-type" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Tipo de sesión</label>
+                    <label htmlFor="session-type" className="ui-label mb-2 block uppercase tracking-[0.14em] text-[#7B3F22]">Tipo de sesión</label>
                     <div className="relative">
                       <select
                         id="session-type"
@@ -811,7 +1019,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
                   {(sessionForm.classType === 'mesa' || sessionForm.classType === 'torno') && (
                     <div>
-                      <label htmlFor="session-teacher" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">
+                      <label htmlFor="session-teacher" className="ui-label mb-2 block uppercase tracking-[0.14em] text-[#7B3F22]">
                         Profesor <span className="font-normal normal-case tracking-normal text-[#8B6B5E]">{sessionForm.classType === 'mesa' ? '(obligatorio)' : '(opcional)'}</span>
                       </label>
                   <select
@@ -850,26 +1058,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                 {sessionForm.classType !== 'feriado' && (
                   <div className="space-y-6 border-t border-[#E8D9CC] pt-6 md:border-l md:border-t-0 md:pl-10 md:pt-0">
                     <fieldset>
-                      <legend className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Tipo de alumnos</legend>
-                      <div className="grid grid-cols-3 gap-2 rounded-[12px] bg-[#F5E9DE] p-1">
+                      <legend className="ui-label mb-3 uppercase tracking-[0.14em] text-[#7B3F22]">Tipo de alumnos</legend>
+                       <div className="grid grid-cols-3 gap-2 rounded-[12px] bg-brand-soft p-1">
                       <button
                         type="button"
                         onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'membresia' }); setStudentSearchQuery(''); }}
-                        className={`min-h-10 rounded-[9px] px-2 text-[10px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#C68952] ${sessionForm.sessionAudience === 'membresia' ? 'bg-white text-[#7B3F22] shadow-sm' : 'text-[#8B6B5E] hover:text-[#7B3F22]'}`}
+                         className={`min-h-10 rounded-[9px] px-2 text-[12.5px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand ${sessionForm.sessionAudience === 'membresia' ? 'bg-white font-bold text-neutral-textMain shadow-sm' : 'text-brand opacity-70 hover:opacity-100'}`}
                       >
                         Membresía
                       </button>
                       <button
                         type="button"
                         onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'temporal' }); setStudentSearchQuery(''); }}
-                        className={`min-h-10 rounded-[9px] px-2 text-[10px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#C68952] ${sessionForm.sessionAudience === 'temporal' ? 'bg-white text-[#7B3F22] shadow-sm' : 'text-[#8B6B5E] hover:text-[#7B3F22]'}`}
+                         className={`min-h-10 rounded-[9px] px-2 text-[12.5px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand ${sessionForm.sessionAudience === 'temporal' ? 'bg-white font-bold text-neutral-textMain shadow-sm' : 'text-brand opacity-70 hover:opacity-100'}`}
                       >
                         Temporales
                       </button>
                       <button
                         type="button"
                         onClick={() => { setSessionForm({ ...sessionForm, sessionAudience: 'ambos' }); setStudentSearchQuery(''); }}
-                        className={`min-h-10 rounded-[9px] px-2 text-[10px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#C68952] ${sessionForm.sessionAudience === 'ambos' ? 'bg-white text-[#7B3F22] shadow-sm' : 'text-[#8B6B5E] hover:text-[#7B3F22]'}`}
+                         className={`min-h-10 rounded-[9px] px-2 text-[12.5px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand ${sessionForm.sessionAudience === 'ambos' ? 'bg-white font-bold text-neutral-textMain shadow-sm' : 'text-brand opacity-70 hover:opacity-100'}`}
                       >
                         Ambos
                       </button>
@@ -878,8 +1086,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
 
                     <div>
                       <div className="mb-2 flex items-center justify-between gap-3">
-                        <label htmlFor="student-search" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7B3F22]">Alumnos</label>
-                        <span className="text-[11px] text-[#8B6B5E]">{sessionForm.selectedStudents.length} seleccionados</span>
+                        <label htmlFor="student-search" className="ui-label uppercase tracking-[0.14em] text-[#7B3F22]">Alumnos</label>
+                        <span className="ui-meta">{sessionForm.selectedStudents.length} seleccionados</span>
                       </div>
                       <div className="relative mb-2.5">
                         <svg className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" /></svg>
@@ -945,19 +1153,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
                     </div>
                     {sessionForm.selectedStudents.length > 0 && (
                       <div className="mt-3 border-t border-[#E8D9CC] pt-3">
-                        <div className="flex flex-wrap gap-1.5">
+                        <p className="mb-2 text-[12px] font-semibold text-[#6E5145]">Alumnos seleccionados</p>
+                        <div className="custom-scrollbar max-h-40 space-y-1.5 overflow-y-auto">
                           {sessionForm.selectedStudents.map(name => {
-                            // Determinar el color basado en la categoría del estudiante
                             const studentObj = students.find(st => {
                               const fullName = `${st.name} ${st.surname || ''}`.trim().toUpperCase();
                               return fullName === name.toUpperCase() || st.name.toUpperCase() === name.toUpperCase();
                             });
                             const cat = studentObj?.studentCategory || 'membresia';
                             const isTemporary = cat === 'temporal';
+                            const displayName = studentObj ? `${studentObj.name} ${studentObj.surname || ''}`.trim() : name;
                             return (
-                              <span key={name} className="rounded-[7px] bg-[#F1E1D3] px-2 py-1 text-[9px] font-semibold text-[#7B3F22]">
-                                {name.toLowerCase()}
-                              </span>
+                              <div key={name} className="flex min-h-10 items-center gap-2 rounded-[9px] border border-[#E8D9CC] bg-white px-3 py-2">
+                                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#3F2E27]">{displayName}</span>
+                                <span className={`shrink-0 rounded-[6px] px-2 py-1 text-[11px] font-semibold ${isTemporary ? 'bg-[#F4E2D2] text-[#8A5633]' : 'bg-[#EEE5DE] text-[#6E5145]'}`}>
+                                  {isTemporary ? 'Temporal' : 'Membresía'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSessionForm({ ...sessionForm, selectedStudents: sessionForm.selectedStudents.filter(selectedName => selectedName !== name) })}
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8B6B5E] transition hover:bg-[#F8EEE5] hover:text-[#7B3F22] focus:outline-none focus:ring-2 focus:ring-[#C68952]"
+                                  aria-label={`Quitar ${displayName}`}
+                                >
+                                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 6l12 12M18 6 6 18" /></svg>
+                                </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -1000,6 +1220,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ sessions, onAddSession, onU
           }
         }}
         onCancel={() => setSessionToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={noBonosNames.length > 0}
+        title="Alumnos sin bonos disponibles"
+        message={`${noBonosNames.join(', ')} no tiene bonos disponibles. ¿Deseas finalizar la sesión igualmente?`}
+        isDestructive={false}
+        onConfirm={() => {
+          setNoBonosNames([]);
+          void finalizeAttendance(true);
+        }}
+        onCancel={() => setNoBonosNames([])}
       />
     </div>
   );

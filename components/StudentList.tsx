@@ -204,7 +204,7 @@ const StudentList: React.FC<StudentListProps> = ({
       repetirMensualmente: isMembership ? form.repetirMensualmente : false,
       membershipTier: isMembership ? form.membershipTier : undefined,
       membershipActivatedAt: isMembership ? membershipActivatedAt : undefined,
-      archivedAt: shouldUnarchive ? undefined : editingStudent?.archivedAt,
+      archivedAt: shouldUnarchive ? '' : editingStudent?.archivedAt,
       status: getCalculatedStatus(form) as 'needs_renewal' | 'membresia',
       groupName: ''
     };
@@ -299,31 +299,31 @@ const StudentList: React.FC<StudentListProps> = ({
   }, [students]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[#F7F3EF] text-neutral-textMain" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-full flex flex-col overflow-hidden bg-[#F7F3EF] text-neutral-textMain" style={{ fontFamily: "'Outfit', sans-serif" }}>
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 lg:px-10 pt-5 sm:pt-7 pb-24">
         <div className="max-w-[1280px] mx-auto">
-          <header className="flex flex-col gap-5 mb-7 animate-fade-in">
+          <header className="mb-4 grid grid-cols-1 gap-3 animate-fade-in md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold text-[#8B6B5E] uppercase tracking-[0.18em] mb-2">Comunidad del taller</p>
-                <h1 className="text-[32px] sm:text-[40px] leading-none tracking-[-0.04em] text-[#7B3F22]" style={{ fontFamily: "'Playfair Display', serif" }}>Alumnos</h1>
-                <p className="text-[13px] text-[#8B6B5E] mt-2">Personas, bonos y actividad del taller.</p>
+                 <h1 className="ui-page-title text-[#7B3F22]" style={{ fontFamily: "'Outfit', sans-serif" }}>Alumnos</h1>
+                 <p className="ui-secondary mt-2">Personas, bonos y actividad del taller.</p>
               </div>
               <button onClick={handleCreateClick} className="shrink-0 flex items-center gap-2 h-10 px-3 sm:px-4 bg-[#7B3F22] text-white rounded-lg text-[11px] font-bold uppercase tracking-[0.12em] hover:bg-[#63321C] focus:outline-none focus:ring-2 focus:ring-[#C68952]/50 transition-colors" aria-label="Crear nuevo alumno">
                 <span className="text-lg leading-none">+</span><span className="hidden sm:inline">Nuevo alumno</span><span className="sm:hidden">Nuevo</span>
               </button>
             </div>
-            <div className="flex items-center gap-5 border-y border-[#DDBFA4]/60 py-3 text-[11px]">
-              <span><strong className="text-[#7B3F22] text-base mr-1">{students.length}</strong><span className="text-[#8B6B5E]">alumnos</span></span>
-              <span className="w-px h-4 bg-[#DDBFA4]" />
-              <span><strong className="text-[#7B3F22] text-base mr-1">{categoryCounts.membresia}</strong><span className="text-[#8B6B5E]">membresías</span></span>
-              <span className="w-px h-4 bg-[#DDBFA4]" />
-              <span><strong className="text-[#7B3F22] text-base mr-1">{categoryCounts.temporal}</strong><span className="text-[#8B6B5E]">temporales</span></span>
+            <div className="flex items-center gap-5 border-y border-[#DDBFA4]/60 py-2.5 text-[13.75px] md:border-y-0 md:border-l md:border-[#DDBFA4]/60 md:py-0 md:pl-5">
+              <span><strong className="mr-1 text-[20px] font-bold text-brand-pressed">{students.length}</strong><span className="font-medium text-neutral-textSec">alumnos</span></span>
+              <span className="h-5 w-px bg-neutral-border" />
+              <span><strong className="mr-1 text-[20px] font-bold text-brand-pressed">{categoryCounts.membresia}</strong><span className="font-medium text-neutral-textSec">membresías</span></span>
+              <span className="h-5 w-px bg-neutral-border" />
+              <span><strong className="mr-1 text-[20px] font-bold text-brand-pressed">{categoryCounts.temporal}</strong><span className="font-medium text-neutral-textSec">temporales</span></span>
             </div>
           </header>
 
-          <section className="mb-6" aria-label="Filtros de alumnos">
-            <div className="relative mb-3">
+          <section className="mb-4 md:grid md:grid-cols-[minmax(260px,1fr)_auto] md:items-center md:gap-3" aria-label="Filtros de alumnos">
+            <div className="relative mb-3 md:mb-0">
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
               <input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} placeholder="Buscar por nombre o apellidos" aria-label="Buscar alumno por nombre o apellidos" className="w-full h-11 pl-10 pr-10 bg-white border border-[#DDBFA4] rounded-lg text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E]/70 outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15 transition-all" />
               {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B6B5E] hover:text-[#7B3F22]" aria-label="Limpiar búsqueda">×</button>}
@@ -331,20 +331,20 @@ const StudentList: React.FC<StudentListProps> = ({
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex overflow-x-auto no-scrollbar border-b border-[#DDBFA4] gap-5" role="tablist" aria-label="Estado de alumnos">
-                {(['all', 'active', 'pending'] as TabType[]).map(tab => <button key={tab} onClick={() => setActiveTab(tab)} role="tab" aria-selected={activeTab === tab} className={`shrink-0 h-9 border-b-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${activeTab === tab ? 'border-[#7B3F22] text-[#7B3F22]' : 'border-transparent text-[#8B6B5E] hover:text-[#7B3F22]'}`}>{tab === 'all' ? 'Todos' : tab === 'active' ? 'Al día' : 'Pendientes'}</button>)}
+                 {(['all', 'active', 'pending'] as TabType[]).map(tab => <button key={tab} onClick={() => setActiveTab(tab)} role="tab" aria-selected={activeTab === tab} className={`shrink-0 h-9 border-b-2 text-[12px] font-bold uppercase tracking-[0.12em] transition-colors ${activeTab === tab ? 'border-[#7B3F22] text-[#7B3F22]' : 'border-transparent text-[#8B6B5E] hover:text-[#7B3F22]'}`}>{tab === 'all' ? 'Todos' : tab === 'active' ? 'Al día' : 'Pendientes'}</button>)}
               </div>
               <div className="flex gap-2 sm:ml-auto overflow-x-auto no-scrollbar">
-                {(['todos', 'membresia', 'temporal', 'archivados'] as CategoryFilter[]).map(cat => <button key={cat} onClick={() => setCategoryFilter(cat)} className={`shrink-0 px-3 h-8 rounded-md text-[10px] font-bold uppercase tracking-[0.08em] border transition-colors ${categoryFilter === cat ? 'bg-[#F0E2D6] border-[#C68952] text-[#7B3F22]' : 'bg-white border-[#DDBFA4] text-[#8B6B5E] hover:border-[#C68952]'}`}>{cat === 'todos' ? 'Todos' : CATEGORY_LABELS[cat]} <span className="opacity-60">{categoryCounts[cat] || 0}</span></button>)}
+                 {(['todos', 'membresia', 'temporal', 'archivados'] as CategoryFilter[]).map(cat => <button key={cat} onClick={() => setCategoryFilter(cat)} className={`shrink-0 px-3 h-8 rounded-md text-[12px] font-bold uppercase tracking-[0.08em] border transition-colors ${categoryFilter === cat ? 'bg-[#F0E2D6] border-[#C68952] text-[#7B3F22]' : 'bg-white border-[#DDBFA4] text-[#8B6B5E] hover:border-[#C68952]'}`}>{cat === 'todos' ? 'Todos' : CATEGORY_LABELS[cat]} <span className="opacity-60">{categoryCounts[cat] || 0}</span></button>)}
               </div>
             </div>
             {categoryFilter === 'membresia' && <div className="flex flex-wrap gap-1.5 mt-2">
-              {(['todos', 'plata', 'gold', 'platinum'] as MembershipTierFilter[]).map(tier => <button key={tier} onClick={() => setMembershipTierFilter(tier)} className={`px-2.5 h-7 rounded-md text-[10px] font-bold uppercase tracking-[0.08em] border transition-colors ${membershipTierFilter === tier ? 'bg-[#F0E2D6] border-[#C68952] text-[#7B3F22]' : 'bg-white border-[#DDBFA4] text-[#8B6B5E] hover:border-[#C68952]'}`}>{tier === 'todos' ? 'Todos' : MEMBERSHIP_PLANS[tier].label}</button>)}
+               {(['todos', 'plata', 'gold', 'platinum'] as MembershipTierFilter[]).map(tier => <button key={tier} onClick={() => setMembershipTierFilter(tier)} className={`px-2.5 h-7 rounded-md text-[12px] font-bold uppercase tracking-[0.08em] border transition-colors ${membershipTierFilter === tier ? 'bg-[#F0E2D6] border-[#C68952] text-[#7B3F22]' : 'bg-white border-[#DDBFA4] text-[#8B6B5E] hover:border-[#C68952]'}`}>{tier === 'todos' ? 'Todos' : MEMBERSHIP_PLANS[tier].label}</button>)}
             </div>}
           </section>
 
-          <div className="bg-white border border-[#DDBFA4] rounded-xl overflow-hidden">
-            <div className="hidden md:grid grid-cols-[minmax(260px,1.8fr)_1fr_110px_118px] gap-4 px-5 py-3 border-b border-[#EDE2D8] text-[10px] font-bold uppercase tracking-[0.14em] text-[#8B6B5E]"><span>Alumno</span><span>Actividad</span><span>Bonos</span><span>Estado</span></div>
-            {filteredStudents.length === 0 ? <div className="px-6 py-16 text-center"><p className="text-[15px] text-[#7B3F22]" style={{ fontFamily: "'Playfair Display', serif" }}>No hay alumnos que mostrar</p><p className="text-[12px] text-[#8B6B5E] mt-1">Prueba a cambiar la búsqueda o los filtros.</p></div> : filteredStudents.map(s => {
+           <div className="bg-white border border-[#DDBFA4] rounded-xl overflow-hidden">
+             <div className="hidden md:grid grid-cols-[minmax(260px,1.8fr)_1fr_110px_118px] gap-4 px-5 py-3 border-b border-[#EDE2D8] text-[12px] font-bold uppercase tracking-[0.1em] text-[#8B6B5E]"><span>Alumno</span><span>Actividad</span><span>Bonos</span><span>Estado</span></div>
+            {filteredStudents.length === 0 ? <div className="px-6 py-16 text-center"><p className="text-[15px] text-[#7B3F22]" style={{ fontFamily: "'Outfit', sans-serif" }}>No hay alumnos que mostrar</p><p className="text-[12px] text-[#8B6B5E] mt-1">Prueba a cambiar la búsqueda o los filtros.</p></div> : filteredStudents.map(s => {
               const today = new Date().toISOString().split('T')[0];
               const isArchived = isStudentArchived(s, today);
               const isPending = s.status === 'needs_renewal' || s.classesRemaining <= 0 || (s.expiryDate && s.expiryDate < today);
@@ -352,11 +352,11 @@ const StudentList: React.FC<StudentListProps> = ({
               const membershipTier = inferMembershipTier(s.membershipTier, s.price);
               const initials = `${s.name.charAt(0)}${s.surname?.charAt(0) || ''}`.toUpperCase();
               const percentage = Math.min(100, (s.classesRemaining / (s.bonosAsignados || 4)) * 100);
-              return <button key={s.id} onClick={() => handleEditClick(s)} className="w-full text-left grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(260px,1.8fr)_1fr_110px_118px] gap-3 md:gap-4 items-center px-4 md:px-5 py-4 border-b last:border-0 border-[#EDE2D8] hover:bg-[#FCF8F4] focus:outline-none focus:bg-[#FCF8F4] transition-colors group">
-                 <div className="flex items-center gap-3 min-w-0"><span className="w-11 h-11 shrink-0 rounded-full bg-[#F0E2D6] text-[#7B3F22] flex items-center justify-center text-[12px] font-bold">{initials}</span><span className="min-w-0"><strong className="block text-[15px] text-[#7B3F22] truncate group-hover:text-[#C68952] transition-colors">{s.name} {s.surname}</strong><span className="block text-[11px] text-[#8B6B5E] truncate">{s.phone || s.email || 'Sin contacto añadido'}</span><span className="md:hidden block text-[10px] text-[#8B6B5E] mt-1">{s.classType || 'Sin actividad'} · {isArchived ? CATEGORY_LABELS.archivados : CATEGORY_LABELS[cat] || cat}</span></span></div>
-                 <div className="hidden md:block min-w-0"><span className="block text-[13px] text-[#7B3F22] truncate">{s.classType || 'Sin actividad'}</span><span className="inline-flex mt-1 px-2 py-0.5 rounded border border-[#DDBFA4] text-[9px] font-bold uppercase tracking-[0.08em] text-[#8B6B5E]">{isArchived ? CATEGORY_LABELS.archivados : cat === 'membresia' ? MEMBERSHIP_PLANS[membershipTier].label : CATEGORY_LABELS[cat] || cat}</span></div>
-                <div className="text-right md:text-left"><strong className={`text-[16px] ${isPending ? 'text-[#A85D3B]' : 'text-[#7B3F22]'}`}>{s.classesRemaining}<span className="text-[11px] text-[#8B6B5E] font-normal">/{s.bonosAsignados || 4}</span></strong><div className="w-16 h-1 bg-[#F0E5DB] rounded-full overflow-hidden mt-1 ml-auto md:ml-0"><span className={`block h-full ${isPending ? 'bg-[#C68952]' : 'bg-[#7B3F22]'}`} style={{ width: `${percentage}%` }} /></div></div>
-                 <span className={`hidden md:inline-flex justify-center px-2 py-1 rounded text-[9px] font-bold uppercase tracking-[0.08em] border ${isArchived ? 'bg-[#F0E5DB] text-[#8B6B5E] border-[#DDBFA4]' : isPending ? 'bg-[#FBF1EC] text-[#A85D3B] border-[#E8CABB]' : 'bg-[#F5F1E9] text-[#7B3F22] border-[#D8CDBE]'}`}>{isArchived ? 'Archivado' : isPending ? 'Revisar' : 'Al día'}</span>
+               return <button key={s.id} onClick={() => handleEditClick(s)} className="ui-list w-full text-left grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(260px,1.8fr)_1fr_110px_118px] gap-3 md:gap-4 items-center px-4 md:px-5 py-3.5 border-b last:border-0 border-[#EDE2D8] hover:bg-[#FCF8F4] focus:outline-none focus:bg-[#FCF8F4] transition-colors group">
+                  <div className="flex items-center gap-3 min-w-0"><span className="w-11 h-11 shrink-0 rounded-full bg-[#F0E2D6] text-[#7B3F22] flex items-center justify-center text-[12px] font-bold">{initials}</span><span className="min-w-0"><strong className="ui-card-title block text-[#7B3F22] truncate group-hover:text-[#C68952] transition-colors">{s.name} {s.surname}</strong><span className="ui-meta block truncate">{s.phone || s.email || 'Sin contacto añadido'}</span><span className="ui-meta md:hidden block mt-1">{s.classType || 'Sin actividad'} · {isArchived ? CATEGORY_LABELS.archivados : CATEGORY_LABELS[cat] || cat}</span></span></div>
+                  <div className="hidden md:block min-w-0"><span className="ui-data block text-[#7B3F22] truncate">{s.classType || 'Sin actividad'}</span><span className="inline-flex mt-1 px-2 py-0.5 rounded border border-[#DDBFA4] text-[12px] font-bold uppercase tracking-[0.06em] text-[#8B6B5E]">{isArchived ? CATEGORY_LABELS.archivados : cat === 'membresia' ? MEMBERSHIP_PLANS[membershipTier].label : CATEGORY_LABELS[cat] || cat}</span></div>
+                  <div className="text-right md:text-left"><strong className={`text-[16px] tabular-nums ${isPending ? 'text-[#A85D3B]' : 'text-[#7B3F22]'}`}>{s.classesRemaining}<span className="ui-meta font-normal">/{s.bonosAsignados || 4}</span></strong><div className="w-16 h-1 bg-[#F0E5DB] rounded-full overflow-hidden mt-1 ml-auto md:ml-0"><span className={`block h-full ${isPending ? 'bg-[#C68952]' : 'bg-[#7B3F22]'}`} style={{ width: `${percentage}%` }} /></div></div>
+                  <span className={`hidden md:inline-flex justify-center px-2 py-1 rounded text-[12px] font-bold uppercase tracking-[0.06em] border ${isArchived ? 'bg-[#F0E5DB] text-[#8B6B5E] border-[#DDBFA4]' : isPending ? 'bg-[#FBF1EC] text-[#A85D3B] border-[#E8CABB]' : 'bg-[#F5F1E9] text-[#7B3F22] border-[#D8CDBE]'}`}>{isArchived ? 'Archivado' : isPending ? 'Revisar' : 'Al día'}</span>
               </button>;
             })}
           </div>
@@ -365,14 +365,14 @@ const StudentList: React.FC<StudentListProps> = ({
 
       {showModal && <div className="fixed inset-0 bg-[#4B2A1D]/45 backdrop-blur-[2px] z-[100] flex items-end md:items-center justify-center overflow-hidden">
         <div className="bg-[#FDFBF9] w-full md:max-w-5xl h-[100dvh] md:h-auto md:max-h-[92dvh] md:rounded-xl shadow-[0_20px_60px_rgba(75,42,29,0.2)] relative flex flex-col overflow-hidden animate-fade-in">
-          <div className="px-4 sm:px-7 py-4 border-b border-[#E6D8CB] flex items-center justify-between shrink-0 bg-[#FDFBF9]"><div className="flex items-center gap-3 min-w-0"><span className="hidden sm:flex w-10 h-10 rounded-full bg-[#F0E2D6] text-[#7B3F22] items-center justify-center text-[12px] font-bold">{editingStudent ? `${editingStudent.name.charAt(0)}${editingStudent.surname?.charAt(0) || ''}` : '+'}</span><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8B6B5E]">{editingStudent ? 'Perfil del alumno' : 'Nuevo alumno'}</p><h3 className="text-[20px] text-[#7B3F22] truncate" style={{ fontFamily: "'Playfair Display', serif" }}>{editingStudent ? `${editingStudent.name} ${editingStudent.surname || ''}`.trim() : 'Crear ficha'}</h3></div></div><button onClick={() => setShowModal(false)} className="w-9 h-9 rounded-md border border-[#DDBFA4] text-[#8B6B5E] flex items-center justify-center hover:bg-[#F0E2D6] hover:text-[#7B3F22] transition-colors" aria-label="Cerrar ficha"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M6 6l12 12M18 6 6 18" /></svg></button></div>
+          <div className="px-4 sm:px-7 py-4 border-b border-[#E6D8CB] flex items-center justify-between shrink-0 bg-[#FDFBF9]"><div className="flex items-center gap-3 min-w-0"><span className="hidden sm:flex w-10 h-10 rounded-full bg-[#F0E2D6] text-[#7B3F22] items-center justify-center text-[12px] font-bold">{editingStudent ? `${editingStudent.name.charAt(0)}${editingStudent.surname?.charAt(0) || ''}` : '+'}</span><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8B6B5E]">{editingStudent ? 'Perfil del alumno' : 'Nuevo alumno'}</p><h3 className="text-[20px] text-[#7B3F22] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>{editingStudent ? `${editingStudent.name} ${editingStudent.surname || ''}`.trim() : 'Crear ficha'}</h3></div></div><button onClick={() => setShowModal(false)} className="w-9 h-9 rounded-md border border-[#DDBFA4] text-[#8B6B5E] flex items-center justify-center hover:bg-[#F0E2D6] hover:text-[#7B3F22] transition-colors" aria-label="Cerrar ficha"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M6 6l12 12M18 6 6 18" /></svg></button></div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-7 pb-24 md:pb-8"><form onSubmit={handleSubmit} className="py-5 md:py-6 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-12">
-             <div className="space-y-7">
+            <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 pb-28 sm:px-7 md:pb-28"><form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 py-5 md:py-6 lg:grid-cols-[1.2fr_1fr] lg:gap-8">
+              <div className="space-y-5">
                <section><button type="button" onClick={() => setShowPersonalInfo(value => !value)} aria-expanded={showPersonalInfo} className="w-full flex items-center justify-between gap-3 mb-3 text-left"><span><h4 className="text-[14px] font-bold text-[#7B3F22]">Información personal</h4><span className="text-[10px] text-[#8B6B5E]">Datos de contacto</span></span><span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#8B6B5E]">{showPersonalInfo ? 'Ocultar' : 'Mostrar'} <span className="ml-1">{showPersonalInfo ? '−' : '+'}</span></span></button>{showPersonalInfo && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nombre" aria-label="Nombre" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /><input value={form.surname} onChange={(e) => setForm({ ...form, surname: e.target.value })} placeholder="Apellidos" aria-label="Apellidos" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15" /><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" aria-label="Email" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15 sm:col-span-2" /><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Teléfono" aria-label="Teléfono" className="h-11 px-3 bg-white border border-[#DDBFA4] rounded-md text-[13px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/15 sm:col-span-2" /></div>}</section>
                <section className="border-t border-[#E6D8CB] pt-3"><h4 className="text-[14px] font-bold text-[#7B3F22] mb-2">Actividad y categoría</h4><div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5"><select value={form.classType} onChange={(e) => setForm({ ...form, classType: e.target.value })} aria-label="Tipo de clase" className="h-10 px-2.5 bg-white border border-[#DDBFA4] rounded-md text-[12px] text-[#7B3F22] outline-none focus:border-[#C68952]"><option>Modelado</option><option>Torno</option><option>Coworking</option><option>Iniciación</option></select><select value={form.studentCategory} onChange={(e) => requestCategoryChange(e.target.value as 'membresia' | 'temporal')} aria-label="Categoría del alumno" className="h-10 px-2.5 bg-white border border-[#DDBFA4] rounded-md text-[12px] text-[#7B3F22] outline-none focus:border-[#C68952]"><option value="membresia">Membresía</option><option value="temporal">Temporal</option></select><select value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value as 'paid' | 'pending' })} aria-label="Estado del pago" className="h-10 px-2.5 bg-white border border-[#DDBFA4] rounded-md text-[12px] text-[#7B3F22] outline-none focus:border-[#C68952]"><option value="paid">Pago al día</option><option value="pending">Pago pendiente</option></select><input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: parseInt(e.target.value) })} placeholder="Cuota" aria-label="Cuota" className="h-10 px-2.5 bg-white border border-[#DDBFA4] rounded-md text-[12px] text-[#7B3F22] placeholder:text-[#8B6B5E] outline-none focus:border-[#C68952]" /></div></section>
                 {form.studentCategory === 'membresia' && <div className="grid grid-cols-3 gap-1.5 mt-2">
-                   {(['plata', 'gold', 'platinum'] as MembershipTier[]).map(tier => <button key={tier} type="button" onClick={() => requestMembershipTierChange(tier)} className={`min-h-9 rounded-md border text-[9px] font-bold uppercase tracking-[0.08em] transition-colors ${form.membershipTier === tier ? 'bg-[#7B3F22] text-white border-[#7B3F22]' : 'bg-white text-[#8B6B5E] border-[#DDBFA4] hover:border-[#C68952]'}`}>{MEMBERSHIP_PLANS[tier].label}<span className="block text-[8px] opacity-75 normal-case tracking-normal">{MEMBERSHIP_PLANS[tier].price}€ · {MEMBERSHIP_PLANS[tier].bonuses} bonos</span></button>)}
+                    {(['plata', 'gold', 'platinum'] as MembershipTier[]).map(tier => <button key={tier} type="button" onClick={() => requestMembershipTierChange(tier)} className={`min-h-11 rounded-lg border px-2 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors ${form.membershipTier === tier ? 'border-brand bg-brand text-white shadow-sm' : 'border-neutral-border bg-white text-neutral-textMain hover:border-brand hover:text-brand'}`}><span>{MEMBERSHIP_PLANS[tier].label}</span><span className={`block text-[11px] font-medium normal-case tracking-normal ${form.membershipTier === tier ? 'text-white/90' : 'text-neutral-textSec'}`}>{MEMBERSHIP_PLANS[tier].price}€ · {MEMBERSHIP_PLANS[tier].bonuses} bonos</span></button>)}
                </div>}
 
                <section className="border-t border-[#E6D8CB] pt-3">
@@ -381,7 +381,7 @@ const StudentList: React.FC<StudentListProps> = ({
                 </div>
                  <div className="grid grid-cols-2 gap-1.5">
                   <div>
-                     <label className="block text-[12px] font-medium text-[#7B3F22] mb-1">Bonos contratados</label>
+                      <label className="block text-[16px] font-medium text-[#7B3F22] mb-1">Bonos contratados</label>
                      <div className="flex items-center bg-white border border-[#E7B899] rounded-md overflow-hidden h-10">
                        <button type="button" onClick={() => setForm(f => ({ ...f, bonosAsignados: Math.max(1, f.bonosAsignados - 1) }))} className="w-9 h-10 shrink-0 text-[#A85D3B] hover:bg-[#F0E2D6]" aria-label="Reducir bonos">-</button>
                       <input type="number" readOnly value={form.bonosAsignados} aria-label="Bonos contratados" className="w-full min-w-0 text-center text-[14px] font-bold text-[#A85D3B] outline-none" />
@@ -389,7 +389,7 @@ const StudentList: React.FC<StudentListProps> = ({
                     </div>
                   </div>
                   <div>
-                     <div className="flex items-center justify-between mb-1"><label className="block text-[12px] font-medium text-[#7B3F22]">Bonos restantes</label><span className="text-[11px] font-bold text-[#A85D3B]">{form.classesRemaining}/{form.bonosAsignados}</span></div>
+                     <div className="flex items-center justify-between mb-1"><label className="block text-[16px] font-medium text-[#7B3F22]">Bonos restantes</label><span className="text-[11px] font-bold text-[#A85D3B]">{form.classesRemaining}/{form.bonosAsignados}</span></div>
                      <div className="flex items-center bg-white border border-[#E7B899] rounded-md overflow-hidden h-10">
                        <button type="button" onClick={() => setForm(f => ({ ...f, classesRemaining: Math.max(0, f.classesRemaining - 1) }))} className="w-9 h-10 shrink-0 text-[#A85D3B] hover:bg-[#F0E2D6]" aria-label="Reducir clases restantes">-</button>
                       <input type="number" readOnly value={form.classesRemaining} aria-label="Bonos restantes" className="w-full min-w-0 text-center text-[14px] font-bold text-[#A85D3B] outline-none" />
@@ -422,10 +422,9 @@ const StudentList: React.FC<StudentListProps> = ({
                       const records = dateKey ? currentAttendanceByDate[dateKey] || [] : [];
                       const hasPresent = records.some(record => record.status === 'present');
                       const hasAbsent = records.some(record => record.status === 'absent');
-                      const dayColor = hasPresent && hasAbsent ? 'bg-[#F6D596] border-[#DDB36D]' : hasPresent ? 'bg-[#8CF776] border-[#65D95B]' : hasAbsent ? 'bg-[#FFA18B] border-[#F27F67]' : 'bg-white border-[#E6D8CB]';
-                      const dayTextColor = hasPresent && hasAbsent ? 'text-[#7B5421]' : hasPresent ? 'text-[#247A2B]' : hasAbsent ? 'text-[#9C4235]' : 'text-[#7B3F22]';
-                      return <div key={`${dateKey || 'empty'}-${index}`} title={hasPresent && hasAbsent ? 'Presente y falta' : hasPresent ? 'Presente' : hasAbsent ? 'Falta' : undefined} className={`min-h-[42px] rounded-md border p-1.5 ${day ? dayColor : 'border-transparent'}`}>
-                        {day && <span className={`text-[10px] font-semibold ${dayTextColor}`}>{day}</span>}
+                       const dayStatus = hasPresent && hasAbsent ? 'calendar-attendance-mixed' : hasPresent ? 'calendar-attendance-present' : hasAbsent ? 'calendar-attendance-absent' : 'calendar-attendance-empty';
+                       return <div key={`${dateKey || 'empty'}-${index}`} title={hasPresent && hasAbsent ? 'Presente y falta' : hasPresent ? 'Presente' : hasAbsent ? 'Falta' : undefined} className={`calendar-mini-cell ${day ? dayStatus : 'border-transparent'}`}>
+                         {day && <span className="text-[10px] font-semibold">{day}</span>}
                       </div>;
                     })}
                   </div>

@@ -2,12 +2,12 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { supabase } from '../supabaseClient';
 import { useAuth } from './AuthContext';
 import {
-    Student, ClassSession, CeramicPiece, GiftCard, AssignedClass,
+    Student, ClassSession, CeramicPiece, GiftCard, GiftCardMovement, AssignedClass,
     InventoryItem, InventoryMovement, Teacher, MembershipTier, MEMBERSHIP_PLANS, inferMembershipTier
 } from '../types';
 
 // Import modular operations
-import { extractTime, normalizeForMatch, withTimeout, RELOAD_TIMEOUT_MS, OpsContext } from './data/shared';
+import { extractTime, normalizeForMatch, withTimeout, RELOAD_TIMEOUT_MS, OpsContext, mapGiftCardRowToModel } from './data/shared';
 import * as studentOps from './data/studentOps';
 import * as sessionOps from './data/sessionOps';
 import * as teacherOps from './data/teacherOps';
@@ -33,6 +33,7 @@ interface DataContextType {
     inventoryMovements: InventoryMovement[];
     teachers: Teacher[];
     isLoadingData: boolean;
+    loadError: string | null;
 
     // Student CRUD
     addStudent: (student: Omit<Student, 'id'>) => Promise<void>;
@@ -59,6 +60,10 @@ interface DataContextType {
     addGiftCard: (card: Omit<GiftCard, 'id' | 'createdAt'>) => Promise<void>;
     updateGiftCard: (id: string, updates: Partial<GiftCard>) => Promise<void>;
     deleteGiftCard: (id: string) => Promise<void>;
+    consumeGiftCard: (giftCardId: string, consumedAt?: string) => Promise<void>;
+    cancelGiftCard: (giftCardId: string) => Promise<void>;
+    redeemGiftCardSession: (giftCardId: string, sessionId: string, studentId?: string) => Promise<void>;
+    reverseGiftCardSession: (giftCardId: string, sessionId: string, studentId?: string) => Promise<void>;
 
     // Inventory CRUD
     addInventoryItem: (item: InventoryItem) => Promise<void>;
@@ -95,6 +100,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const hasLoadedOnceRef = useRef(false);
     const operationLockRef = useRef(false);
 
@@ -104,6 +110,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         // Removed sedeId guard: RLS on Supabase will filter by get_owned_sede_id()
         // This ensures staff users can load data even before sedeId resolves
         if (!hasLoadedOnceRef.current) setIsLoadingData(true);
+        setLoadError(null);
 
         try {
             const buildQuery = (table: string) => {
@@ -112,10 +119,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 return query;
             };
 
-            const [studentsRes, teachersRes, sessionsRes, sessionStudentsRes, piecesRes, giftRes, inventoryRes, movementsRes] = await Promise.all([
+            const [studentsRes, teachersRes, sessionsRes, sessionStudentsRes, piecesRes, giftRes, giftCardMovementsRes, inventoryRes, movementsRes] = await Promise.all([
                 buildQuery('students'), buildQuery('teachers'), buildQuery('sessions'),
                 buildQuery('session_students'),
-                buildQuery('pieces'), buildQuery('gift_cards'), buildQuery('inventory_items'), buildQuery('inventory_movements')
+                buildQuery('pieces'), Promise.resolve(buildQuery('gift_cards')).catch(error => ({ data: [], error })),
+                Promise.resolve(buildQuery('gift_card_movements')).catch(error => ({ data: [], error })),
+                buildQuery('inventory_items'), buildQuery('inventory_movements')
             ]);
 
             if (studentsRes.error) throw studentsRes.error;
@@ -123,7 +132,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             if (sessionsRes.error) throw sessionsRes.error;
             if (sessionStudentsRes.error) throw sessionStudentsRes.error;
             if (piecesRes.error) throw piecesRes.error;
-            if (giftRes.error) throw giftRes.error;
+            if (giftRes.error) console.warn('Gift cards could not be loaded:', giftRes.error);
+            if (giftCardMovementsRes.error) console.warn('Gift card movements could not be loaded:', giftCardMovementsRes.error);
             if (inventoryRes.error) throw inventoryRes.error;
             if (movementsRes.error) throw movementsRes.error;
 
@@ -196,6 +206,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                         }
                         return result;
                     }, {}),
+                    giftCardIdByStudentId: linked.reduce((result: Record<string, string>, item: any) => {
+                        if (item.student_id && item.gift_card_id) result[item.student_id] = item.gift_card_id;
+                        return result;
+                    }, {}),
                     teacherId: row.teacher_id || undefined,
                     teacherSubstituteId: row.teacher_substitute_id || undefined,
                     completedAt: row.completed_at || undefined,
@@ -237,13 +251,17 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
                 extraCommentary: row.extra_commentary || undefined, createdAt: row.created_at || undefined
             }));
 
+            const giftCardMovements: GiftCardMovement[] = (giftCardMovementsRes.data || []).map((row: any) => ({
+                id: row.id, giftCardId: row.gift_card_id, sessionId: row.session_id || undefined,
+                studentId: row.student_id || undefined, type: row.movement_type, sessionsDelta: row.sessions_delta,
+                note: row.note || undefined, createdAt: row.created_at
+            }));
+            const movementsByGiftCard = giftCardMovements.reduce<Record<string, GiftCardMovement[]>>((groups, movement) => {
+                (groups[movement.giftCardId] ||= []).push(movement);
+                return groups;
+            }, {});
             const normalizedGiftCards: GiftCard[] = (giftRes.data || []).map((row: any) => ({
-                id: row.id, buyer: row.buyer, recipient: row.recipient,
-                recipientStudentId: row.recipient_student_id || undefined,
-                numClasses: row.num_classes, type: row.type,
-                issuedDate: row.scheduled_date || undefined,
-                expiryDate: row.expiry_date || undefined, createdAt: row.created_at,
-                extraCommentary: row.extra_commentary || undefined
+                ...mapGiftCardRowToModel(row), movements: movementsByGiftCard[row.id] || []
             }));
 
             setStudents(studentsWithAttendance);
@@ -308,8 +326,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             setGiftCards(normalizedGiftCards);
             setInventoryItems((inventoryRes.data || []) as InventoryItem[]);
             setInventoryMovements((movementsRes.data || []) as InventoryMovement[]);
+            setLoadError(null);
         } catch (error) {
             console.error('Supabase load error', error);
+            setLoadError('No se pudieron cargar los datos del taller. Comprueba la conexión e inténtalo de nuevo.');
         } finally {
             setIsLoadingData(false);
             hasLoadedOnceRef.current = true;
@@ -337,6 +357,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (!session) {
             setStudents([]); setSessions([]); setPieces([]);
             setGiftCards([]); setInventoryItems([]); setInventoryMovements([]); setTeachers([]);
+            setLoadError(null);
         }
     }, [session, sedeId, isSuperAdmin, loadAllData]);
 
@@ -356,6 +377,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         sedeId, isSuperAdmin, operationLockRef,
         get students() { return studentsRef.current; },
         get sessions() { return sessionsRef.current; },
+        get giftCards() { return giftCardsRef.current; },
         get pieces() { return piecesRef.current; },
         setStudents, setSessions, setTeachers, setPieces, setGiftCards,
         setInventoryItems, setInventoryMovements, safeReload
@@ -383,6 +405,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const addGiftCard = async (c: Omit<GiftCard, 'id' | 'createdAt'>) => giftCardOps.addGiftCard(getOpsContext(), c);
     const updateGiftCard = async (id: string, u: Partial<GiftCard>) => giftCardOps.updateGiftCard(getOpsContext(), id, u, giftCardsRef.current);
     const deleteGiftCard = async (id: string) => giftCardOps.deleteGiftCard(getOpsContext(), id);
+    const consumeGiftCard = async (giftCardId: string, consumedAt?: string) => giftCardOps.consumeGiftCard(getOpsContext(), giftCardId, consumedAt);
+    const cancelGiftCard = async (giftCardId: string) => giftCardOps.cancelGiftCard(getOpsContext(), giftCardId);
+    const redeemGiftCardSession = async (giftCardId: string, sessionId: string, studentId?: string) => giftCardOps.redeemGiftCardSession(getOpsContext(), giftCardId, sessionId, studentId);
+    const reverseGiftCardSession = async (giftCardId: string, sessionId: string, studentId?: string) => giftCardOps.reverseGiftCardSession(getOpsContext(), giftCardId, sessionId, studentId);
 
     const addInventoryItem = async (i: InventoryItem) => inventoryOps.addInventoryItem(getOpsContext(), i);
     const updateInventoryItem = async (id: string, u: Partial<InventoryItem>) => inventoryOps.updateInventoryItem(getOpsContext(), id, u);
@@ -391,12 +417,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const addInventoryMovement = async (m: Omit<InventoryMovement, 'id'>) => inventoryOps.addInventoryMovement(getOpsContext(), m);
 
     const value: DataContextType = {
-        students, sessions, pieces, giftCards, inventoryItems, inventoryMovements, teachers, isLoadingData,
+        students, sessions, pieces, giftCards, inventoryItems, inventoryMovements, teachers, isLoadingData, loadError,
         addStudent, updateStudent, deleteStudent, renewStudent,
         addSession, updateSession, deleteSession,
         addTeacher, updateTeacher, deleteTeacher,
         addPiece, updatePiece, deletePiece,
-        addGiftCard, updateGiftCard, deleteGiftCard,
+        addGiftCard, updateGiftCard, deleteGiftCard, consumeGiftCard, cancelGiftCard,
+        redeemGiftCardSession, reverseGiftCardSession,
         addInventoryItem, updateInventoryItem, archiveInventoryItem, deleteInventoryItem, addInventoryMovement,
         loadAllData
     };

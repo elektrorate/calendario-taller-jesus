@@ -52,12 +52,12 @@ const CompactField: React.FC<{
   children: React.ReactNode;
 }> = ({ label, children }) => (
   <div>
-    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">{label}</label>
+    <label className="ui-label mb-1.5 block">{label}</label>
     {children}
   </div>
 );
 
-const inputClass = "w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] text-neutral-textMain focus:outline-none focus:ring-2 focus:ring-brand/15 focus:border-brand transition-all placeholder:text-neutral-textHelper";
+const inputClass = "ui-control w-full px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-neutral-textMain focus:outline-none focus:ring-2 focus:ring-brand/15 focus:border-brand transition-all placeholder:text-neutral-textHelper";
 const selectClass = `${inputClass} appearance-none`;
 
 
@@ -214,8 +214,8 @@ const SettingsView: React.FC = () => {
       {/* ── Header ── */}
       <div className="mb-5">
         <p className="eyebrow mb-1.5">Configuración</p>
-        <h2 className="text-[24px] font-bold text-neutral-textMain leading-tight">Ajustes</h2>
-        <p className="text-[14px] text-neutral-textSec mt-1">Personaliza tu taller y gestiona tus datos</p>
+        <h2 className="ui-page-title text-neutral-textMain">Ajustes</h2>
+        <p className="ui-secondary mt-1">Personaliza tu taller y gestiona tus datos</p>
       </div>
 
       {/* ── Sections ── */}

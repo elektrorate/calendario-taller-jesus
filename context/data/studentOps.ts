@@ -3,6 +3,17 @@ import type { Student } from '../../types';
 import { supabase, withTimeout, buildStudentPayload, isAbortError, OpsContext } from './shared';
 import { showError, showWarning } from '../toast';
 
+const isSchemaCacheColumnError = (error: { message?: string } | null | undefined) =>
+    /schema cache/i.test(error?.message || '') && /column/i.test(error?.message || '');
+
+const withoutExtendedStudentFields = (payload: Record<string, any>) => {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.membership_tier;
+    delete fallbackPayload.membership_activated_at;
+    delete fallbackPayload.archived_at;
+    return fallbackPayload;
+};
+
 export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'>) => {
     if (ctx.operationLockRef.current) {
         showWarning('Hay otra operación en progreso. Espera un momento e intenta de nuevo.');
@@ -12,7 +23,12 @@ export const addStudent = async (ctx: OpsContext, newStudent: Omit<Student, 'id'
     let payload = buildStudentPayload(newStudent);
     if (ctx.sedeId) payload = { ...payload, sede_id: ctx.sedeId };
     try {
-        const { data, error } = await withTimeout('students.insert', supabase.from('students').insert(payload).select().single());
+        let result = await withTimeout('students.insert', supabase.from('students').insert(payload).select().single());
+        if (result.error && isSchemaCacheColumnError(result.error)) {
+            console.warn('students.insert: retrying without extended membership fields while schema cache refreshes');
+            result = await withTimeout('students.insert_fallback', supabase.from('students').insert(withoutExtendedStudentFields(payload)).select().single());
+        }
+        const { data, error } = result;
         if (error) { showError(`No se pudo crear el alumno. ${error.message || ''}`); return; }
 
         // IMMEDIATE UI update — don't wait for safeReload
@@ -51,7 +67,12 @@ export const updateStudent = async (ctx: OpsContext, id: string, updates: Partia
 
     const payload = buildStudentPayload(updates);
     try {
-        const { error } = await withTimeout('students.update', supabase.from('students').update(payload).eq('id', id));
+        let result = await withTimeout('students.update', supabase.from('students').update(payload).eq('id', id));
+        if (result.error && isSchemaCacheColumnError(result.error)) {
+            console.warn('students.update: retrying without extended membership fields while schema cache refreshes');
+            result = await withTimeout('students.update_fallback', supabase.from('students').update(withoutExtendedStudentFields(payload)).eq('id', id));
+        }
+        const { error } = result;
         if (error) {
             // REVERT on error
             ctx.setStudents(previousStudents);

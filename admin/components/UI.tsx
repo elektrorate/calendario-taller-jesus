@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useId } from 'react';
 
 export const Icon = {
   Home: () => (
@@ -82,14 +82,14 @@ export const ActivityPill: React.FC<{
         <Icon.ArrowUpRight />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-semibold text-neutral-textHelper uppercase tracking-[0.12em] mb-1">{label}</p>
+        <p className="ui-label uppercase tracking-[0.12em] mb-1">{label}</p>
         <p className="text-[26px] md:text-[28px] font-bold text-neutral-textMain leading-none">
           {parts[0]}
           {parts[1] && <span className="text-neutral-textHelper font-medium"> / {parts[1]}</span>}
         </p>
       </div>
       <div className="text-right flex flex-col items-end shrink-0">
-        <p className="text-[11px] font-semibold text-neutral-textHelper uppercase tracking-[0.1em] mb-1">{status}</p>
+         <p className="ui-label uppercase tracking-[0.1em] mb-1">{status}</p>
         <p className="text-[22px] md:text-[24px] font-bold text-brand leading-none">{percentage}</p>
       </div>
     </div>
@@ -119,7 +119,7 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string }> =
 export const Button: React.FC<any> = ({ variant = 'primary', size = 'md', children, className, ...props }) => {
   const variants: any = {
     primary: "bg-brand text-white hover:bg-brand-hover shadow-sm transition-colors duration-200",
-    dark: "bg-neutral-textMain text-white hover:bg-[#241A15] shadow-sm transition-colors duration-200",
+    dark: "bg-neutral-textMain text-neutral-base hover:bg-[#241A15] shadow-sm transition-colors duration-200",
     outline: "border border-neutral-border bg-white text-neutral-textMain hover:border-arena hover:text-brand transition-colors duration-200",
     ghost: "text-neutral-textHelper hover:text-brand transition-colors duration-200",
     danger: "bg-[#9E3B2B] text-white hover:bg-[#8A3325] shadow-sm transition-colors duration-200",
@@ -138,7 +138,7 @@ export const Button: React.FC<any> = ({ variant = 'primary', size = 'md', childr
 
 export const Toast: React.FC<any> = ({ message, type }) => (
   <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] animate-fade-in px-4 w-full max-w-sm">
-    <div className={`px-5 py-3.5 rounded-xl shadow-lg text-white font-semibold flex items-center gap-3 ${type === 'error' ? 'bg-[#9E3B2B]' : 'bg-neutral-textMain'}`}>
+     <div role="status" aria-live="polite" className={`px-5 py-3.5 rounded-xl shadow-lg text-white font-semibold flex items-center gap-3 ${type === 'error' ? 'bg-[#9E3B2B]' : 'bg-neutral-textMain text-neutral-base'}`}>
       <span className="text-base leading-none">{type === 'success' ? '✓' : 'ℹ'}</span>
       <span className="text-[14px]">{message}</span>
     </div>
@@ -156,41 +156,51 @@ export const Badge: React.FC<{ children: React.ReactNode; variant?: 'default' | 
     outline: "border border-neutral-border text-neutral-textHelper",
     neutral: "bg-neutral-alt text-neutral-textSec"
   };
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-wide ${variants[variant]}`}>
+   return (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold tracking-wide ${variants[variant]}`}>
       {children}
     </span>
   );
 };
 
-export const Input: React.FC<any> = ({ label, className, ...props }) => (
-  <div className="w-full text-left">
-    {label && <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">{label}</label>}
-    <input
-      className={`w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-[15px] text-neutral-textMain placeholder:text-neutral-textHelper ${className}`}
-      {...props}
-    />
-  </div>
-);
-
-export const Select: React.FC<any> = ({ label, options, className, ...props }) => (
-  <div className="w-full text-left">
-    {label && <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">{label}</label>}
-    <div className="relative">
-      <select
-        className={`w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-[15px] text-neutral-textMain appearance-none ${className}`}
+export const Input: React.FC<any> = ({ label, className, id, ...props }) => {
+  const generatedId = useId();
+  const inputId = id || `input-${generatedId.replace(/:/g, '')}`;
+  return (
+    <div className="w-full text-left">
+      {label && <label htmlFor={inputId} className="ui-label mb-1.5 block">{label}</label>}
+      <input
+        id={inputId}
+        className={`ui-control w-full px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-neutral-textMain placeholder:text-neutral-textHelper ${className}`}
         {...props}
-      >
-        {options.map((opt: any) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-textHelper">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      />
+    </div>
+  );
+};
+
+export const Select: React.FC<any> = ({ label, options, className, id, ...props }) => {
+  const generatedId = useId();
+  const selectId = id || `select-${generatedId.replace(/:/g, '')}`;
+  return (
+    <div className="w-full text-left">
+      {label && <label htmlFor={selectId} className="ui-label mb-1.5 block">{label}</label>}
+      <div className="relative">
+        <select
+          id={selectId}
+          className={`ui-control w-full px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-neutral-textMain appearance-none ${className}`}
+          {...props}
+        >
+          {options.map((opt: any) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-textHelper">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const EmptyState: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => (
   <div className="p-10 md:p-14 text-center bg-white rounded-2xl border border-dashed border-arena">
@@ -233,7 +243,7 @@ export const ListCard: React.FC<{
         <h3 className="font-semibold text-[15px] text-neutral-textMain truncate">{title}</h3>
         {badge && <Badge variant="outline">{badge}</Badge>}
       </div>
-      <p className="text-[11px] font-semibold text-brand uppercase tracking-[0.1em] mb-0.5">{subtitle}</p>
+      <p className="text-[12px] font-semibold text-brand uppercase tracking-[0.1em] mb-0.5">{subtitle}</p>
       <p className="text-[13px] text-neutral-textHelper truncate">{info}</p>
     </div>
     <div className="flex gap-2 shrink-0">
@@ -251,13 +261,24 @@ export const Modal: React.FC<{
   children: React.ReactNode;
   footer?: React.ReactNode
 }> = ({ isOpen, onClose, title, children, footer }) => {
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6">
-      <div className="fixed inset-0 bg-[#312620]/40 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-white w-full md:max-w-2xl md:rounded-2xl rounded-t-2xl md:shadow-xl shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[92vh] animate-fade-in">
+      <div className="fixed inset-0 bg-[#312620]/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white w-full md:max-w-2xl md:rounded-2xl rounded-t-2xl md:shadow-xl shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[92vh] animate-fade-in">
         <div className="px-5 md:px-7 py-4 md:py-5 border-b border-neutral-border flex justify-between items-center shrink-0">
-          <h2 className="text-lg md:text-xl text-neutral-textMain">{title}</h2>
+          <h2 id={titleId} className="ui-section-title text-neutral-textMain">{title}</h2>
           <button onClick={onClose} aria-label="Cerrar" className="w-10 h-10 rounded-full hover:bg-neutral-sec flex items-center justify-center transition-colors shrink-0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B7666" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>

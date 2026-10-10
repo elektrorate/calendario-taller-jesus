@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useId } from 'react';
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -8,6 +8,7 @@ interface ConfirmModalProps {
     cancelText?: string;
     isDestructive?: boolean;
     loading?: boolean;
+    loadingText?: string;
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -20,14 +21,26 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     cancelText = 'Cancelar',
     isDestructive = true,
     loading = false,
+    loadingText = 'Procesando...',
     onConfirm,
     onCancel
 }) => {
+    const titleId = useId();
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && !loading) onCancel();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, loading, onCancel]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-md rounded-2xl p-5 md:p-6 soft-shadow relative text-center border border-neutral-border" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fade-in" role="presentation">
+            <div className="bg-white w-full max-w-md rounded-2xl p-5 md:p-6 soft-shadow relative text-center border border-neutral-border" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={e => e.stopPropagation()}>
 
                 {isDestructive ? (
                     <div className="w-12 h-12 bg-[#F8E1DA] rounded-xl flex items-center justify-center mx-auto mb-5">
@@ -43,7 +56,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     </div>
                 )}
 
-                <h3 className="text-[22px] font-bold text-neutral-textMain mb-2">
+                <h3 id={titleId} className="ui-section-title text-neutral-textMain mb-2">
                     {title}
                 </h3>
 
@@ -67,7 +80,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         className={`flex-1 min-h-[44px] px-4 py-2.5 rounded-[10px] font-semibold text-[14px] text-white hover:opacity-90 transition-opacity outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${isDestructive ? 'bg-[#9E3B2B] focus:ring-[#9E3B2B]' : 'bg-brand focus:ring-brand'
                             }`}
                     >
-                        {loading ? 'ELIMINANDO...' : confirmText}
+                        {loading ? loadingText : confirmText}
                     </button>
                 </div>
             </div>

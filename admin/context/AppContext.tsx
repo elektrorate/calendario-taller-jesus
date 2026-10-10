@@ -464,10 +464,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addUser = async (user: Omit<User, 'id'>): Promise<{ userId: string; sedeId?: string } | null> => {
     try {
+      if (!user.password?.trim()) {
+        showToast('Debes definir una contraseña para el nuevo usuario', 'error');
+        return null;
+      }
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: user.email,
-          password: user.password || 'Taller123!',
+          password: user.password,
           nombre: user.nombre,
           role: 'tallerista',
           telefono: user.telefono,

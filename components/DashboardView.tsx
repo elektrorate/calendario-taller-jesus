@@ -1,19 +1,61 @@
 
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
-import { Student, ClassSession, AppView } from '../types';
+import { Student, ClassSession, AppView, GiftCard } from '../types';
+import { showError } from '../context/toast';
 import { isStudentArchived } from '../utils/studentLifecycle';
+import DiagonalPattern from './shared/DiagonalPattern';
 
-const getDateKey = () => new Date().toISOString().split('T')[0];
+const getDateKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
 
 interface DashboardViewProps {
   students: Student[];
   sessions: ClassSession[];
+  giftCards: GiftCard[];
+  onUpdateStudent: (id: string, updates: Partial<Student>) => Promise<void>;
   onUpdateSession: (id: string, updates: Partial<ClassSession>) => Promise<void>;
+  onRedeemGiftCardSession: (giftCardId: string, sessionId: string, studentId?: string) => Promise<void>;
+  onReverseGiftCardSession: (giftCardId: string, sessionId: string, studentId?: string) => Promise<void>;
   onNavigate: (view: AppView) => void;
   onOpenStudentProfile: (studentId: string) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpdateSession, onNavigate, onOpenStudentProfile }) => {
+type DashboardAlert = { id: string; name: string; reason: string; type: 'warning' | 'info' | 'critical'; category: 'bonuses' | 'payment' | 'expiry' };
+
+const AlertItem: React.FC<{ alert: DashboardAlert; onOpenStudentProfile: (studentId: string) => void }> = ({ alert, onOpenStudentProfile }) => {
+  const palette = alert.type === 'critical'
+    ? { card: 'bg-[#F8E1DA] border-[#EFC9BE]', icon: 'bg-[#9E3B2B] text-white', text: 'text-[#9E3B2B]', symbol: '!' }
+    : { card: 'bg-[#FBEAD2] border-[#EBD5AC]', icon: 'bg-[#916438] text-white', text: 'text-[#8A5517]', symbol: '•' };
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border p-3 ${palette.card}`}>
+      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${palette.icon}`}>{palette.symbol}</div>
+       <div className="min-w-0 flex-1"><p className="truncate text-[13px] font-semibold text-neutral-textMain">{alert.name}</p><p className={`truncate text-[12px] font-medium ${palette.text}`}>{alert.reason}</p></div>
+       {alert.id && <button type="button" onClick={() => onOpenStudentProfile(alert.id)} className="min-h-[36px] shrink-0 rounded-lg bg-white/70 px-2.5 text-[12px] font-semibold text-neutral-textMain transition-colors hover:bg-white hover:text-brand">Ver ficha</button>}
+    </div>
+  );
+};
+
+const AlertGroup: React.FC<{
+  title: string;
+  alerts: DashboardAlert[];
+  tone: 'danger' | 'warning';
+  emptyLabel: string;
+  onOpenStudentProfile: (studentId: string) => void;
+}> = ({ title, alerts, tone, emptyLabel, onOpenStudentProfile }) => {
+  const colors = tone === 'danger'
+    ? { border: 'border-[#EFC9BE]', background: 'bg-[#FFF8F5]', text: 'text-[#9E3B2B]', badge: 'bg-[#F8E1DA]' }
+    : { border: 'border-[#EBD5AC]', background: 'bg-[#FFFBF3]', text: 'text-[#8A5517]', badge: 'bg-[#FBEAD2]' };
+  return (
+    <div className={`rounded-xl border p-3 ${colors.border} ${colors.background}`}>
+      <div className="mb-2 flex items-center justify-between gap-2"><p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${colors.text}`}>{title}</p><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${colors.badge} ${colors.text}`}>{alerts.length}</span></div>
+      {alerts.length > 0 ? <div className="space-y-2">{alerts.map((alert, idx) => <AlertItem key={`${alert.id}-${idx}`} alert={alert} onOpenStudentProfile={onOpenStudentProfile} />)}</div> : <p className="rounded-lg bg-white/70 px-3 py-3 text-[12px] text-neutral-textHelper">{emptyLabel}</p>}
+    </div>
+  );
+};
+
+const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, giftCards, onUpdateStudent, onUpdateSession, onRedeemGiftCardSession, onReverseGiftCardSession, onNavigate, onOpenStudentProfile }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
   const alertAudioContextRef = useRef<AudioContext | null>(null);
@@ -115,7 +157,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
 
   // ─── Alerts ───
   const alerts = useMemo(() => {
-    const list: { id: string; name: string; reason: string; type: 'warning' | 'info' | 'critical' }[] = [];
+    const list: DashboardAlert[] = [];
     // Keep expiration and payment as separate causes so the dashboard is actionable.
     students.forEach(student => {
       if (isStudentArchived(student, todayStr)) return;
@@ -128,17 +170,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
         && !isExpired;
 
       if (student.classesRemaining <= 1 && student.classesRemaining >= 0) {
-        list.push({ id: student.id, name: fullName, reason: `Bono agotándose (${student.classesRemaining} rest.)`, type: 'critical' });
+        list.push({ id: student.id, name: fullName, reason: `Bono agotándose (${student.classesRemaining} rest.)`, type: 'critical', category: 'bonuses' });
       }
       if (isExpired && isMembership) {
-        list.push({ id: student.id, name: fullName, reason: 'Membresía vencida', type: 'critical' });
+        list.push({ id: student.id, name: fullName, reason: 'Membresía vencida', type: 'critical', category: 'expiry' });
       }
       if (isPaymentPending) {
-        list.push({ id: student.id, name: fullName, reason: 'Pago pendiente de membresía', type: 'warning' });
+        list.push({ id: student.id, name: fullName, reason: 'Pago pendiente de membresía', type: 'warning', category: 'payment' });
       }
     });
     return list;
   }, [students, todayStr]);
+
+  const bonusAlerts = useMemo(() => alerts.filter(alert => alert.category === 'bonuses'), [alerts]);
+  const paymentAlerts = useMemo(() => alerts.filter(alert => alert.category === 'payment'), [alerts]);
+  const expiryAlerts = useMemo(() => alerts.filter(alert => alert.category === 'expiry'), [alerts]);
 
   const playAlertSound = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -236,62 +282,112 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
     debounceTimerRef.current[sessionId] = setTimeout(async () => {
       const finalAtt = pendingUpdatesRef.current[sessionId];
       if (finalAtt) {
-        await onUpdateSession(sessionId, { attendance: finalAtt });
-        // Clear pending after successful save
-        delete pendingUpdatesRef.current[sessionId];
-        delete debounceTimerRef.current[sessionId];
+        try {
+          const baseAttendance = session.attendance || {};
+          const changedNames = new Set([...Object.keys(baseAttendance), ...Object.keys(finalAtt)]);
+          for (const name of changedNames) {
+            const nextStatus = finalAtt[name];
+            const wasPresent = baseAttendance[name] === 'present';
+            const isPresent = nextStatus === 'present';
+            if (wasPresent === isPresent) continue;
+
+            const student = students.find(item => {
+              const fullName = `${item.name} ${item.surname || ''}`.trim().toUpperCase();
+              return fullName === name.toUpperCase() || item.name.toUpperCase() === name.toUpperCase();
+            });
+            if (!student) continue;
+
+            const linkedGiftCardId = session.giftCardIdByStudentId?.[student.id];
+            const giftCardId = linkedGiftCardId || giftCards.find(card =>
+              card.recipientStudentId === student.id
+              && card.status === 'active'
+              && (card.sessionsRemaining || 0) > 0
+            )?.id;
+
+            if (giftCardId) {
+              if (wasPresent && !isPresent) await onReverseGiftCardSession(giftCardId, sessionId, student.id);
+              if (!wasPresent && isPresent) await onRedeemGiftCardSession(giftCardId, sessionId, student.id);
+              continue;
+            }
+
+            if (student.studentCategory === 'temporal') {
+              throw new Error(`${name} no tiene una Gift Card activa vinculada.`);
+            }
+
+            const maxBonuses = student.bonosAsignados ?? 4;
+            const nextClassesRemaining = isPresent
+              ? Math.max(0, student.classesRemaining - 1)
+              : Math.min(maxBonuses, student.classesRemaining + 1);
+            await onUpdateStudent(student.id, {
+              classesRemaining: nextClassesRemaining,
+              status: isPresent && nextClassesRemaining <= 0 ? 'needs_renewal' : student.status
+            });
+          }
+
+          await onUpdateSession(sessionId, { attendance: finalAtt });
+          delete pendingUpdatesRef.current[sessionId];
+          delete debounceTimerRef.current[sessionId];
+        } catch (error: any) {
+          showError(`No se pudo guardar la asistencia. ${error?.message || 'Intenta de nuevo.'}`);
+        }
       }
     }, 2000);
-  }, [onUpdateSession]);
+  }, [giftCards, onRedeemGiftCardSession, onReverseGiftCardSession, onUpdateSession, onUpdateStudent, students]);
 
   const CATEGORY_LABELS: Record<string, string> = { membresia: 'Membresía', temporal: 'Temporal' };
   const CATEGORY_COLORS: Record<string, string> = { membresia: 'bg-brand', temporal: 'bg-caramelo' };
 
   return (
-    <div className="h-full flex flex-col bg-neutral-base overflow-hidden animate-fade-in">
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-6 py-4 md:py-6 pb-32">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-neutral-base animate-fade-in">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-24 pt-3 custom-scrollbar md:px-6 md:py-4">
+
+        <section className="relative mb-5 overflow-hidden rounded-[22px] border border-brand/20 bg-brand-soft px-5 py-5 md:px-7 md:py-6">
+          <DiagonalPattern />
+          <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="eyebrow text-brand">Resumen operativo</p>
+              <h3 className="ui-page-title mt-2 text-neutral-textMain">El taller, en movimiento.</h3>
+              <p className="ui-secondary mt-1.5 max-w-xl">Una lectura rápida de tus clases, alumnos y pendientes para tomar decisiones sin ruido.</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 rounded-xl bg-white/70 px-3 py-2 text-[11px] font-semibold text-neutral-textSec">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Operación activa
+            </div>
+          </div>
+        </section>
 
         {/* ─── GLOBAL STATS ROW ─── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4 mb-5">
-           <div className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex flex-col justify-between min-h-[7rem]"
-             onClick={() => onNavigate(AppView.STUDENTS)}
-             style={{ cursor: 'pointer' }}>
-             <p className="eyebrow">Alumnos Totales</p>
-             <div className="flex items-baseline gap-2">
-               <span className="text-[32px] font-bold text-neutral-textMain">{globalStats.totalStudents}</span>
-               <span className="text-[11px] font-semibold text-[#20663B]">{globalStats.activeStudents} membresías activas</span>
-             </div>
-           </div>
-           <div className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex flex-col justify-between min-h-[7rem]"
+        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-5">
+           <div className="group flex min-h-[6.5rem] cursor-pointer flex-col justify-between rounded-[18px] border border-neutral-border border-l-4 border-l-brand bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-soft md:p-4"
              onClick={() => onNavigate(AppView.STUDENTS)}
              style={{ cursor: 'pointer' }}>
              <p className="eyebrow">Activos de membresía</p>
-             <span className="text-[32px] font-bold text-[#20663B]">{globalStats.activeStudents}</span>
+              <span className="ui-kpi text-[#20663B]">{globalStats.activeStudents}</span>
            </div>
-           <div className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex flex-col justify-between min-h-[7rem]">
-            <p className="eyebrow">Pendientes de pago</p>
-            <span className={`text-[32px] font-bold ${globalStats.pendingStudents > 0 ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>{globalStats.pendingStudents}</span>
-          </div>
-          <div className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex flex-col justify-between min-h-[7rem]">
-            <p className="eyebrow">Sesiones Totales</p>
-            <span className="text-[32px] font-bold text-neutral-textMain">{globalStats.totalSessions}</span>
-          </div>
-          {/* Today's metrics */}
-          <div className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex flex-col justify-between min-h-[7rem]">
-            <p className="eyebrow">Alumnos Hoy</p>
-            <span className="text-[32px] font-bold text-neutral-textMain">{todayStats.totalAlumnos}</span>
-          </div>
-          <div className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex flex-col justify-between min-h-[7rem]">
-            <p className="eyebrow">Sesiones Hoy</p>
-            <span className="text-[32px] font-bold text-neutral-textMain">{todayStats.totalSessions}</span>
-          </div>
+             <div className="flex min-h-[6.5rem] flex-col justify-between rounded-[18px] border border-neutral-border border-l-4 border-l-[#C98A53] bg-white p-3.5 md:p-4">
+             <p className="eyebrow">Pendientes de pago</p>
+               <span className={`ui-kpi ${globalStats.pendingStudents > 0 ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>{globalStats.pendingStudents}</span>
+            </div>
+            <div className="flex min-h-[6.5rem] flex-col justify-between rounded-[18px] border border-neutral-border border-l-4 border-l-[#9E3B2B] bg-white p-3.5 md:p-4">
+             <p className="eyebrow">Bonos agotándose</p>
+               <span className={`ui-kpi ${bonusAlerts.length > 0 ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>{bonusAlerts.length}</span>
+            </div>
+           {/* Today's metrics */}
+            <div className="flex min-h-[6.5rem] flex-col justify-between rounded-[18px] border border-neutral-border bg-white p-3.5 md:p-4">
+             <p className="eyebrow">Alumnos Hoy</p>
+               <span className="ui-kpi text-neutral-textMain">{todayStats.totalAlumnos}</span>
+            </div>
+            <div className="flex min-h-[6.5rem] flex-col justify-between rounded-[18px] border border-neutral-border bg-white p-3.5 md:p-4">
+             <p className="eyebrow">Sesiones Hoy</p>
+               <span className="ui-kpi text-neutral-textMain">{todayStats.totalSessions}</span>
+           </div>
         </div>
 
         {/* ─── STUDENT CATEGORIES ROW ─── */}
         {globalStats.totalStudents > 0 && (
-          <div className="flex flex-wrap gap-3 mb-6">
+           <div className="mb-4 flex flex-wrap gap-2">
             {Object.entries(globalStats.byCategory).filter(([, count]) => (count as number) > 0).map(([cat, count]) => (
-              <div key={cat} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-neutral-border">
+              <div key={cat} className="flex items-center gap-2 rounded-full border border-neutral-border bg-white px-2.5 py-1">
                 <div className={`w-2.5 h-2.5 rounded-full ${CATEGORY_COLORS[cat] || 'bg-neutral-border'}`}></div>
                 <span className="text-[11px] font-semibold text-neutral-textMain">{CATEGORY_LABELS[cat] || cat}</span>
                 <span className="text-[11px] font-semibold text-neutral-textHelper">{count}</span>
@@ -303,13 +399,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
 
           {/* ─── TODAY TIMELINE (Left Column) ─── */}
-          <div className="lg:col-span-7 space-y-5">
-            <div className="flex items-center justify-between px-1">
+          <div className="lg:col-span-12 space-y-5">
+           <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-3">
                 <div className="w-1.5 h-6 bg-brand rounded-full"></div>
                 <h4 className="text-[16px] font-bold text-neutral-textMain">Agenda de Hoy</h4>
               </div>
-              <button onClick={() => onNavigate(AppView.CALENDAR)} className="min-h-[44px] px-2 text-[13px] font-semibold text-brand hover:text-brand-hover transition-colors">
+               <button onClick={() => onNavigate(AppView.CALENDAR)} className="min-h-[36px] px-2 text-[12px] font-semibold text-brand hover:text-brand-hover transition-colors">
                 Ver Calendario Completo
               </button>
             </div>
@@ -327,17 +423,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                   const capacity = session.classType === 'torno' ? DEFAULT_CAPACITY_TORNO : DEFAULT_CAPACITY_MESA;
                   const isFull = session.students.length >= capacity;
                   return (
-                    <div key={session.id} className="bg-white p-4 md:p-5 rounded-2xl border border-neutral-border flex items-center justify-between group hover:border-arena transition-all">
-                      <div className="flex items-center gap-4 md:gap-6">
-                        <div className="text-center min-w-[56px]">
-                          <p className="text-[18px] font-bold text-neutral-textMain leading-none">{session.startTime}</p>
-                          <p className="text-[9px] font-semibold text-neutral-textHelper mt-1 tracking-wide">Inicio</p>
+                     <div key={session.id} className="group flex items-center justify-between rounded-[18px] border border-neutral-border bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-soft md:p-4">
+                      <div className="flex items-center gap-3 md:gap-5">
+                        <div className="min-w-[50px] text-center">
+                           <p className="ui-card-title text-neutral-textMain">{session.startTime}</p>
+                           <p className="ui-meta mt-1 font-semibold tracking-wide">Inicio</p>
                         </div>
                         <div className="h-8 w-[1px] bg-neutral-border"></div>
                         <div>
-                          <p className="text-[15px] font-semibold text-neutral-textMain">{getSessionTypeLabel(session.classType)}</p>
+                           <p className="ui-card-title text-neutral-textMain">{getSessionTypeLabel(session.classType)}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[11px] font-semibold ${isFull ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>
+                             <span className={`ui-meta font-semibold ${isFull ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>
                               {session.students.length}/{capacity} {isFull ? 'Completo' : 'Lugares'}
                             </span>
                           </div>
@@ -346,12 +442,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                       <div className="flex gap-2">
                         <div className="flex -space-x-2">
                           {session.students.slice(0, 3).map((st, i) => (
-                            <div key={i} className="w-8 h-8 rounded-full bg-neutral-sec border-2 border-white flex items-center justify-center text-[11px] font-semibold text-neutral-textSec">
+                              <div key={i} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-neutral-sec text-[10px] font-semibold text-neutral-textSec">
                               {st.charAt(0)}
                             </div>
                           ))}
                           {session.students.length > 3 && (
-                            <div className="w-8 h-8 rounded-full bg-brand-soft border-2 border-white flex items-center justify-center text-[11px] font-semibold text-brand">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand-soft text-[10px] font-semibold text-brand">
                               +{session.students.length - 3}
                             </div>
                           )}
@@ -363,8 +459,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
               )}
             </div>
 
-            {/* ─── ALERTS ─── */}
-            <section className="space-y-3 mt-6">
+          </div>
+
+          {/* ─── ALERTS ─── */}
+          <section className="mt-1 rounded-2xl border border-neutral-border bg-[#FBF7F2] p-4 md:p-5 lg:col-span-12">
                 <div className="flex items-center justify-between gap-3 px-1">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-6 bg-caramelo rounded-full"></div>
@@ -385,140 +483,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ students, sessions, onUpd
                     <span className="hidden sm:inline">{soundEnabled ? 'Sonido activo' : 'Activar sonido'}</span>
                   </button>
                 </div>
-                {alerts.length === 0 ? (
-                  <div className="bg-white border border-dashed border-neutral-border rounded-2xl p-5 text-center">
-                    <p className="text-[13px] text-neutral-textHelper">No hay alertas activas</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                    {alerts.map((alert, idx) => (
-                      <div key={idx} className={`p-4 rounded-2xl border flex items-center justify-between ${alert.type === 'critical' ? 'bg-[#F8E1DA] border-[#EFC9BE]' : alert.type === 'warning' ? 'bg-[#FBEAD2] border-[#EBD5AC]' : 'bg-brand-soft border-arena'}`}>
-                        <div>
-                          <p className="text-[13px] font-semibold text-neutral-textMain">{alert.name}</p>
-                          <p className={`text-[12px] font-medium ${alert.type === 'critical' ? 'text-[#9E3B2B]' : alert.type === 'warning' ? 'text-[#8A5517]' : 'text-brand'}`}>{alert.reason}</p>
-                        </div>
-                        {alert.id && (
-                          <button onClick={() => onOpenStudentProfile(alert.id)} className="min-h-[44px] px-2 text-[12px] font-semibold text-neutral-textMain hover:text-brand transition-colors shrink-0">
-                            Ver Ficha
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                 <div className="grid gap-3 md:grid-cols-3">
+                   <AlertGroup title="Bonos agotándose" alerts={bonusAlerts} tone="danger" emptyLabel="No hay bonos próximos a agotarse." onOpenStudentProfile={onOpenStudentProfile} />
+                   <AlertGroup title="Pagos pendientes" alerts={paymentAlerts} tone="warning" emptyLabel="No hay pagos pendientes." onOpenStudentProfile={onOpenStudentProfile} />
+                   <AlertGroup title="Membresías vencidas" alerts={expiryAlerts} tone="danger" emptyLabel="No hay membresías vencidas." onOpenStudentProfile={onOpenStudentProfile} />
+                 </div>
               </section>
-          </div>
 
-          {/* ─── RIGHT COLUMN: Students + Attendance ─── */}
-          <div className="lg:col-span-5 space-y-6">
-
-            {/* TODAY ATTENDANCE — only if there are sessions */}
-            {todayStudentList.length > 0 && (
-              <section className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-[#20663B] rounded-full"></div>
-                    <h4 className="text-[15px] font-bold text-neutral-textMain">Asistencia Hoy</h4>
-                  </div>
-                  <span className="text-[12px] font-semibold text-neutral-textHelper">{todayStudentList.length} alumnos</span>
-                </div>
-                <div className="bg-white rounded-2xl border border-neutral-border overflow-hidden flex flex-col max-h-[300px]">
-                  <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-1">
-                    {todayStudentList.map((item, i) => {
-                      const sessionObj = todaySessions.find(s => s.startTime === item.time && s.students.includes(item.name));
-                      return (
-                        <div key={i} className="flex items-center justify-between p-3 border-b border-neutral-border last:border-0">
-                          <div className="flex flex-col overflow-hidden mr-2">
-                            <span className="text-[13px] font-semibold text-neutral-textMain truncate leading-tight">{item.name.toLowerCase()}</span>
-                            <span className="text-[11px] text-neutral-textHelper mt-0.5">{item.time} • {item.type}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => sessionObj && handleAttendance(sessionObj, item.name, 'present')}
-                              className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${item.status === 'present' ? 'bg-[#20663B] text-white' : 'bg-neutral-sec text-neutral-textHelper hover:bg-[#DFF0E4] hover:text-[#20663B]'}`}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
-                            </button>
-                            <button
-                              onClick={() => sessionObj && handleAttendance(sessionObj, item.name, 'absent')}
-                              className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${item.status === 'absent' ? 'bg-[#9E3B2B] text-white' : 'bg-neutral-sec text-neutral-textHelper hover:bg-[#F8E1DA] hover:text-[#9E3B2B]'}`}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* ALL REGISTERED STUDENTS */}
-            <section className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-neutral-textMain rounded-full"></div>
-                  <h4 className="text-[15px] font-bold text-neutral-textMain">Directorio Alumnos</h4>
-                </div>
-                <span className="text-[12px] font-semibold text-neutral-textHelper">{students.length} Total</span>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-neutral-border overflow-hidden flex flex-col max-h-[500px]">
-                <div className="p-3 border-b border-neutral-border shrink-0">
-                  <input
-                    type="text"
-                    placeholder="Buscar por nombre..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[14px] text-neutral-textMain placeholder:text-neutral-textHelper"
-                  />
-                </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-1">
-                  {filteredStudents.length === 0 ? (
-                    <p className="text-center py-8 text-[13px] text-neutral-textHelper italic">Sin resultados</p>
-                  ) : (
-                    filteredStudents.map((student) => {
-                      const fullName = `${student.name} ${student.surname || ''}`.trim();
-                      const isPending = student.status === 'needs_renewal' || student.classesRemaining <= 0;
-                      const cat = student.studentCategory || 'membresia';
-                      return (
-                        <div
-                          key={student.id}
-                          onClick={() => onOpenStudentProfile(student.id)}
-                          className="flex items-center justify-between p-3 rounded-xl hover:bg-neutral-alt cursor-pointer transition-colors group"
-                        >
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-semibold text-[12px] shrink-0 ${CATEGORY_COLORS[cat]}`}>
-                              {student.name.charAt(0)}
-                            </div>
-                            <div className="overflow-hidden">
-                              <p className="text-[13px] font-semibold text-neutral-textMain truncate leading-tight">{fullName}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] font-semibold text-neutral-textHelper tracking-wide">{CATEGORY_LABELS[cat]}</span>
-                                {student.groupName && (
-                                  <span className="text-[10px] font-medium text-neutral-textSec">• {student.groupName}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-[12px] font-semibold ${isPending ? 'text-[#9E3B2B]' : 'text-[#20663B]'}`}>
-                              {student.classesRemaining}
-                            </span>
-                            <svg className="w-4 h-4 text-neutral-border group-hover:text-brand transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </section>
-
-          </div>
-        </div>
       </div>
+    </div>
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import CalendarView from '../components/CalendarView';
 
 const CalendarPage: React.FC = () => {
-    const { sessions, addSession, updateSession, deleteSession, students, teachers, updateStudent, isLoadingData } = useData();
+    const { sessions, giftCards, addSession, updateSession, deleteSession, students, teachers, updateStudent, redeemGiftCardSession, reverseGiftCardSession, isLoadingData } = useData();
 
     if (isLoadingData) {
         return (
@@ -20,6 +20,9 @@ const CalendarPage: React.FC = () => {
             onUpdateSession={updateSession}
             onDeleteSession={deleteSession}
             onUpdateStudent={updateStudent}
+            onRedeemGiftCardSession={redeemGiftCardSession}
+            onReverseGiftCardSession={reverseGiftCardSession}
+            giftCards={giftCards}
             students={students}
             teachers={teachers}
         />

@@ -62,13 +62,13 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <h3 className="font-semibold text-neutral-textMain text-[14px] leading-tight truncate">{piece.owner}</h3>
-            <span className="hidden sm:inline text-[10px] font-semibold text-neutral-textHelper shrink-0">#ID-{piece.id.slice(-4).toUpperCase()}</span>
+             <span className="hidden sm:inline ui-meta font-semibold shrink-0">#ID-{piece.id.slice(-4).toUpperCase()}</span>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-1">
-            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border ${CATEGORY_BADGE[cat] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
+             <span className={`inline-flex px-2 py-0.5 rounded-md text-[12px] font-semibold border ${CATEGORY_BADGE[cat] || 'bg-neutral-alt text-neutral-textHelper border-neutral-border'}`}>
               {CATEGORY_LABELS[cat] || cat}
             </span>
-            {groupName && <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-sec text-neutral-textSec">{groupName}</span>}
+             {groupName && <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[12px] font-semibold bg-neutral-sec text-neutral-textSec">{groupName}</span>}
           </div>
         </div>
       </div>
@@ -76,21 +76,21 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
       <div className="min-w-0 hidden md:block">
         <p className="text-[14px] text-neutral-textMain truncate">{piece.description}</p>
         <div className="flex items-center gap-2 mt-1">
-          {piece.glazeType && <span className="text-[11px] text-neutral-textSec truncate"><span className="font-semibold text-brand">Esmalte:</span> {piece.glazeType}</span>}
-          {isHistory && piece.deliveryDate && <span className="text-[11px] text-neutral-textHelper shrink-0">· {new Date(piece.deliveryDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+           {piece.glazeType && <span className="ui-meta text-neutral-textSec truncate"><span className="font-semibold text-brand">Esmalte:</span> {piece.glazeType}</span>}
+           {isHistory && piece.deliveryDate && <span className="ui-meta shrink-0">· {new Date(piece.deliveryDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
         </div>
         {piece.extraCommentary && (
           <div className="flex items-center gap-2 mt-1">
-            <p className="text-[11px] text-neutral-textHelper italic truncate">"{displayText}"</p>
-            {hasLongComment && <button onClick={() => setIsExpanded(!isExpanded)} className="text-[11px] font-semibold text-brand hover:underline shrink-0">{isExpanded ? 'menos' : 'más'}</button>}
+             <p className="ui-meta italic truncate">"{displayText}"</p>
+             {hasLongComment && <button onClick={() => setIsExpanded(!isExpanded)} className="ui-meta font-semibold text-brand hover:underline shrink-0">{isExpanded ? 'menos' : 'más'}</button>}
           </div>
         )}
       </div>
 
       <div className="hidden md:block min-w-0">
         <div className="flex justify-between items-center mb-1">
-          <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-semibold ${getStatusColor(piece.status)} text-white`}>{getStatusLabel(piece.status)}</span>
-          <span className="text-[11px] font-semibold text-neutral-textMain">{progress}%</span>
+           <span className={`inline-flex px-2 py-1 rounded-md text-[12px] font-semibold ${getStatusColor(piece.status)} text-white`}>{getStatusLabel(piece.status)}</span>
+           <span className="ui-meta font-semibold text-neutral-textMain">{progress}%</span>
         </div>
         <div className="w-full h-1.5 bg-neutral-alt rounded-full overflow-hidden">
           <div className={`h-full rounded-full ${getStatusColor(piece.status)}`} style={{ width: `${progress}%` }} />
@@ -100,8 +100,8 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
       <div className="col-span-2 md:col-span-1 md:col-start-4 flex items-center justify-end gap-2 pt-2 md:pt-0 border-t border-neutral-border md:border-0">
         <p className="md:hidden flex-1 min-w-0 text-[13px] text-neutral-textMain truncate">{piece.description}</p>
         <div className="md:hidden flex flex-col items-end gap-1">
-          <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-semibold ${getStatusColor(piece.status)} text-white`}>{progress}%</span>
-          <span className="text-[10px] text-neutral-textHelper">{getStatusLabel(piece.status)}</span>
+           <span className={`inline-flex px-2 py-1 rounded-md text-[12px] font-semibold ${getStatusColor(piece.status)} text-white`}>{progress}%</span>
+           <span className="ui-meta">{getStatusLabel(piece.status)}</span>
         </div>
         <button onClick={() => onEdit(piece)} aria-label={`Editar pieza de ${piece.owner}`} className="w-8 h-8 flex items-center justify-center rounded-[8px] text-neutral-textHelper hover:text-brand hover:bg-brand-soft transition-colors shrink-0">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -109,7 +109,7 @@ const PieceCard: React.FC<PieceCardProps> = ({ piece, studentCategory, groupName
         <button
           disabled={!action || isUpdating}
           onClick={handleStatusUpdate}
-          className={`min-h-[36px] md:min-h-[40px] px-3 py-1.5 rounded-[8px] text-[11px] md:text-[12px] font-semibold transition-all ml-auto ${!action || isUpdating
+           className={`min-h-[36px] md:min-h-[40px] px-3 py-1.5 rounded-[8px] text-[12px] font-semibold transition-all ml-auto ${!action || isUpdating
             ? 'bg-neutral-sec text-neutral-textHelper cursor-not-allowed border border-neutral-border opacity-50'
             : 'bg-brand text-white hover:bg-brand-hover active:scale-[0.98]'
             }`}
@@ -704,11 +704,11 @@ const PiecesToCollect: React.FC<PiecesToCollectProps> = ({ pieces, students, onA
       {showModal && (
         <div className="fixed inset-0 bg-neutral-textMain/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl soft-shadow relative animate-fade-in flex flex-col border border-neutral-border overflow-hidden">
-            <button onClick={() => setShowModal(false)} className="absolute top-5 right-5 text-neutral-textHelper hover:text-neutral-textMain transition-colors z-20">
+            <button onClick={() => setShowModal(false)} aria-label="Cerrar modal" className="absolute top-5 right-5 text-neutral-textHelper hover:text-neutral-textMain transition-colors z-20">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <div className="p-6 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
-              <h3 className="text-[26px] md:text-[30px] font-bold text-neutral-textMain mb-2 leading-tight">
+               <h3 className="ui-section-title text-neutral-textMain mb-2">
                 {editingPiece ? 'EDITAR PIEZA' : 'REGISTRAR PIEZA'}
               </h3>
               <p className="text-neutral-textSec text-[14px] mb-6">Define los detalles para el seguimiento en el taller.</p>

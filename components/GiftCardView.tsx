@@ -1,373 +1,386 @@
-import { showError, showWarning } from '../context/toast';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
+import { showError } from '../context/toast';
 import { GiftCard } from '../types';
 import { ConfirmModal } from './shared/ConfirmModal';
+import DiagonalPattern from './shared/DiagonalPattern';
+
 interface GiftCardViewProps {
   giftCards: GiftCard[];
   onAddGiftCard: (card: Omit<GiftCard, 'id' | 'createdAt'>) => Promise<void>;
   onUpdateGiftCard: (id: string, updates: Partial<GiftCard>) => Promise<void>;
+  onConsumeGiftCard: (id: string, consumedAt?: string) => Promise<void>;
+  onCancelGiftCard: (id: string) => Promise<void>;
   onDeleteGiftCard: (id: string) => Promise<void>;
 }
 
-const GiftCardItem: React.FC<{
-  card: GiftCard;
-  onEdit: (card: GiftCard) => void;
-  formatDateOnly: (isoString: string) => string;
-  isExpiredDate: (dateString?: string) => boolean;
-}> = ({ card, onEdit, formatDateOnly, isExpiredDate }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const COMMENT_LIMIT = 60;
-  const hasLongComment = (card.extraCommentary?.length || 0) > COMMENT_LIMIT;
-  const displayText = isExpanded
-    ? card.extraCommentary
-    : card.extraCommentary?.slice(0, COMMENT_LIMIT) + (hasLongComment ? '...' : '');
-  const isExpired = isExpiredDate(card.expiryDate);
+type GiftCardForm = {
+  code: string;
+  buyer: string;
+  buyerPhone: string;
+  buyerEmail: string;
+  recipient: string;
+  recipientEmail: string;
+  type: GiftCard['type'];
+  numClasses: number;
+  dedication: string;
+  deliveryFormat: NonNullable<GiftCard['deliveryFormat']>;
+  validityMonths: NonNullable<GiftCard['validityMonths']> | '';
+  activatedAt: string;
+  expiryDate: string;
+  price: number;
+  paymentStatus: NonNullable<GiftCard['paymentStatus']>;
+  status: NonNullable<GiftCard['status']>;
+  sessionsUsed: number;
+  issuedDate: string;
+  internalNotes: string;
+};
 
+const todayKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const addMonths = (dateValue: string, months: number) => {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  if (![year, month, day].every(Number.isFinite)) return '';
+  const result = new Date(year, month - 1, day);
+  result.setMonth(result.getMonth() + months);
+  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`;
+};
+
+const formatDateOnly = (value?: string) => {
+  if (!value) return 'Sin fecha';
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  if (![year, month, day].every(Number.isFinite)) return value;
+  return new Date(year, month - 1, day).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const typeLabel = (type: GiftCard['type']) => type === 'torno' ? 'Torno' : 'Modelado';
+const movementLabel = (type: NonNullable<GiftCard['movements']>[number]['type']) => ({ redeem: 'Asistencia validada', reverse: 'Asistencia corregida', manual: 'Ajuste manual', cancel: 'Anulación' }[type]);
+
+const statusMeta: Record<NonNullable<GiftCard['status']>, { label: string; className: string }> = {
+  pending: { label: 'Pendiente', className: 'bg-[#F5E8D4] text-[#916438]' },
+  active: { label: 'Activo', className: 'bg-[#E7F0E8] text-[#47704D]' },
+  exhausted: { label: 'Agotado', className: 'bg-[#EEE8E3] text-[#6E5145]' },
+  consumed: { label: 'Consumido', className: 'bg-[#E3EDF6] text-[#2B5C86]' },
+  expired: { label: 'Caducado', className: 'bg-[#F7E3DF] text-[#9C4235]' },
+  cancelled: { label: 'Anulado', className: 'bg-[#F7E3DF] text-[#9C4235]' }
+};
+
+type GiftCardTab = 'active' | 'archived';
+type GiftCardLifecycle = 'active' | 'consumed' | 'expired' | 'cancelled';
+type DurationFilter = 'all' | 'missing' | number;
+
+const lifecycleMeta: Record<GiftCardLifecycle, { label: string; className: string }> = {
+  active: { label: 'Activo', className: 'bg-[#E7F0E8] text-[#47704D]' },
+  consumed: { label: 'Consumido', className: 'bg-[#E3EDF6] text-[#2B5C86]' },
+  expired: { label: 'Caducado', className: 'bg-[#F7E3DF] text-[#9C4235]' },
+  cancelled: { label: 'Anulado', className: 'bg-[#F7E3DF] text-[#9C4235]' }
+};
+
+const normalizeSearchValue = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+const getEffectiveExpiryDate = (card: GiftCard) => {
+  const explicitExpiry = card.expiryDate?.slice(0, 10);
+  if (explicitExpiry) return explicitExpiry;
+  const baseDate = card.activatedAt?.slice(0, 10);
+  return baseDate && card.validityMonths ? addMonths(baseDate, card.validityMonths) : undefined;
+};
+
+const getLifecycleStatus = (card: GiftCard, today: string): GiftCardLifecycle => {
+  if (card.status === 'consumed' || card.consumedAt) return 'consumed';
+  if (card.status === 'cancelled') return 'cancelled';
+  const redeemedSessions = (card.movements || [])
+    .reduce((total, movement) => total + (movement.type === 'redeem' ? movement.sessionsDelta : 0), 0);
+  const hasFullConsumption = card.status === 'exhausted'
+    || (card.sessionsUsed || 0) >= card.numClasses
+    || redeemedSessions >= card.numClasses;
+  if (hasFullConsumption) return 'consumed';
+  const expiryDate = getEffectiveExpiryDate(card);
+  return card.status === 'expired' || (expiryDate ? expiryDate < today : false) ? 'expired' : 'active';
+};
+
+const getFirstConsumptionDate = (card: GiftCard) => card.consumedAt || card.movements
+  ?.filter(movement => movement.type === 'redeem' && movement.sessionsDelta > 0)
+  .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]?.createdAt;
+
+const createInitialForm = (): GiftCardForm => {
+  const activatedAt = todayKey();
+  return {
+    code: '', buyer: '', buyerPhone: '', buyerEmail: '', recipient: '', recipientEmail: '',
+    type: 'modelado', numClasses: 1, dedication: '', deliveryFormat: 'digital',
+    validityMonths: 6, activatedAt, expiryDate: addMonths(activatedAt, 6), price: 0,
+    paymentStatus: 'pending', status: 'pending', sessionsUsed: 0, issuedDate: activatedAt,
+    internalNotes: ''
+  };
+};
+
+const GiftCardQr: React.FC<{ value: string }> = ({ value }) => {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(value || 'CR-PENDIENTE', { width: 180, margin: 1, color: { dark: '#FF5300', light: '#FFFFFF' } })
+      .then(dataUrl => { if (active) setSrc(dataUrl); })
+      .catch(() => { if (active) setSrc(''); });
+    return () => { active = false; };
+  }, [value]);
+  return src ? <img src={src} alt="Código QR del bono" className="h-28 w-28 rounded-lg border border-[#E8D9CC] bg-[#FFFCF8] p-1" /> : <div className="h-28 w-28 rounded-lg border border-dashed border-[#DDBFA4]" />;
+};
+
+const GiftCardItem: React.FC<{ card: GiftCard; lifecycleStatus: GiftCardLifecycle; onEdit: (card: GiftCard) => void }> = ({ card, lifecycleStatus, onEdit }) => {
+  const status = lifecycleMeta[lifecycleStatus];
+  const remaining = card.sessionsRemaining ?? Math.max(0, card.numClasses - (card.sessionsUsed || 0));
+  const expiryDate = getEffectiveExpiryDate(card);
+  const consumptionDate = getFirstConsumptionDate(card);
   return (
-    <div
-      onClick={() => onEdit(card)}
-      className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(220px,1.7fr)_minmax(100px,.8fr)_minmax(80px,.6fr)_minmax(145px,.9fr)_64px] gap-3 md:gap-4 items-center px-3 md:px-4 py-3 bg-white border-b border-neutral-border last:border-b-0 hover:bg-neutral-base transition-colors cursor-pointer group relative overflow-hidden"
-    >
-      <div className="min-w-0 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-brand-soft text-brand flex items-center justify-center font-bold text-[12px] shrink-0">
-          {card.buyer.charAt(0)}
-        </div>
+    <button type="button" onClick={() => onEdit(card)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#EDE2D8] bg-white px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-[#FCF8F4] md:grid-cols-[minmax(220px,1.6fr)_minmax(100px,.7fr)_minmax(120px,.8fr)_minmax(160px,.9fr)_auto] md:gap-4 md:px-5">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F3E7DC] text-[12px] font-bold text-[#7B3F22]">{(card.recipient || card.buyer || '?').charAt(0).toUpperCase()}</div>
         <div className="min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <h3 className="font-semibold text-[14px] text-neutral-textMain truncate">{card.buyer}</h3>
-            <span className="hidden sm:inline text-[10px] font-semibold text-neutral-textHelper shrink-0">#{card.id.slice(-4).toUpperCase()}</span>
-          </div>
-          <p className="text-[11px] text-neutral-textHelper truncate mt-0.5">Para: {card.recipient}</p>
+          <div className="flex min-w-0 items-center gap-2"><p className="ui-card-title truncate text-[#3F2E27]">{card.recipient || 'Sin destinatario'}</p><span className="ui-meta hidden truncate font-semibold sm:inline">{card.code}</span></div>
+          <p className="ui-meta truncate">Compra: {card.buyer || 'Sin comprador'}</p>
         </div>
       </div>
-
-      <div className="hidden md:block">
-        <span className="inline-flex px-2 py-1 rounded-md bg-brand-soft text-brand text-[11px] font-semibold">{card.type}</span>
-      </div>
-
-      <div className="justify-self-end md:justify-self-start text-right md:text-left">
-        <span className="text-[16px] font-bold text-neutral-textMain">{card.numClasses}</span>
-        <span className="text-[11px] font-semibold text-neutral-textHelper ml-1">clases</span>
-      </div>
-
-      <div className="hidden md:block min-w-0">
-        {card.expiryDate && (
-          <div className="leading-tight">
-            <p className={`text-[11px] font-semibold mb-0.5 ${isExpired ? 'text-[#9E3B2B]' : 'text-brand'}`}>{isExpired ? 'Expirado' : 'Expira'}</p>
-            <p className={`text-[13px] font-semibold ${isExpired ? 'text-[#9E3B2B]' : 'text-neutral-textMain'}`}>{formatDateOnly(card.expiryDate)}</p>
-          </div>
-        )}
-      </div>
-
-      <button onClick={(e) => { e.stopPropagation(); onEdit(card); }} aria-label={`Editar bono de ${card.buyer}`} className="hidden md:flex justify-self-end w-8 h-8 items-center justify-center rounded-[8px] text-neutral-textHelper hover:text-brand hover:bg-brand-soft transition-colors">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-      </button>
-
-      <div className="col-span-2 md:hidden flex items-center gap-2 pt-2 border-t border-neutral-border">
-        <span className="inline-flex px-2 py-1 rounded-md bg-brand-soft text-brand text-[10px] font-semibold">{card.type}</span>
-        {card.expiryDate && <span className={`text-[11px] font-semibold ${isExpired ? 'text-[#9E3B2B]' : 'text-neutral-textHelper'}`}>{isExpired ? 'Expirado' : `Expira ${formatDateOnly(card.expiryDate)}`}</span>}
-        {card.extraCommentary && (
-          <div className="ml-auto flex items-center gap-1 min-w-0">
-            <p className="text-[11px] text-neutral-textHelper italic truncate">"{displayText}"</p>
-            {hasLongComment && <button onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} className="text-[11px] font-semibold text-brand shrink-0">{isExpanded ? 'menos' : 'más'}</button>}
-          </div>
-        )}
-      </div>
-
-      {card.extraCommentary && !isExpanded && (
-        <span className="hidden md:block text-[11px] text-neutral-textHelper italic truncate col-span-2">"{displayText}"</span>
-      )}
-    </div>
+      <span className="hidden rounded-md bg-[#F8EEE5] px-2 py-1 text-[12px] font-semibold text-[#7B3F22] md:inline-flex">{typeLabel(card.type)}</span>
+      <div className="text-right md:text-left"><strong className="text-[17px] tabular-nums text-[#3F2E27]">{remaining}</strong><span className="ui-meta ml-1">/{card.numClasses} sesiones</span></div>
+        <div className="hidden min-w-0 md:block"><span className={`inline-flex rounded-full px-2 py-1 text-[12px] font-semibold ${status.className}`}>{status.label}</span><p className="ui-meta mt-1">{lifecycleStatus === 'consumed' ? `Consumida ${formatDateOnly(consumptionDate)}` : lifecycleStatus === 'cancelled' ? 'Archivada como anulada' : expiryDate ? `Caduca ${formatDateOnly(expiryDate)}` : 'Caducidad sin verificar'}</p></div>
+      <span className="text-[#9B8175] md:px-2">›</span>
+        <div className="col-span-2 flex items-center gap-2 border-t border-[#F0E5DB] pt-2 md:hidden"><span className="rounded-md bg-[#F8EEE5] px-2 py-1 text-[12px] font-semibold text-[#7B3F22]">{typeLabel(card.type)}</span><span className={`rounded-full px-2 py-1 text-[12px] font-semibold ${status.className}`}>{status.label}</span><span className="ui-meta ml-auto">{lifecycleStatus === 'consumed' ? `Consumida ${formatDateOnly(consumptionDate)}` : lifecycleStatus === 'cancelled' ? 'Anulada' : expiryDate ? formatDateOnly(expiryDate) : 'Sin fecha'}</span></div>
+    </button>
   );
 };
 
-const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, onUpdateGiftCard, onDeleteGiftCard }) => {
+const GiftCardView: React.FC<GiftCardViewProps> = ({ giftCards, onAddGiftCard, onUpdateGiftCard, onConsumeGiftCard, onCancelGiftCard }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
-  // BUG 2 FIX: Add isSubmitting state to prevent double-click
+  const [cardToConsume, setCardToConsume] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] = useState<GiftCardForm>(createInitialForm);
+  const [activeTab, setActiveTab] = useState<GiftCardTab>('active');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
+  const [today, setToday] = useState(todayKey);
 
-  const initialFormState = {
-    buyer: '',
-    recipient: '',
-    numClasses: 2,
-    type: 'modelado' as GiftCard['type'],
-    expiryDate: '',
-    issuedDate: '',
-    extraCommentary: ''
-  };
-  const [form, setForm] = useState(initialFormState);
+  const remaining = Math.max(0, form.numClasses - form.sessionsUsed);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setToday(todayKey()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!showModal) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !cardToDelete && !cardToConsume) setShowModal(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cardToConsume, cardToDelete, showModal]);
+
+  const durationOptions = useMemo(() => {
+    const durations = giftCards.map(card => card.validityMonths).filter((value): value is number => typeof value === 'number');
+    return Array.from(new Set<number>(durations)).sort((a, b) => a - b);
+  }, [giftCards]);
+
+  const lifecycleByCard = useMemo(() => {
+    const result: Record<string, GiftCardLifecycle> = {};
+    giftCards.forEach(card => { result[card.id] = getLifecycleStatus(card, today); });
+    return result;
+  }, [giftCards, today]);
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<GiftCardTab, number> = { active: 0, archived: 0 };
+    giftCards.forEach(card => {
+      if (lifecycleByCard[card.id] === 'active') counts.active += 1;
+      else counts.archived += 1;
+    });
+    return counts;
+  }, [giftCards, lifecycleByCard]);
+
+  const filteredGiftCards = useMemo(() => {
+    const query = normalizeSearchValue(searchQuery);
+    return giftCards.filter(card => {
+      const isActive = lifecycleByCard[card.id] === 'active';
+      if (activeTab === 'active' ? !isActive : isActive) return false;
+      if (query && !normalizeSearchValue(card.buyer || '').includes(query)) return false;
+      if (durationFilter === 'missing' && card.validityMonths !== undefined) return false;
+      if (typeof durationFilter === 'number' && card.validityMonths !== durationFilter) return false;
+      return true;
+    });
+  }, [activeTab, durationFilter, giftCards, lifecycleByCard, searchQuery]);
 
   const handleEditClick = (card: GiftCard) => {
+    const activatedAt = card.activatedAt?.slice(0, 10) || card.createdAt?.slice(0, 10) || todayKey();
+    const validityMonths = card.validityMonths ?? 6;
+    const lifecycleStatus = getLifecycleStatus(card, today);
     setEditingCard(card);
     setForm({
-      buyer: card.buyer,
-      recipient: card.recipient,
-      numClasses: card.numClasses,
-      type: card.type,
-      expiryDate: card.expiryDate ? card.expiryDate.split('T')[0] : '',
-      issuedDate: card.issuedDate ? card.issuedDate.split('T')[0] : '',
-      extraCommentary: card.extraCommentary || ''
+      code: card.code || '', buyer: card.buyer || '', buyerPhone: card.buyerPhone || '', buyerEmail: card.buyerEmail || '',
+      recipient: card.recipient || '', recipientEmail: card.recipientEmail || '', type: card.type, numClasses: card.numClasses,
+      dedication: card.dedication || '', deliveryFormat: card.deliveryFormat || 'digital', validityMonths,
+      activatedAt, expiryDate: getEffectiveExpiryDate(card) || addMonths(activatedAt, validityMonths), price: card.price || 0,
+      paymentStatus: card.paymentStatus || 'paid', status: lifecycleStatus === 'consumed' ? 'consumed' : card.status || 'active', sessionsUsed: card.sessionsUsed || 0,
+      issuedDate: card.issuedDate?.slice(0, 10) || '', internalNotes: card.extraCommentary || ''
     });
     setShowModal(true);
   };
 
-  const handleCreateClick = () => {
-    setEditingCard(null);
-    setForm(initialFormState);
-    setShowModal(true);
+  const handleCreateClick = () => { setEditingCard(null); setForm(createInitialForm()); setShowModal(true); };
+
+  const setField = <K extends keyof GiftCardForm>(key: K, value: GiftCardForm[K]) => setForm(current => {
+    if (editingCard && (key === 'status' || key === 'sessionsUsed' || key === 'paymentStatus')) return current;
+    return { ...current, [key]: value };
+  });
+
+  const handleValidityChange = (value: NonNullable<GiftCard['validityMonths']>) => {
+    setForm(current => ({ ...current, validityMonths: value, expiryDate: current.activatedAt ? addMonths(current.activatedAt, value) : '' }));
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (editingCard?.id) {
-      setCardToDelete(editingCard.id);
-    }
+  const handlePaymentChange = (value: GiftCardForm['paymentStatus']) => {
+    if (editingCard) return;
+    setForm(current => ({ ...current, paymentStatus: value, status: value === 'paid' && current.status === 'pending' ? 'active' : value === 'refunded' ? 'cancelled' : current.status }));
   };
 
-  // BUG 2 FIX: Protected submit with isSubmitting guard
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (isSubmitting) return;
+    if (!form.buyer.trim() || !form.buyerPhone.trim() || !form.buyerEmail.trim() || !form.recipient.trim()) {
+      showError('Completa comprador, teléfono, email y destinatario.');
+      return;
+    }
+    if (![1, 2, 4].includes(form.numClasses) || !form.validityMonths) {
+      showError('Selecciona un número de sesiones válido y una vigencia para el bono.');
+      return;
+    }
+    setIsSubmitting(true);
+    const activationDate = editingCard ? (form.activatedAt || editingCard.activatedAt?.slice(0, 10) || todayKey()) : todayKey();
+    const expiryDate = addMonths(activationDate, form.validityMonths);
+    const isConsumedCard = Boolean(editingCard && lifecycleByCard[editingCard.id] === 'consumed');
+    const cardData: Omit<GiftCard, 'id' | 'createdAt'> = {
+      code: form.code.trim() || undefined,
+      buyer: form.buyer.trim(), buyerPhone: form.buyerPhone.trim(), buyerEmail: form.buyerEmail.trim(),
+      recipient: form.recipient.trim(), recipientEmail: form.recipientEmail.trim() || undefined,
+      type: form.type, numClasses: form.numClasses, dedication: form.dedication.trim() || undefined,
+      deliveryFormat: form.deliveryFormat, validityMonths: form.validityMonths, activatedAt: activationDate,
+      expiryDate, price: form.price || undefined, paymentStatus: form.paymentStatus,
+      status: isConsumedCard ? 'consumed' : form.status, consumedAt: editingCard?.consumedAt,
+      sessionsUsed: form.sessionsUsed, issuedDate: (editingCard ? form.issuedDate : activationDate) ? `${editingCard ? form.issuedDate : activationDate}T10:00:00` : undefined,
+      extraCommentary: form.internalNotes.trim() || undefined
+    };
+    setShowModal(false);
+    setIsSubmitting(false);
+    if (editingCard) await onUpdateGiftCard(editingCard.id, cardData);
+    else await onAddGiftCard(cardData);
+  };
+
+  const getPreviewCard = (): GiftCard => ({
+    ...form, id: editingCard?.id || 'preview', code: form.code || 'CR-PENDIENTE', createdAt: editingCard?.createdAt || new Date().toISOString(),
+    buyer: form.buyer || 'Casa Rosier', recipient: form.recipient || 'Destinatario'
+  });
+
+  const downloadPdf = async () => {
+    const card = getPreviewCard();
+    const code = card.code || card.id;
+    const qr = await QRCode.toDataURL(code, { width: 260, margin: 1, color: { dark: '#FF5300', light: '#FFFFFF' } });
+    const pdf = new jsPDF({ unit: 'mm', format: 'a5' });
+    pdf.setFillColor(247, 244, 240); pdf.rect(0, 0, 148, 210, 'F');
+    pdf.setTextColor(255, 83, 0); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(24); pdf.text('BARRO & CO.', 16, 25);
+    pdf.setFontSize(10); pdf.setTextColor(92, 102, 119); pdf.text('BONO DE CLASE TEMPORAL', 16, 33);
+    pdf.setTextColor(23, 35, 56); pdf.setFontSize(18); pdf.text(`Experiencia de ${typeLabel(card.type)}`, 16, 52);
+    pdf.setFontSize(12); pdf.text(`${card.numClasses} ${card.numClasses === 1 ? 'sesión' : 'sesiones'} de cerámica`, 16, 62);
+    pdf.setFontSize(11); pdf.setTextColor(92, 102, 119); pdf.text(`Para: ${card.recipient}`, 16, 76); pdf.text(`Válido hasta: ${formatDateOnly(card.expiryDate)}`, 16, 84);
+    if (card.dedication) { pdf.setFont('helvetica', 'italic'); pdf.text(`“${card.dedication.slice(0, 70)}”`, 16, 98, { maxWidth: 95 }); }
+    pdf.addImage(qr, 'PNG', 101, 112, 31, 31); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(13); pdf.setTextColor(255, 83, 0); pdf.text(code, 16, 128);
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(92, 102, 119); pdf.text('Reserva posteriormente según disponibilidad.', 16, 164); pdf.text('Presenta este código al validar cada sesión.', 16, 171);
+    pdf.save(`${code}.pdf`);
+  };
+
+  const sendByEmail = () => {
+    const recipient = form.recipientEmail || form.buyerEmail;
+    if (!recipient) { showError('Añade un email del comprador o destinatario.'); return; }
+    const card = getPreviewCard();
+    const subject = encodeURIComponent(`Tu bono de cerámica ${card.code}`);
+    const body = encodeURIComponent(`Hola ${card.recipient},\n\nTu bono de ${typeLabel(card.type)} incluye ${card.numClasses} sesiones.\nCódigo: ${card.code}\nCaducidad: ${formatDateOnly(card.expiryDate)}\n\nReserva según disponibilidad en Casa Rosier.`);
+    window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
+  };
+
+  const requestDelete = () => { if (editingCard) setCardToDelete(editingCard.id); };
+  const requestConsume = () => {
+    if (editingCard && lifecycleByCard[editingCard.id] === 'active') setCardToConsume(editingCard.id);
+  };
+  const confirmConsume = async () => {
+    if (!cardToConsume) return;
     setIsSubmitting(true);
     try {
-      if (!form.expiryDate) {
-        showError('La fecha de expiración es obligatoria.');
-        setIsSubmitting(false);
-        return;
-      }
-      if (!Number.isFinite(form.numClasses) || form.numClasses <= 0) {
-        showError('El número de clases debe ser mayor que 0.');
-        setIsSubmitting(false);
-        return;
-      }
-      const cardData = {
-        ...form,
-        expiryDate: form.expiryDate || undefined,
-        issuedDate: form.issuedDate ? `${form.issuedDate}T10:00:00` : undefined
-      };
-      // Close modal immediately — Supabase operations run in background
+      await onConsumeGiftCard(cardToConsume, todayKey());
+      setCardToConsume(null);
       setShowModal(false);
-      setIsSubmitting(false);
-      if (editingCard?.id) {
-        onUpdateGiftCard(editingCard.id, cardData);
-      } else {
-        onAddGiftCard(cardData);
-      }
-    } catch {
+      setEditingCard(null);
+    } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const formatDateOnly = (isoString: string) => {
-    const d = new Date(isoString);
-    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  const isExpiredDate = (dateString?: string) => {
-    if (!dateString) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiry = new Date(dateString);
-    expiry.setHours(0, 0, 0, 0);
-    return expiry < today;
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-hidden bg-neutral-base">
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 md:px-8 lg:px-10 pt-4 md:pt-6 pb-20">
-        <header className="mb-5 animate-fade-in">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="eyebrow mb-1">Programa del estudio</p>
-              <h1 className="text-[28px] md:text-[34px] font-bold text-neutral-textMain leading-tight">Bonos <span className="text-brand italic">de clases</span></h1>
-              <p className="text-[13px] text-neutral-textHelper mt-1">Regalos, clases disponibles y fechas de vencimiento.</p>
-            </div>
-            <button
-              onClick={handleCreateClick}
-              className="min-h-[40px] px-4 py-2 bg-brand text-white rounded-[10px] text-[13px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-brand-hover active:scale-[0.98] transition-all shrink-0"
-            >
-              <span className="text-lg leading-none">+</span>
-              <span className="hidden sm:inline">Nuevo bono</span>
-              <span className="sm:hidden">Nuevo</span>
-            </button>
-          </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-neutral-base">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-20 pt-4 custom-scrollbar md:px-8 md:pt-6 lg:px-10">
+        <header className="relative mb-4 flex flex-col gap-3 overflow-hidden rounded-[20px] bg-brand-soft px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+          <DiagonalPattern />
+          <div className="relative z-10"><h1 className="ui-page-title text-neutral-textMain">Tarjetas de Regalo</h1><p className="mt-0.5 text-[13px] font-semibold text-brand">Gift Card Casa Rosier</p><p className="ui-meta mt-1">Bonos independientes de las membresías, con saldo y vigencia propios.</p></div>
+          <button type="button" onClick={handleCreateClick} className="relative z-10 inline-flex min-h-[40px] shrink-0 items-center justify-center gap-2 self-start rounded-[10px] bg-brand px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-brand-hover md:self-center"><span className="text-lg leading-none">+</span><span className="hidden sm:inline">Nueva tarjeta</span><span className="sm:hidden">Nueva</span></button>
         </header>
-
-        <section className="bg-white border border-neutral-border rounded-2xl overflow-hidden animate-fade-in">
-          <div className="hidden md:grid grid-cols-[minmax(220px,1.7fr)_minmax(100px,.8fr)_minmax(80px,.6fr)_minmax(145px,.9fr)_64px] gap-4 px-4 py-3 bg-neutral-sec border-b border-neutral-border text-[10px] font-semibold text-neutral-textHelper uppercase tracking-[0.12em]">
-            <span>Personas</span>
-            <span>Tipo</span>
-            <span>Clases</span>
-            <span>Vencimiento</span>
-            <span></span>
-          </div>
-          {giftCards.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-[14px] font-semibold text-neutral-textMain">No hay bonos registrados</p>
-              <p className="text-[13px] text-neutral-textHelper mt-1">Crea el primero para empezar a gestionar las clases.</p>
-            </div>
-          ) : (
-            giftCards.map((card) => (
-              <GiftCardItem
-                key={card.id}
-                card={card}
-                onEdit={handleEditClick}
-                formatDateOnly={formatDateOnly}
-                isExpiredDate={isExpiredDate}
-              />
-            ))
-          )}
-        </section>
+         <section className="mb-4 space-y-3" aria-label="Filtros de tarjetas de regalo">
+           <div className="flex flex-col gap-2.5 md:flex-row md:items-center">
+             <label className="relative min-w-0 flex-1">
+               <span className="sr-only">Buscar por comprador</span>
+               <svg className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0" /></svg>
+               <input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Buscar por nombre del comprador" aria-label="Buscar tarjeta por nombre del comprador" className="h-11 w-full rounded-[10px] border border-[#DDBFA4] bg-white pl-10 pr-4 text-[13px] text-[#3F2E27] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15" />
+             </label>
+             <label className="relative w-full md:w-[210px]">
+               <span className="sr-only">Filtrar por duración</span>
+               <select value={String(durationFilter)} onChange={event => setDurationFilter(event.target.value === 'all' ? 'all' : event.target.value === 'missing' ? 'missing' : Number(event.target.value))} aria-label="Filtrar por duración y caducidad" className="h-11 w-full appearance-none rounded-[10px] border border-[#DDBFA4] bg-white px-3.5 pr-9 text-[13px] text-[#3F2E27] outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15">
+                 <option value="all">Todas las duraciones</option>
+                 {durationOptions.map(months => <option key={months} value={months}>{months} {months === 1 ? 'mes' : 'meses'}</option>)}
+                 {giftCards.some(card => card.validityMonths === undefined) && <option value="missing">Sin duración registrada</option>}
+               </select>
+               <svg className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m7 10 5 5 5-5" /></svg>
+             </label>
+           </div>
+           <div className="flex gap-2 overflow-x-auto border-b border-[#DDBFA4] pb-0 no-scrollbar" role="tablist" aria-label="Estado de tarjetas">
+              {(['active', 'archived'] as GiftCardTab[]).map(tab => <button key={tab} type="button" onClick={() => setActiveTab(tab)} role="tab" aria-selected={activeTab === tab} className={`min-h-9 shrink-0 border-b-2 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${activeTab === tab ? 'border-brand text-brand' : 'border-transparent text-neutral-textHelper hover:text-brand'}`}>{tab === 'active' ? 'Activos' : 'Archivados'} <span className="ml-1 opacity-70">{tabCounts[tab]}</span></button>)}
+           </div>
+         </section>
+         <section className="overflow-hidden rounded-[16px] border border-[#E8D9CC] bg-white"><div className="hidden grid-cols-[minmax(220px,1.6fr)_minmax(100px,.7fr)_minmax(120px,.8fr)_minmax(160px,.9fr)_auto] gap-4 border-b border-[#EDE2D8] bg-[#F8EEE5] px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.1em] text-[#8B6B5E] md:grid"><span>Comprador / destinatario</span><span>Experiencia</span><span>Saldo</span><span>Estado</span><span></span></div>{filteredGiftCards.length === 0 ? <div className="py-14 text-center"><p className="text-[14px] font-semibold text-[#3F2E27]">No hay tarjetas que coincidan</p><p className="ui-secondary mt-1">Prueba a cambiar la búsqueda, duración o pestaña activa.</p></div> : filteredGiftCards.map(card => <GiftCardItem key={card.id} card={card} lifecycleStatus={lifecycleByCard[card.id]} onEdit={handleEditClick} />)}</section>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-neutral-textMain/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-[94%] max-w-[560px] rounded-2xl soft-shadow relative animate-fade-in flex flex-col overflow-hidden max-h-[90dvh] border border-neutral-border">
-            {/* Header del Modal */}
-            <div className="px-5 md:px-8 pt-6 pb-4 shrink-0 flex justify-between items-start gap-3">
-              <div>
-                <h3 className="text-[22px] font-bold text-neutral-textMain">{editingCard ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h3>
-                <p className="text-[13px] text-neutral-textHelper mt-1">Completa los datos para el bono regalo.</p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="w-10 h-10 flex items-center justify-center text-neutral-textMain hover:bg-neutral-sec rounded-full transition-all shrink-0">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
+       {showModal && <div className="fixed inset-0 z-[100] flex items-end bg-[#2F1E17]/45 p-0 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5"><form onSubmit={handleSubmit} className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#FFFCF8] text-[#2F211B] shadow-[0_24px_70px_rgba(59,35,24,0.2)] sm:h-auto sm:max-h-[94dvh] sm:max-w-3xl sm:rounded-[24px] sm:border sm:border-[#E8D9CC]"><header className="flex shrink-0 items-start justify-between border-b border-[#E8D9CC] px-5 py-4 sm:px-8"><div><p className="ui-label uppercase tracking-[0.16em] text-[#B07D4E]">Gestión de gift card</p><h2 className="ui-section-title mt-1 font-['Playfair_Display'] text-[#7B3F22]">{editingCard ? 'Editar bono temporal' : 'Nuevo bono temporal'}</h2><p className="ui-meta mt-1">Sin reserva automática. El saldo se descuenta al validar asistencia.</p></div><button type="button" onClick={() => setShowModal(false)} className="flex h-10 w-10 items-center justify-center rounded-full text-[#8B6B5E] hover:bg-[#F3E7DC]" aria-label="Cerrar"><svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M6 18 18 6M6 6l12 12" /></svg></button></header><div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 custom-scrollbar sm:px-8">
+          <fieldset className="rounded-[14px] border border-[#E8D9CC] bg-white p-4"><legend className="px-1 text-[11px] font-bold uppercase tracking-[0.15em] text-[#7B3F22]">01 · Comprador</legend><div className="grid gap-3 md:grid-cols-2"><Field label="Nombre del comprador" required value={form.buyer} onChange={value => setField('buyer', value)} placeholder="Nombre completo" /><Field label="Teléfono" required type="tel" value={form.buyerPhone} onChange={value => setField('buyerPhone', value)} placeholder="+34 600 000 000" /><Field label="Email" required type="email" value={form.buyerEmail} onChange={value => setField('buyerEmail', value)} placeholder="comprador@email.com" /></div></fieldset>
+          <fieldset className="rounded-[14px] border border-[#E8D9CC] bg-white p-4"><legend className="px-1 text-[11px] font-bold uppercase tracking-[0.15em] text-[#7B3F22]">02 · Destinatario</legend><div className="grid gap-3 md:grid-cols-2"><Field label="Nombre del destinatario" required value={form.recipient} onChange={value => setField('recipient', value)} placeholder="Nombre completo" /><Field label="Email del destinatario" type="email" value={form.recipientEmail} onChange={value => setField('recipientEmail', value)} placeholder="Opcional" /><label className="md:col-span-2"><span className="mb-1.5 block text-[11px] font-semibold text-[#6E5145]">Dedicatoria personalizada</span><textarea value={form.dedication} onChange={event => setField('dedication', event.target.value)} maxLength={180} rows={2} className="w-full resize-none rounded-[9px] border border-[#DDBFA4] bg-white px-3 py-2 text-[13px] outline-none focus:border-[#C68952]" placeholder="Un mensaje breve para la experiencia..." /></label></div></fieldset>
+           <fieldset className="rounded-[14px] border border-[#E8D9CC] bg-white p-4"><legend className="px-1 text-[11px] font-bold uppercase tracking-[0.15em] text-[#7B3F22]">03 · Bono temporal</legend><div className="grid gap-3 md:grid-cols-2"><SelectField label="Tipo de clase" value={form.type} onChange={value => setField('type', value as GiftCard['type'])} options={[['modelado', 'Modelado'], ['torno', 'Torno']]} /><SelectField label="Número de sesiones" value={String(form.numClasses)} onChange={value => setField('numClasses', Number(value))} options={[['1', '1 sesión'], ['2', '2 sesiones'], ['4', '4 sesiones']]} /><SelectField label="Formato de entrega" value={form.deliveryFormat} onChange={value => setField('deliveryFormat', value as NonNullable<GiftCard['deliveryFormat']>)} options={[['digital', 'Digital'], ['physical', 'Físico']]} /><Field label="Importe pagado (€)" type="number" value={String(form.price || '')} onChange={value => setField('price', Number(value) || 0)} placeholder="0" /><SelectField label="Vigencia" value={String(form.validityMonths)} onChange={value => handleValidityChange(Number(value) as NonNullable<GiftCard['validityMonths']>)} options={[['3', '3 meses'], ['6', '6 meses'], ['8', '8 meses']]} /><div className="flex items-end rounded-[10px] bg-[#F8EEE5] px-3 py-2"><div><span className="block text-[10px] uppercase tracking-[0.12em] text-[#9B8175]">Regla</span><strong className="text-[12px] text-[#7B3F22]">{editingCard ? `Caduca el ${formatDateOnly(form.expiryDate)}` : 'Caducidad calculada desde la fecha de activación'}</strong></div></div></div></fieldset>
+          <fieldset className="rounded-[14px] border border-[#E8D9CC] bg-white p-4"><legend className="px-1 text-[11px] font-bold uppercase tracking-[0.15em] text-[#7B3F22]">04 · Control interno</legend><div className="grid gap-3 md:grid-cols-2"><Field label="Código de validación" value={form.code} onChange={value => setField('code', value.toUpperCase())} placeholder="Se genera automáticamente" /><SelectField label="Estado del pago" value={form.paymentStatus} onChange={value => handlePaymentChange(value as GiftCardForm['paymentStatus'])} options={[['pending', 'Pendiente'], ['paid', 'Pagado'], ['refunded', 'Reembolsado']]} /><SelectField label="Estado del bono" value={form.status} onChange={value => setField('status', value as GiftCardForm['status'])} options={Object.entries(statusMeta).map(([value, meta]) => [value, meta.label])} /><Field label="Sesiones utilizadas" type="number" value={String(form.sessionsUsed)} onChange={value => setField('sessionsUsed', Math.min(form.numClasses, Math.max(0, Number(value) || 0)))} placeholder="0" /><div className="rounded-[10px] border border-[#DDBFA4] bg-[#FFFCF8] px-3 py-2"><span className="block text-[10px] uppercase tracking-[0.12em] text-[#9B8175]">Sesiones restantes</span><strong className="text-[20px] text-[#7B3F22]">{remaining}</strong><span className="ml-1 text-[11px] text-[#8B6B5E]">de {form.numClasses}</span></div><div className="rounded-[10px] border border-[#E8D9CC] bg-[#FFFCF8] px-3 py-2"><span className="block text-[10px] uppercase tracking-[0.12em] text-[#9B8175]">Fecha de creación</span><strong className="text-[12px] text-[#7B3F22]">{editingCard ? formatDateOnly(editingCard.createdAt) : 'Al guardar'}</strong></div><label><span className="mb-1.5 block text-[11px] font-semibold text-[#6E5145]">Observaciones internas</span><textarea value={form.internalNotes} onChange={event => setField('internalNotes', event.target.value)} rows={2} className="w-full resize-none rounded-[9px] border border-[#DDBFA4] bg-white px-3 py-2 text-[13px] outline-none focus:border-[#C68952]" placeholder="Notas administrativas..." /></label></div>{editingCard?.movements && editingCard.movements.length > 0 && <div className="mt-4 rounded-[10px] border border-[#E8D9CC] bg-[#FFFCF8] p-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7B3F22]">Historial de uso</p><div className="mt-2 max-h-28 space-y-2 overflow-y-auto">{editingCard.movements.slice(0, 8).map(movement => <div key={movement.id} className="flex items-center justify-between gap-3 text-[11px]"><span className="text-[#6E5145]">{movementLabel(movement.type)}</span><span className={movement.sessionsDelta > 0 ? 'font-semibold text-[#9C4235]' : 'font-semibold text-[#47704D]'}>{movement.sessionsDelta > 0 ? `-${movement.sessionsDelta}` : `+${Math.abs(movement.sessionsDelta)}`} sesión · {formatDateOnly(movement.createdAt)}</span></div>)}</div></div>}<div className="mt-4 flex flex-col gap-3 rounded-[12px] bg-[#F8EEE5] p-3 sm:flex-row sm:items-center"><GiftCardQr value={form.code || 'CR-PENDIENTE'} /><div className="min-w-0"><p className="text-[11px] font-semibold text-[#7B3F22]">Código QR de validación</p><p className="mt-1 break-all text-[12px] text-[#8B6B5E]">{form.code || 'Se generará al guardar el bono'}</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={downloadPdf} className="rounded-[8px] bg-[#7B3F22] px-3 py-2 text-[11px] font-semibold text-white hover:bg-[#5F301C]">Descargar PDF</button><button type="button" onClick={sendByEmail} className="rounded-[8px] border border-[#DDBFA4] bg-white px-3 py-2 text-[11px] font-semibold text-[#7B3F22] hover:bg-[#FFF9F4]">Preparar email</button></div></div></div></fieldset>
+         </div><footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#E8D9CC] bg-white px-5 py-4 sm:px-8">{editingCard && lifecycleByCard[editingCard.id] === 'active' && <button type="button" onClick={requestConsume} className="text-[12px] font-semibold text-[#2B5C86] hover:text-[#1D4768]">Bono consumido</button>}{editingCard ? <button type="button" onClick={requestDelete} className="text-[11px] font-semibold text-[#9C4235] hover:text-[#7B3F22]">Anular / eliminar</button> : <span className="text-[11px] text-[#9B8175]">El código se genera al guardar</span>}<div className="ml-auto flex gap-2"><button type="button" onClick={() => setShowModal(false)} className="rounded-[9px] px-4 py-2.5 text-[12px] font-semibold text-[#8B6B5E] hover:bg-[#F8EEE5]">Cancelar</button><button type="submit" disabled={isSubmitting} className="rounded-[9px] bg-[#C68952] px-5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#B87543] disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? 'Guardando…' : editingCard ? 'Guardar cambios' : 'Crear bono'}</button></div></footer></form></div>}
 
-            {/* Contenido Scrollable */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-5 md:px-8 py-5 space-y-5">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Nombre del comprador</label>
-                  <input
-                    required
-                    type="text"
-                    value={form.buyer}
-                    onChange={(e) => setForm({ ...form, buyer: e.target.value })}
-                    className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain transition-all placeholder:text-neutral-textHelper"
-                    placeholder="Ej: Michael Denzler"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Destinatario</label>
-                  <input
-                    required
-                    type="text"
-                    value={form.recipient}
-                    onChange={(e) => setForm({ ...form, recipient: e.target.value })}
-                    className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain transition-all placeholder:text-neutral-textHelper"
-                    placeholder="Ej: Kateryna"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Nº clases</label>
-                    <input
-                      type="number"
-                      value={form.numClasses}
-                      min={1}
-                      step={1}
-                      onChange={(e) => {
-                        const parsed = Number.parseInt(e.target.value, 10);
-                        setForm({ ...form, numClasses: Number.isFinite(parsed) ? parsed : 0 });
-                      }}
-                      className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Tipo</label>
-                    <select
-                      value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value as GiftCard['type'] })}
-                      className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain appearance-none"
-                    >
-                      <option value="modelado">Modelado</option>
-                      <option value="torno">Torno</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Fecha de expiración</label>
-                  <input
-                    required
-                    type="date"
-                    value={form.expiryDate}
-                    onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
-                    className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Fecha de emisión</label>
-                  <input
-                    type="date"
-                    value={form.issuedDate}
-                    onChange={(e) => setForm({ ...form, issuedDate: e.target.value })}
-                    className="w-full min-h-[44px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-semibold text-neutral-textSec mb-1.5">Observaciones adicionales</label>
-                  <textarea
-                    value={form.extraCommentary}
-                    onChange={(e) => setForm({ ...form, extraCommentary: e.target.value })}
-                    className="w-full min-h-[120px] px-4 py-2.5 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none text-[15px] text-neutral-textMain transition-all placeholder:text-neutral-textHelper resize-none"
-                    placeholder="Detalles sobre el regalo o preferencias..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Footer con Botones Fijos */}
-            <div className="px-5 md:px-8 py-5 border-t border-neutral-border bg-white sticky bottom-0">
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full min-h-[44px] px-4 py-2.5 bg-brand text-white rounded-[10px] font-semibold text-[15px] hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Guardando...' : (editingCard ? 'Guardar cambios' : 'Crear tarjeta')}
-              </button>
-              {editingCard && (
-                <>
-                  <div className="h-[1px] bg-neutral-border my-4"></div>
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={isSubmitting}
-                    className="w-full min-h-[44px] flex items-center justify-center gap-2 text-[13px] font-semibold text-[#9E3B2B] hover:text-[#8A3325] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Eliminar Tarjeta
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ConfirmModal
-        isOpen={!!cardToDelete}
-        title="¿Eliminar tarjeta de regalo?"
-        message="¿Estás seguro de que deseas eliminar esta tarjeta regalo? Esta acción no se puede deshacer."
-        isDestructive={true}
-        loading={isSubmitting}
-        onConfirm={() => {
-          if (cardToDelete && !isSubmitting) {
-            const id = cardToDelete;
-            setCardToDelete(null);
-            setShowModal(false);
-            onDeleteGiftCard(id);
-          }
-        }}
-        onCancel={() => !isSubmitting && setCardToDelete(null)}
-      />
+        <ConfirmModal isOpen={!!cardToDelete} title="¿Anular este bono?" message="El bono quedará anulado y no podrá utilizarse. Sus movimientos históricos se conservarán." confirmText="Anular bono" isDestructive loading={isSubmitting} onConfirm={async () => { if (!cardToDelete) return; setIsSubmitting(true); try { await onCancelGiftCard(cardToDelete); setCardToDelete(null); setShowModal(false); } finally { setIsSubmitting(false); } }} onCancel={() => setCardToDelete(null)} />
+       <ConfirmModal isOpen={!!cardToConsume} title="¿Marcar bono como consumido?" message="Se archivará como consumido y ya no podrá utilizarse. Toda la información y el historial se conservarán." confirmText="Bono consumido" isDestructive={false} loading={isSubmitting} loadingText="Guardando..." onConfirm={confirmConsume} onCancel={() => setCardToConsume(null)} />
     </div>
   );
 };
+
+const Field: React.FC<{ label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; placeholder?: string }> = ({ label, value, onChange, type = 'text', required, placeholder }) => <label><span className="ui-label mb-1.5 block text-[#6E5145]">{label}{required && <span className="text-[#9C4235]"> *</span>}</span><input required={required} type={type} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className="ui-control w-full rounded-[9px] border border-[#DDBFA4] bg-white px-3 py-2 text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20" /></label>;
+
+const SelectField: React.FC<{ label: string; value: string; onChange: (value: string) => void; options: string[][] }> = ({ label, value, onChange, options }) => (
+  <label>
+    <span className="ui-label mb-1.5 block text-[#6E5145]">{label}</span>
+    <span className="relative block">
+      <select value={value} onChange={event => onChange(event.target.value)} className="ui-control w-full appearance-none rounded-[9px] border border-[#DDBFA4] bg-white px-3 py-2 pr-9 text-[#2F211B] outline-none transition focus:border-[#C68952] focus:ring-2 focus:ring-[#C68952]/20">
+        {options.map(([optionValue, labelValue]) => <option key={optionValue} value={optionValue}>{labelValue}</option>)}
+      </select>
+      <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6B5E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m7 10 5 5 5-5" /></svg>
+    </span>
+  </label>
+);
 
 export default GiftCardView;

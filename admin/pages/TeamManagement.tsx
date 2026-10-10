@@ -334,10 +334,10 @@ export const TeamManagement: React.FC = () => {
 
             {/* ── HEADER ── */}
             <div>
-                <h2 className="text-[34px] sm:text-[42px] md:text-[48px] font-bold text-neutral-textMain leading-tight">
+                <h2 className="ui-page-title text-neutral-textMain">
                     Gestión del <span className="text-brand">Equipo</span>
                 </h2>
-                <p className="text-[15px] text-neutral-textSec mt-3 max-w-xl">
+                <p className="ui-secondary mt-2 max-w-xl">
                     Edita tus datos de administrador, cambia tu contraseña y gestiona las credenciales de talleristas.
                 </p>
             </div>
@@ -346,7 +346,7 @@ export const TeamManagement: React.FC = () => {
             <section className="bg-white rounded-2xl border border-neutral-border p-4 md:p-6 space-y-6">
                 <div>
                     <p className="eyebrow mb-2">MI PERFIL</p>
-                    <h3 className="text-[24px] md:text-[26px] font-bold text-neutral-textMain">Datos del Administrador</h3>
+                    <h3 className="ui-section-title text-neutral-textMain">Datos del Administrador</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -381,7 +381,7 @@ export const TeamManagement: React.FC = () => {
             <section className="bg-white rounded-2xl border border-neutral-border p-4 md:p-6 space-y-6">
                 <div>
                     <p className="eyebrow mb-2">SEGURIDAD</p>
-                    <h3 className="text-[24px] md:text-[26px] font-bold text-neutral-textMain">Cambiar Contraseña</h3>
+                     <h3 className="ui-section-title text-neutral-textMain">Cambiar Contraseña</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="Nueva contraseña" type="password" value={pwForm.newPassword}
@@ -401,7 +401,7 @@ export const TeamManagement: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                         <p className="eyebrow mb-2">CREDENCIALES</p>
-                        <h3 className="text-[24px] md:text-[26px] font-bold text-neutral-textMain">Equipo de Trabajo</h3>
+                         <h3 className="ui-section-title text-neutral-textMain">Equipo de Trabajo</h3>
                         <p className="text-[14px] text-neutral-textSec mt-1">Talleristas — edita sus datos o restablece contraseñas.</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
@@ -445,11 +445,11 @@ export const TeamManagement: React.FC = () => {
                                     <p className="text-[13px] text-neutral-textSec truncate mt-0.5">{member.email}</p>
                                     {member.phone && <p className="text-[13px] text-neutral-textSec mt-0.5">📞 {member.phone}</p>}
                                     <div className="flex flex-wrap gap-2 mt-2">
-                                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${member.role === 'tallerista' ? 'bg-brand-soft text-brand' : 'bg-white text-neutral-textMain'}`}>
+                                         <span className={`px-2.5 py-1 rounded-lg text-[12px] font-semibold ${member.role === 'tallerista' ? 'bg-brand-soft text-brand' : 'bg-white text-neutral-textMain'}`}>
                                             {roleLabel(member.role)}
                                         </span>
                                         {member.sede_name && (
-                                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-neutral-border text-neutral-textSec">
+                                             <span className="px-2.5 py-1 rounded-lg text-[12px] font-semibold bg-white border border-neutral-border text-neutral-textSec">
                                                 {member.sede_name}
                                             </span>
                                         )}
@@ -533,7 +533,7 @@ export const TeamManagement: React.FC = () => {
                         <div>
                             <p className="text-[15px] font-semibold text-neutral-textMain">{deleteMember?.full_name}</p>
                             <p className="text-[13px] text-neutral-textSec">{deleteMember?.email}</p>
-                            <span className={`inline-block mt-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${deleteMember?.role === 'tallerista' ? 'bg-white text-brand' : 'bg-white text-neutral-textMain'}`}>
+                            <span className={`inline-block mt-1 px-2.5 py-1 rounded-lg text-[12px] font-semibold ${deleteMember?.role === 'tallerista' ? 'bg-white text-brand' : 'bg-white text-neutral-textMain'}`}>
                                 {roleLabel(deleteMember?.role || '')}
                             </span>
                         </div>

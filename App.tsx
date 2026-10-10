@@ -6,6 +6,7 @@ import ProtectedRoute from './components/shared/ProtectedRoute';
 import TalleristaLayout from './components/layout/TalleristaLayout';
 import Login from './components/Login';
 import ResetPassword from './components/ResetPassword';
+import { ThemeProvider } from './components/shared/ThemeProvider';
 
 // Tallerista Pages
 import DashboardPage from './pages/DashboardPage';
@@ -27,9 +28,9 @@ const RootRedirect: React.FC = () => {
   const { session, profile, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F3EDE6] flex items-center justify-center">
-        <div className="text-[#A8A9AE] text-sm uppercase tracking-widest animate-pulse">
+      return (
+      <div className="min-h-screen bg-neutral-base flex items-center justify-center">
+        <div className="text-neutral-textHelper text-sm uppercase tracking-widest animate-pulse">
           Cargando...
         </div>
       </div>
@@ -63,9 +64,10 @@ const TalleristaShell: React.FC = () => (
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
           {/* Public Route */}
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -83,8 +85,8 @@ const App: React.FC = () => {
             <Route path="/giftcards" element={<GiftCardsPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/team" element={<TeamPage />} />
+            <Route path="/settings" element={<ProtectedRoute allowedRoles={['tallerista']}><SettingsPage /></ProtectedRoute>} />
+            <Route path="/team" element={<ProtectedRoute allowedRoles={['tallerista']}><TeamPage /></ProtectedRoute>} />
           </Route>
 
           {/* Admin Routes - Self-contained module with original UI */}
@@ -96,9 +98,10 @@ const App: React.FC = () => {
 
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 };
 

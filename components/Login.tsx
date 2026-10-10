@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import ThemeToggle from './shared/ThemeToggle';
+import DiagonalPattern from './shared/DiagonalPattern';
 
 type LoginMode = 'login' | 'forgot-password';
 
@@ -71,13 +73,35 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-neutral-base p-4 md:p-8 font-sans">
-      <div className="w-full max-w-[440px] bg-white rounded-2xl p-6 md:p-10 border border-neutral-border soft-shadow animate-fade-in flex flex-col items-center relative">
-        <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center text-white font-display font-bold text-2xl mb-8">A</div>
+    <div className="relative min-h-screen w-full overflow-hidden bg-neutral-base p-4 font-sans md:p-8">
+      <DiagonalPattern className="opacity-40" />
+      <div className="absolute right-4 top-4 z-20 md:right-8 md:top-8"><ThemeToggle /></div>
+      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl items-center gap-6 lg:grid-cols-[1fr_440px] lg:gap-16">
+        <div className="hidden rounded-[30px] border border-brand/20 bg-brand-soft p-10 lg:block">
+          <div className="relative min-h-[480px] overflow-hidden rounded-[22px] bg-brand p-9 text-white">
+            <DiagonalPattern dark />
+            <div className="relative z-10 flex h-full min-h-[420px] flex-col justify-between">
+              <div>
+                <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl font-bold text-brand">B</div>
+                <p className="eyebrow text-white/60">Barro &amp; Co.</p>
+                <h2 className="mt-4 max-w-sm text-[42px] font-bold leading-[0.98] tracking-tight">Tu taller, con más intención.</h2>
+                <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-white/75">Organiza clases, alumnos y piezas desde un solo lugar, con la calma de un estudio bien ordenado.</p>
+              </div>
+              <div className="flex items-center gap-3 text-[12px] font-semibold text-white/70"><span className="h-2 w-2 rounded-full bg-white" /> Centro de operaciones</div>
+            </div>
+          </div>
+        </div>
+
+      <div className="mx-auto w-full max-w-[440px] rounded-[24px] border border-neutral-border bg-white p-6 soft-shadow animate-fade-in md:p-10">
+        <div className="flex flex-col items-center">
+        <div className="relative mb-7 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-brand text-2xl font-bold text-white shadow-sm">
+          <DiagonalPattern dark className="opacity-45" />
+          <span className="relative z-10">B</span>
+        </div>
 
         <div className="text-center mb-8 w-full">
           <p className="eyebrow mb-2">Sistema de gestión</p>
-          <h1 className="text-[30px] md:text-[36px] text-neutral-textMain leading-tight">
+           <h1 className="ui-page-title text-neutral-textMain">
             {mode === 'login' ? <>Bienvenido al <span className="text-brand italic">estudio</span></> : <>Recupera tu <span className="text-brand italic">acceso</span></>}
           </h1>
           <div className="h-[3px] w-10 bg-caramelo mx-auto mt-5 rounded-full" />
@@ -112,7 +136,9 @@ const Login: React.FC = () => {
           )}
         </form>
 
-        <p className="mt-10 text-[12px] text-neutral-textHelper text-center">Acceso exclusivo para usuarios autorizados</p>
+        <p className="mt-10 text-center text-[12px] text-neutral-textHelper">Acceso exclusivo para usuarios autorizados</p>
+        </div>
+      </div>
       </div>
     </div>
   );

@@ -29,6 +29,9 @@ export function showToast({ message, type = 'error', duration = 4000 }: ToastOpt
 
     const colors = COLORS[type];
     const toast = document.createElement('div');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    toast.tabIndex = 0;
     toast.style.cssText = `
         position: fixed;
         bottom: 24px;
@@ -54,15 +57,32 @@ export function showToast({ message, type = 'error', duration = 4000 }: ToastOpt
         cursor: pointer;
     `;
 
-    toast.innerHTML = `
-        <span style="width:24px;height:24px;border-radius:50%;background:${colors.border};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0">${colors.icon}</span>
-        <span style="flex:1;line-height:1.4">${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.textContent = colors.icon;
+    icon.setAttribute('aria-hidden', 'true');
+    icon.style.cssText = 'width:24px;height:24px;border-radius:50%;background:' + colors.border + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0';
 
-    // Click to dismiss
-    toast.onclick = () => {
+    const content = document.createElement('span');
+    content.textContent = message;
+    content.style.cssText = 'flex:1;line-height:1.4';
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Cerrar notificación');
+    close.textContent = '×';
+    close.style.cssText = 'border:0;background:transparent;color:inherit;font-size:20px;line-height:1;padding:0 0 2px 8px;cursor:pointer';
+    toast.append(icon, content, close);
+
+    const dismiss = () => {
         toast.style.animation = 'toastOut 0.2s ease-in forwards';
-        setTimeout(() => { toast.remove(); activeToast = null; }, 200);
+        setTimeout(() => { toast.remove(); if (activeToast === toast) activeToast = null; }, 200);
+    };
+    close.onclick = dismiss;
+    toast.onclick = event => {
+        if (event.target === toast) dismiss();
+    };
+    toast.onkeydown = event => {
+        if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') dismiss();
     };
 
     // Inject animation keyframes if not present

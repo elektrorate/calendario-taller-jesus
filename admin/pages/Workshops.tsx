@@ -75,7 +75,7 @@ export const Workshops: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-1">
         <div className="space-y-2">
           <p className="eyebrow">Red de Producción</p>
-          <h1 className="title-huge">Talleres</h1>
+           <h1 className="ui-page-title text-neutral-textMain">Talleres</h1>
           <div className="accent-line"></div>
         </div>
         <Button
@@ -134,7 +134,7 @@ export const Workshops: React.FC = () => {
       {/* Listado de Talleres */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1 gap-3">
-          <h2 className="eyebrow">
+           <h2 className="ui-label uppercase tracking-[0.12em]">
             RESULTADOS LOCALIZADOS ({filteredWorkshops.length})
           </h2>
           {(filterPais !== 'Todos' || filterCiudad !== 'Todas' || filterEstado !== 'TODOS' || search) && (

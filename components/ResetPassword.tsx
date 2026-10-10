@@ -72,7 +72,7 @@ const ResetPassword: React.FC = () => {
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center text-white font-display font-bold text-2xl mx-auto mb-6">A</div>
           <p className="eyebrow mb-2">Acceso seguro</p>
-          <h1 className="text-[30px] md:text-[34px] text-neutral-textMain">Nueva <span className="text-brand italic">contraseña</span></h1>
+           <h1 className="ui-page-title text-neutral-textMain">Nueva <span className="text-brand italic">contraseña</span></h1>
         </div>
 
         {isChecking ? (

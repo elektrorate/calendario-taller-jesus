@@ -180,10 +180,10 @@ const TeamView: React.FC = () => {
                 {/* Header */}
                 <header className="mb-6 animate-fade-in text-center md:text-left">
                     <p className="eyebrow mb-3">Gestión de equipo</p>
-                    <h1 className="text-[34px] md:text-[48px] font-bold text-neutral-textMain leading-tight">
+                    <h1 className="ui-page-title text-neutral-textMain">
                         Equipo de <span className="text-brand">Trabajo</span>
                     </h1>
-                    <p className="text-[14px] md:text-[15px] text-neutral-textSec mt-4 max-w-xl mx-auto md:mx-0">
+                    <p className="ui-secondary mt-2 max-w-xl mx-auto md:mx-0">
                         Gestiona los colaboradores de tu taller. Ellos tendrán acceso similar al tuyo, pero no podrán crear otros colaboradores.
                     </p>
                 </header>
@@ -229,9 +229,9 @@ const TeamView: React.FC = () => {
                                             {member.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="overflow-hidden">
-                                            <h4 className="font-bold text-neutral-textMain text-[17px] leading-tight truncate">
+                        <h4 className="ui-card-title text-neutral-textMain truncate">
                                                 {member.name}
-                                                {isMe && <span className="text-[11px] ml-2 text-brand font-semibold">( TÚ )</span>}
+                                                {isMe && <span className="text-[12px] ml-2 text-brand font-semibold">( TÚ )</span>}
                                             </h4>
                                             <p className="text-[13px] text-neutral-textSec truncate mt-0.5">{member.email}</p>
                                         </div>
@@ -240,7 +240,7 @@ const TeamView: React.FC = () => {
                                     <div className="space-y-3 flex-1">
                                         <div className="flex justify-between items-center gap-3">
                                             <span className="text-[12px] font-semibold text-neutral-textSec">Rol</span>
-                                            <span className={`px-3 py-1 rounded-lg text-[11px] font-semibold border ${member.role === 'tallerista' ? 'bg-brand-soft text-brand border-arena' : 'bg-neutral-sec text-neutral-textSec border-neutral-border'}`}>
+                                            <span className={`px-3 py-1 rounded-lg text-[12px] font-semibold border ${member.role === 'tallerista' ? 'bg-brand-soft text-brand border-arena' : 'bg-neutral-sec text-neutral-textSec border-neutral-border'}`}>
                                                 {member.role === 'tallerista' ? 'Tallerista' : 'Staff'}
                                             </span>
                                         </div>

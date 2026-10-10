@@ -105,8 +105,8 @@ export const Reports: React.FC = () => {
         <div className="space-y-6 md:space-y-8 animate-fade-in">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-bold text-neutral-textMain">Reportes</h1>
-                    <p className="text-[15px] text-neutral-textSec">Analiza y descarga los datos del sistema</p>
+                     <h1 className="ui-page-title text-neutral-textMain">Reportes</h1>
+                     <p className="ui-secondary">Analiza y descarga los datos del sistema</p>
                 </div>
                 <div className="flex gap-3">
                     {/* Se elimina el botón de exportación de Admins según solicitud visual */}
@@ -116,11 +116,11 @@ export const Reports: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <Card className="!p-4 md:!p-6">
-                    <h3 className="text-lg font-bold text-neutral-textMain mb-5">Talleres por País</h3>
+                     <h3 className="ui-section-title text-neutral-textMain mb-5">Talleres por País</h3>
                     <div className="space-y-4">
                         {Object.entries(countriesCount).map(([pais, count]) => (
                             <div key={pais} className="flex items-center gap-4">
-                                <span className="w-24 shrink-0 text-sm font-semibold text-neutral-textMain">{pais}</span>
+                                 <span className="w-24 min-w-0 shrink-0 truncate text-[13px] font-semibold text-neutral-textMain">{pais}</span>
                                 <div className="flex-1 h-2 bg-neutral-sec rounded-full overflow-hidden">
                                     <div className="h-full bg-brand rounded-full" style={{ width: `${((count as number) / (workshops.length || 1)) * 100}%` }}></div>
                                 </div>
@@ -131,7 +131,7 @@ export const Reports: React.FC = () => {
                 </Card>
 
                 <Card className="!p-4 md:!p-6">
-                    <h3 className="text-lg font-bold text-neutral-textMain mb-5">Alertas de Datos</h3>
+                     <h3 className="ui-section-title text-neutral-textMain mb-5">Alertas de Datos</h3>
                     <div className="space-y-4">
                         <div className="flex items-center justify-between gap-4 p-4 bg-[#FBEAD2] border border-[#EBD5AC] rounded-xl">
                             <div>
@@ -140,19 +140,19 @@ export const Reports: React.FC = () => {
                             </div>
                             <span className="text-2xl font-bold text-[#8A5517] shrink-0">{workshops.filter(w => !w.adminGeneralUserId).length}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-4 p-4 bg-[#E3EDF6] rounded-xl">
-                            <div>
-                                <p className="text-[14px] font-bold text-[#2B5C86]">Datos incompletos</p>
-                                <p className="text-[13px] text-[#2B5C86] opacity-80">Contactos + modelo temporal/bonos/audiencia</p>
-                            </div>
-                            <span className="text-2xl font-bold text-[#2B5C86] shrink-0">{missingWorkshopContacts + dataModelAlerts}</span>
+                         <div className="flex items-center justify-between gap-4 p-4 bg-neutral-sec border border-neutral-border rounded-xl">
+                             <div>
+                                 <p className="text-[14px] font-bold text-neutral-textMain">Datos incompletos</p>
+                                 <p className="text-[13px] text-neutral-textSec">Contactos + modelo temporal/bonos/audiencia</p>
+                             </div>
+                             <span className="ui-kpi text-neutral-textMain shrink-0">{missingWorkshopContacts + dataModelAlerts}</span>
                         </div>
                     </div>
                 </Card>
             </div>
 
             <Card className="!p-4 md:!p-6">
-                <h3 className="text-lg font-bold text-neutral-textMain mb-5">Resumen de Localidades</h3>
+                 <h3 className="ui-section-title text-neutral-textMain mb-5">Resumen de Localidades</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="border-b border-neutral-border">

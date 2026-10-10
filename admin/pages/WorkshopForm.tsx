@@ -181,8 +181,8 @@ export const WorkshopForm: React.FC = () => {
     }
   };
 
-  const labelClass = "block text-[12px] font-semibold text-neutral-textSec mb-1.5";
-  const selectClass = "w-full min-h-[44px] px-4 py-2.5 pr-10 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-[15px] text-neutral-textMain appearance-none";
+  const labelClass = "ui-label mb-1.5 block";
+  const selectClass = "ui-control w-full px-4 py-2.5 pr-10 rounded-[10px] bg-white border border-neutral-border focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none transition-all text-neutral-textMain appearance-none";
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 animate-fade-in pb-20">
@@ -192,7 +192,7 @@ export const WorkshopForm: React.FC = () => {
         <Badge variant={adminConfirmed ? 'success' : 'yellow'}>
           {adminConfirmed ? 'PASO 1 COMPLETADO' : 'CONFIGURACIÓN INICIAL'}
         </Badge>
-        <h1 className="text-3xl md:text-4xl font-bold text-neutral-textMain">
+        <h1 className="ui-page-title text-neutral-textMain">
           {isEdit ? 'Actualizar Sede' : 'Nuevo Registro'}
         </h1>
         <div className="flex justify-center items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em]">
@@ -224,7 +224,7 @@ export const WorkshopForm: React.FC = () => {
                   </button>
                 )}
               </div>
-              <p className="text-[11px] font-semibold text-neutral-textHelper mt-0.5">DATOS DEL ADMINISTRADOR DEL CENTRO</p>
+              <p className="text-[12px] font-semibold text-neutral-textHelper mt-0.5">DATOS DEL ADMINISTRADOR DEL CENTRO</p>
             </div>
           </div>
 
@@ -297,7 +297,7 @@ export const WorkshopForm: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <h3 className="text-[15px] font-bold text-neutral-textMain">Configuración de Sede</h3>
-                <p className="text-[11px] font-semibold text-neutral-textHelper mt-0.5">DATOS FÍSICOS Y CONTACTO DEL TALLER</p>
+                <p className="text-[12px] font-semibold text-neutral-textHelper mt-0.5">DATOS FÍSICOS Y CONTACTO DEL TALLER</p>
               </div>
             </div>
 

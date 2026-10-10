@@ -354,7 +354,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ students, sessions, pieces, g
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                       <div>
                         <span className="eyebrow mb-2 block">Registro integral</span>
-                        <h3 className="text-[28px] md:text-[36px] font-bold text-neutral-textMain leading-tight">{studentDetails.fullName}</h3>
+                         <h3 className="ui-section-title text-neutral-textMain">{studentDetails.fullName}</h3>
                         <div className="flex flex-wrap gap-2 mt-3">
                           <span className={`px-3 py-1.5 rounded-[10px] text-[12px] font-semibold ${CATEGORY_COLORS[displayCat]}`}>
                             {CATEGORY_LABELS[displayCat]}

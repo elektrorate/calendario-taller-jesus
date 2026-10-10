@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { Toast, Icon, Button } from './UI';
+import ThemeToggle from '../../components/shared/ThemeToggle';
+import DiagonalPattern from '../../components/shared/DiagonalPattern';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { toast, currentUser, logout, workshops, globalMetrics, showToast } = useAppContext();
@@ -59,12 +61,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       {/* Sidebar Desktop */}
       <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[300px] bg-white border-r border-neutral-border flex-col p-7 z-50 overflow-y-auto no-scrollbar">
         <div className="flex flex-col items-start mb-10 px-2">
-          <div className="w-12 h-12 bg-brand rounded-xl flex items-center justify-center font-bold text-xl text-white mb-4 cursor-pointer" onClick={() => navigate('/admin')}>B</div>
-          <span className="font-display text-[22px] font-bold text-neutral-textMain">Barro &amp; Co.</span>
+          <div className="relative w-12 h-12 overflow-hidden bg-brand rounded-[15px] flex items-center justify-center font-bold text-xl text-white mb-4 cursor-pointer shadow-sm" onClick={() => navigate('/admin')}>
+            <DiagonalPattern dark className="opacity-45" />
+            <span className="relative z-10">B</span>
+          </div>
+          <span className="font-display text-[22px] font-bold tracking-tight text-neutral-textMain">Barro &amp; Co.</span>
+          <span className="eyebrow mt-1">Red de talleres</span>
           <div className="accent-line mt-3"></div>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="menu-typography-110 space-y-1">
           {navItems.map(item => (
             <NavLink
               key={item.to}
@@ -102,7 +108,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               <p className="text-[13px] font-semibold truncate text-neutral-textMain leading-tight mb-0.5">{displayName}</p>
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${currentUser ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                <p className={`text-[11px] font-medium ${currentUser ? 'text-emerald-600' : 'text-amber-600'}`}>{displayStatus}</p>
+                <p className={`text-[12px] font-medium ${currentUser ? 'text-emerald-600' : 'text-amber-600'}`}>{displayStatus}</p>
               </div>
             </div>
           </div>
@@ -130,7 +136,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <div className="w-5 h-[2px] bg-neutral-textMain rounded-full"></div>
             <div className="w-3.5 h-[2px] bg-neutral-textMain rounded-full"></div>
           </button>
-          <h1 className="text-[18px] lg:text-[20px] text-neutral-textMain truncate">{getTitle()}</h1>
+          <h1 className="ui-section-title text-neutral-textMain truncate">{getTitle()}</h1>
         </div>
 
         <div className="flex items-center gap-3 md:gap-5">
@@ -141,6 +147,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           >
             <Icon.Refresh />
           </button>
+          <ThemeToggle compact />
           <button aria-label="Alertas" className="w-11 h-11 flex items-center justify-center text-neutral-textHelper hover:text-brand transition-all relative">
             <Icon.Bell />
             {alertsCount > 0 && (
@@ -159,18 +166,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             className="fixed inset-0 bg-black/35 backdrop-blur-sm z-[100] animate-fade-in lg:hidden"
             onClick={() => setIsMenuOpen(false)}
           />
-          <div className="fixed top-0 left-0 h-full w-[280px] bg-white z-[110] shadow-2xl flex flex-col overflow-hidden rounded-r-3xl lg:hidden animate-fade-in">
+          <div className="fixed top-0 left-0 h-full w-[min(320px,88vw)] bg-white z-[110] shadow-2xl flex flex-col overflow-hidden rounded-r-3xl lg:hidden animate-fade-in">
             <div className="px-5 py-5 border-b border-neutral-border flex justify-between items-start gap-4">
               <div>
                 <span className="font-display text-[20px] font-bold text-neutral-textMain">Barro &amp; Co.</span>
-                <p className="text-[11px] text-neutral-textHelper uppercase tracking-[0.14em] font-medium mt-0.5">Panel de administración</p>
+                <p className="text-[12px] text-neutral-textHelper uppercase tracking-[0.14em] font-medium mt-0.5">Panel de administración</p>
               </div>
+              <ThemeToggle compact />
               <button onClick={() => setIsMenuOpen(false)} aria-label="Cerrar menú" className="w-10 h-10 -mr-2 rounded-full text-neutral-textMain hover:bg-neutral-sec flex items-center justify-center transition-colors">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
 
-            <nav className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-1">
+            <nav className="menu-typography-110 flex-1 overflow-y-auto no-scrollbar p-4 space-y-1">
               {navItems.map(item => (
                 <NavLink
                   key={item.to}
@@ -213,7 +221,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       )}
 
       {/* Main Content */}
-      <main className="pt-20 lg:pt-28 px-4 md:px-6 lg:px-12 pb-24 lg:pb-20">
+      <main className="pt-20 lg:pt-28 px-4 md:px-6 lg:px-8 xl:px-12 pb-24 lg:pb-20">
         {children}
       </main>
 

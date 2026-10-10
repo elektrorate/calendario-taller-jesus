@@ -1,6 +1,6 @@
 import type { GiftCard, Student } from '../../types';
 import { showError, showWarning } from '../toast';
-import { supabase, withTimeout, normalizeForMatch, mapStudentRowToModel, OpsContext } from './shared';
+import { supabase, withTimeout, normalizeForMatch, mapStudentRowToModel, mapGiftCardRowToModel, OpsContext } from './shared';
 
 const resolveRecipientStudentId = (students: Student[], recipient?: string): string | null => {
     if (!recipient) return null;
@@ -11,6 +11,11 @@ const resolveRecipientStudentId = (students: Student[], recipient?: string): str
     const nameMatches = students.filter(s => normalizeForMatch(s.name) === normalized);
     if (nameMatches.length === 1) return nameMatches[0].id;
     return null;
+};
+
+const localDateKey = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
 const createTemporaryStudent = async (ctx: OpsContext, params: {
@@ -60,22 +65,28 @@ export const addGiftCard = async (ctx: OpsContext, newCard: Omit<GiftCard, 'id' 
     });
     const payload: any = {
         buyer: newCard.buyer, recipient: newCard.recipient, recipient_student_id: resolvedId,
+        code: newCard.code || `CR-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`,
+        buyer_phone: newCard.buyerPhone || null, buyer_email: newCard.buyerEmail || null,
+        recipient_email: newCard.recipientEmail || null,
         num_classes: newCard.numClasses, type: newCard.type,
-        scheduled_date: newCard.issuedDate || null, extra_commentary: newCard.extraCommentary || null
+        scheduled_date: newCard.issuedDate || null, extra_commentary: newCard.extraCommentary || null,
+        internal_notes: newCard.extraCommentary || null,
+        activated_at: newCard.activatedAt || localDateKey(),
+        price: newCard.price ?? null,
+        payment_status: newCard.paymentStatus || 'pending',
+        status: newCard.status || (newCard.paymentStatus === 'paid' ? 'active' : 'pending'),
+        sessions_used: newCard.sessionsUsed || 0,
+        delivery_format: newCard.deliveryFormat || 'digital',
+        dedication: newCard.dedication || null
     };
+    if (newCard.validityMonths !== undefined) payload.validity_months = newCard.validityMonths;
     if (newCard.expiryDate) payload.expiry_date = newCard.expiryDate;
     if (ctx.sedeId) payload.sede_id = ctx.sedeId;
     try {
         const { data, error } = await withTimeout('gift_cards.insert', supabase.from('gift_cards').insert(payload).select().single());
         if (error) { showError(`No se pudo crear la tarjeta regalo. ${error.message || ''}`); return; }
         if (data) {
-            const mapped: GiftCard = {
-                id: data.id, buyer: data.buyer, recipient: data.recipient,
-                recipientStudentId: data.recipient_student_id || undefined, numClasses: data.num_classes,
-                type: data.type, issuedDate: data.scheduled_date || undefined,
-                expiryDate: data.expiry_date || undefined, createdAt: data.created_at,
-                extraCommentary: data.extra_commentary || undefined
-            };
+            const mapped = mapGiftCardRowToModel(data);
             ctx.setGiftCards(prev => [mapped, ...prev]);
         }
         ctx.safeReload();
@@ -86,26 +97,41 @@ export const addGiftCard = async (ctx: OpsContext, newCard: Omit<GiftCard, 'id' 
 
 export const updateGiftCard = async (ctx: OpsContext, id: string, updates: Partial<GiftCard>, giftCards: GiftCard[]) => {
     const previousCard = giftCards.find(gc => gc.id === id);
+    const editableUpdates = { ...updates };
+    delete editableUpdates.status;
+    delete editableUpdates.sessionsUsed;
+    delete editableUpdates.consumedAt;
+    delete editableUpdates.paymentStatus;
     const payload: Record<string, any> = {};
-    if (updates.buyer !== undefined) payload.buyer = updates.buyer;
-    if (updates.recipient !== undefined) payload.recipient = updates.recipient;
+    if (editableUpdates.buyer !== undefined) payload.buyer = editableUpdates.buyer;
+    if (editableUpdates.recipient !== undefined) payload.recipient = editableUpdates.recipient;
+    if (editableUpdates.buyerPhone !== undefined) payload.buyer_phone = editableUpdates.buyerPhone || null;
+    if (editableUpdates.buyerEmail !== undefined) payload.buyer_email = editableUpdates.buyerEmail || null;
+    if (editableUpdates.recipientEmail !== undefined) payload.recipient_email = editableUpdates.recipientEmail || null;
+    if (editableUpdates.dedication !== undefined) payload.dedication = editableUpdates.dedication || null;
+    if (editableUpdates.code !== undefined) payload.code = editableUpdates.code;
     let resolvedId: string | null | undefined = undefined;
-    if (updates.recipientStudentId !== undefined || updates.recipient !== undefined) {
+    if (editableUpdates.recipientStudentId !== undefined || editableUpdates.recipient !== undefined) {
         resolvedId = await ensureRecipientStudentId(ctx, {
-            recipient: updates.recipient ?? previousCard?.recipient, recipientStudentId: updates.recipientStudentId,
-            numClasses: updates.numClasses ?? previousCard?.numClasses, type: updates.type ?? previousCard?.type,
-            expiryDate: updates.expiryDate ?? previousCard?.expiryDate
+            recipient: editableUpdates.recipient ?? previousCard?.recipient, recipientStudentId: editableUpdates.recipientStudentId,
+            numClasses: editableUpdates.numClasses ?? previousCard?.numClasses, type: editableUpdates.type ?? previousCard?.type,
+            expiryDate: editableUpdates.expiryDate ?? previousCard?.expiryDate
         });
         payload.recipient_student_id = resolvedId;
     }
-    if (updates.numClasses !== undefined) payload.num_classes = updates.numClasses;
-    if (updates.type !== undefined) payload.type = updates.type;
-    if (updates.issuedDate !== undefined) payload.scheduled_date = updates.issuedDate || null;
-    if (updates.expiryDate !== undefined) payload.expiry_date = updates.expiryDate || null;
-    if (updates.extraCommentary !== undefined) payload.extra_commentary = updates.extraCommentary || null;
+    if (editableUpdates.numClasses !== undefined) payload.num_classes = editableUpdates.numClasses;
+    if (editableUpdates.type !== undefined) payload.type = editableUpdates.type;
+    if ('validityMonths' in editableUpdates) payload.validity_months = editableUpdates.validityMonths ?? null;
+    if ('activatedAt' in editableUpdates) payload.activated_at = editableUpdates.activatedAt || null;
+    if (editableUpdates.price !== undefined) payload.price = editableUpdates.price ?? null;
+    if (editableUpdates.deliveryFormat !== undefined) payload.delivery_format = editableUpdates.deliveryFormat;
+    if ('issuedDate' in editableUpdates) payload.scheduled_date = editableUpdates.issuedDate || null;
+    if ('expiryDate' in editableUpdates) payload.expiry_date = editableUpdates.expiryDate || null;
+    if (editableUpdates.extraCommentary !== undefined) payload.extra_commentary = editableUpdates.extraCommentary || null;
+    if (editableUpdates.extraCommentary !== undefined) payload.internal_notes = editableUpdates.extraCommentary || null;
     if (!Object.keys(payload).length) return;
 
-    const optimistic: Partial<GiftCard> = { ...updates };
+    const optimistic: Partial<GiftCard> = { ...editableUpdates };
     if (resolvedId !== undefined) optimistic.recipientStudentId = resolvedId || undefined;
     ctx.setGiftCards(prev => prev.map(gc => gc.id === id ? { ...gc, ...optimistic } : gc));
     const revert = () => { if (previousCard) ctx.setGiftCards(prev => prev.map(gc => gc.id === id ? previousCard : gc)); };
@@ -115,19 +141,69 @@ export const updateGiftCard = async (ctx: OpsContext, id: string, updates: Parti
         if (error) throw error;
         ctx.safeReload();
     } catch (err: any) {
-        const isTimeout = typeof err?.message === 'string' && err.message.includes('Timeout');
+        const isTimeout = typeof err?.message === 'string' && err.message.toLowerCase().includes('timeout');
         if (isTimeout) {
-            void (async () => {
-                try {
-                    const { error } = await supabase.from('gift_cards').update(payload).eq('id', id);
-                    if (error) { revert(); showError(`No se pudo actualizar la tarjeta regalo. ${error.message || ''}`); return; }
-                    ctx.safeReload();
-                } catch { revert(); }
-            })();
+            void ctx.safeReload();
+            showWarning('La actualización está tardando. Se ha recargado el estado para confirmar el resultado.');
             return;
         }
         revert();
         showError(`No se pudo actualizar la tarjeta regalo. ${err?.message || ''}`);
+    }
+};
+
+const updateGiftCardFromRpc = (ctx: OpsContext, data: any) => {
+    if (!data) return;
+    const mapped = mapGiftCardRowToModel(data);
+    ctx.setGiftCards(prev => prev.map(card => card.id === mapped.id ? mapped : card));
+};
+
+export const redeemGiftCardSession = async (ctx: OpsContext, giftCardId: string, sessionId: string, studentId?: string) => {
+    try {
+        const { data, error } = await withTimeout('gift_cards.redeem', supabase.rpc('redeem_gift_card_session', {
+            p_gift_card_id: giftCardId, p_session_id: sessionId, p_student_id: studentId || null
+        }));
+        if (error) throw error;
+        updateGiftCardFromRpc(ctx, data);
+    } catch (err: any) {
+        throw new Error(err?.message || 'No se pudo descontar la sesión del bono temporal.');
+    }
+};
+
+export const reverseGiftCardSession = async (ctx: OpsContext, giftCardId: string, sessionId: string, studentId?: string) => {
+    try {
+        const { data, error } = await withTimeout('gift_cards.reverse', supabase.rpc('reverse_gift_card_session', {
+            p_gift_card_id: giftCardId, p_session_id: sessionId, p_student_id: studentId || null
+        }));
+        if (error) throw error;
+        updateGiftCardFromRpc(ctx, data);
+    } catch (err: any) {
+        throw new Error(err?.message || 'No se pudo devolver la sesión del bono temporal.');
+    }
+};
+
+export const consumeGiftCard = async (ctx: OpsContext, giftCardId: string, consumedAt?: string) => {
+    try {
+        const { data, error } = await withTimeout('gift_cards.consume', supabase.rpc('consume_gift_card', {
+            p_gift_card_id: giftCardId,
+            p_consumed_at: consumedAt || localDateKey()
+        }));
+        if (error) throw error;
+        updateGiftCardFromRpc(ctx, data);
+    } catch (err: any) {
+        throw new Error(err?.message || 'No se pudo archivar el bono como consumido.');
+    }
+};
+
+export const cancelGiftCard = async (ctx: OpsContext, giftCardId: string) => {
+    try {
+        const { data, error } = await withTimeout('gift_cards.cancel', supabase.rpc('cancel_gift_card', {
+            p_gift_card_id: giftCardId
+        }));
+        if (error) throw error;
+        updateGiftCardFromRpc(ctx, data);
+    } catch (err: any) {
+        throw new Error(err?.message || 'No se pudo anular el bono temporal.');
     }
 };
 

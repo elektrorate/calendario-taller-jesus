@@ -59,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, onLogout }) => 
           <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-white font-semibold text-lg shrink-0">A</div>
           <div className="overflow-hidden">
             <h1 className="text-[17px] font-bold text-neutral-textMain leading-tight truncate">Alexander</h1>
-            <p className="text-[10px] text-neutral-textHelper uppercase font-medium tracking-[0.14em]">Estudio</p>
+            <p className="text-[12px] text-neutral-textHelper uppercase font-medium tracking-[0.14em]">Estudio</p>
           </div>
         </div>
 

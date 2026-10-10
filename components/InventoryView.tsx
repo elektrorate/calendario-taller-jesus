@@ -135,8 +135,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       current_quantity: 0,
       min_quantity: 0,
       location: '',
-      supplier: '',
-      supplier_code: '',
+       supplier_code: '',
       notes: '',
       color: '',
       firing_range: '',
@@ -174,10 +173,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
     setCurrentSubView('form');
   };
 
-  const submitItem = async () => {
+  const submitItem = async (): Promise<boolean> => {
     if (!itemForm.name.trim()) {
       showError('El nombre es obligatorio.');
-      return;
+      return false;
     }
     const normalizedCode = itemForm.code.trim().toUpperCase();
     const duplicated = items.some(i => {
@@ -186,11 +185,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
     });
     if (!normalizedCode) {
       showError('El codigo es obligatorio.');
-      return;
+      return false;
     }
     if (duplicated) {
       showError('Ya existe un item con ese codigo.');
-      return;
+      return false;
+    }
+    if (Number(itemForm.current_quantity) < 0 || Number(itemForm.min_quantity) < 0) {
+      showError('Las cantidades no pueden ser negativas.');
+      return false;
     }
 
     let parsedFormula: StructuredFormula | undefined;
@@ -203,7 +206,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
         const invalidRow = rows.find(row => Number.isNaN(row.value) || row.value < 0);
         if (invalidRow) {
           showError('Los valores de la receta deben ser numericos y no negativos.');
-          return;
+          return false;
         }
         parsedFormula = {
           recipe: rows.map(row => ({ name: row.name, percentage: row.value })),
@@ -226,15 +229,18 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
     };
     if (editingItem) await onUpdateItem(editingItem.id, payload);
     else await onAddItem(payload);
-    setCurrentSubView('list');
+    return true;
   };
 
   const handleSubmitItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingItem) return;
-    // Close form immediately — Supabase operations run in background
-    setCurrentSubView('list');
-    submitItem();
+    setIsSubmittingItem(true);
+    try {
+      if (await submitItem()) setCurrentSubView('list');
+    } finally {
+      setIsSubmittingItem(false);
+    }
   };
 
   const handleSubmitMovement = async (e: React.FormEvent) => {
@@ -253,27 +259,32 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       showError('La cantidad debe ser mayor que 0.');
       return;
     }
-    // Close form immediately — Supabase operations run in background
-    setShowMovementForm(false);
-    setMovementForm({
-      type: 'in',
-      quantity: 0,
-      new_quantity: 0,
-      unit: selectedItem.unit || 'kg',
-      reason: '',
-      date: new Date().toISOString().split('T')[0],
-      notes: ''
-    });
-    onAddMovement({
-      item_id: selectedItem.id,
-      type: movementForm.type,
-      quantity: movementForm.type === 'adjust' ? undefined : Number(movementForm.quantity),
-      new_quantity: movementForm.type === 'adjust' ? Number(movementForm.new_quantity) : undefined,
-      unit: movementForm.unit || selectedItem.unit,
-      reason: movementForm.reason.trim(),
-      date: movementForm.date || new Date().toISOString(),
-      notes: movementForm.notes || undefined
-    });
+    const quantity = Number(movementForm.quantity);
+    const newQuantity = movementForm.type === 'adjust'
+      ? Number(movementForm.new_quantity)
+      : movementForm.type === 'in'
+        ? selectedItem.current_quantity + quantity
+        : Math.max(0, selectedItem.current_quantity - quantity);
+    setIsSubmittingMovement(true);
+    try {
+      await onAddMovement({
+        item_id: selectedItem.id,
+        type: movementForm.type,
+        quantity: movementForm.type === 'adjust' ? undefined : quantity,
+        new_quantity: newQuantity,
+        unit: movementForm.unit || selectedItem.unit,
+        reason: movementForm.reason.trim(),
+        date: movementForm.date || new Date().toISOString(),
+        notes: movementForm.notes || undefined
+      });
+      setShowMovementForm(false);
+      setMovementForm({
+        type: 'in', quantity: 0, new_quantity: 0, unit: selectedItem.unit || 'kg',
+        reason: '', date: new Date().toISOString().split('T')[0], notes: ''
+      });
+    } finally {
+      setIsSubmittingMovement(false);
+    }
   };
 
   const updateFormulaRow = (index: number, updates: { name?: string; value?: number }) => {
@@ -351,12 +362,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div>
               <p className="eyebrow">{getCategoryLabel(selectedItem.category)}</p>
-              <h3 className="text-[24px] md:text-[32px] font-bold text-neutral-textMain mt-2">{selectedItem.name}</h3>
-              <p className="text-[13px] text-neutral-textHelper mt-2">Codigo: #{selectedItem.code}</p>
+              <h3 className="ui-section-title text-neutral-textMain mt-2">{selectedItem.name}</h3>
+              <p className="ui-meta mt-2">Código: #{selectedItem.code}</p>
             </div>
             <div className="text-right">
-              <p className="text-[40px] md:text-[48px] font-bold text-neutral-textMain leading-none">{selectedItem.current_quantity}</p>
-              <p className="text-[13px] text-neutral-textHelper">{selectedItem.unit}</p>
+              <p className="ui-kpi text-neutral-textMain">{selectedItem.current_quantity}</p>
+              <p className="ui-meta">{selectedItem.unit}</p>
             </div>
           </div>
 
@@ -456,9 +467,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
                   <label className="block text-[12px] font-semibold text-neutral-textSec mb-2">
                     {movementForm.type === 'adjust' ? 'Cantidad ajustada' : 'Cantidad'}
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
+                   <input
+                     type="number"
+                     step="0.01"
+                     min="0"
                     value={movementForm.type === 'adjust' ? movementForm.new_quantity : movementForm.quantity}
                     onChange={(e) => {
                       const val = Number(e.target.value);
@@ -553,16 +565,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 md:p-6 rounded-2xl border border-neutral-border">
           <p className="eyebrow mb-1">ACTIVOS</p>
-          <p className="text-[28px] md:text-[38px] font-bold text-neutral-textMain leading-none">{stats.activeCount}</p>
+          <p className="ui-kpi text-neutral-textMain">{stats.activeCount}</p>
         </div>
-        <div onClick={() => handleDrillDown('low')} className="bg-white p-4 md:p-6 rounded-2xl border border-neutral-border cursor-pointer hover:border-arena transition-colors">
+        <button type="button" onClick={() => handleDrillDown('low')} className="w-full text-left bg-white p-4 md:p-6 rounded-2xl border border-neutral-border cursor-pointer hover:border-arena transition-colors">
           <p className="text-[12px] font-semibold text-caramelo mb-1">STOCK BAJO</p>
-          <p className="text-[28px] md:text-[38px] font-bold text-caramelo leading-none">{stats.lowCount}</p>
-        </div>
-        <div onClick={() => handleDrillDown('critical')} className="bg-white p-4 md:p-6 rounded-2xl border border-neutral-border cursor-pointer hover:border-[#9E3B2B] transition-colors">
+          <p className="ui-kpi text-caramelo">{stats.lowCount}</p>
+        </button>
+        <button type="button" onClick={() => handleDrillDown('critical')} className="w-full text-left bg-white p-4 md:p-6 rounded-2xl border border-neutral-border cursor-pointer hover:border-[#9E3B2B] transition-colors">
           <p className="text-[12px] font-semibold text-[#9E3B2B] mb-1">CRÍTICO</p>
-          <p className="text-[28px] md:text-[38px] font-bold text-[#9E3B2B] leading-none">{stats.criticalCount}</p>
-        </div>
+          <p className="ui-kpi text-[#9E3B2B]">{stats.criticalCount}</p>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
@@ -570,7 +582,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
           <h3 className="text-[18px] md:text-[22px] font-bold text-neutral-textMain mb-4">Visión General del Stock</h3>
           <div className="space-y-5">
             {categoryHealth.map(cat => (
-              <div key={cat!.id} onClick={() => handleDrillDown('all', cat!.id as any)} className="space-y-2 cursor-pointer group">
+              <button type="button" key={cat!.id} onClick={() => handleDrillDown('all', cat!.id as any)} className="w-full text-left space-y-2 cursor-pointer group">
                 <div className="flex justify-between items-center px-1">
                   <span className="text-[13px] font-semibold text-neutral-textMain group-hover:text-brand">{cat!.label}</span>
                   {cat!.empty && <span className="text-[12px] text-neutral-textHelper">Sin ítems</span>}
@@ -580,7 +592,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
                   <div style={{ width: `${cat!.low}%` }} className="bg-caramelo h-full transition-all duration-500"></div>
                   <div style={{ width: `${cat!.crit}%` }} className="bg-[#9E3B2B] h-full transition-all duration-500"></div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -589,16 +601,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
           <h3 className="text-[18px] md:text-[22px] font-bold text-neutral-textMain mb-5">Alertas Prioritarias</h3>
           <div className="flex-1 overflow-y-auto max-h-[300px] md:max-h-none no-scrollbar space-y-3">
             {items.filter(i => getItemHealth(i) !== 'ok').slice(0, 10).map(item => (
-              <div key={item.id} onClick={() => handleOpenDetail(item.id)} className="flex justify-between items-center p-4 rounded-2xl hover:bg-neutral-sec transition-colors cursor-pointer border border-transparent active:border-arena">
+              <button type="button" key={item.id} onClick={() => handleOpenDetail(item.id)} className="w-full text-left flex justify-between items-center p-4 rounded-2xl hover:bg-neutral-sec transition-colors cursor-pointer border border-transparent active:border-arena">
                 <div>
                   <p className="text-[14px] font-semibold text-neutral-textMain leading-tight truncate max-w-[150px] md:max-w-none">{item.name}</p>
                   <p className="text-[12px] text-neutral-textHelper mt-0.5">{item.code} • {item.location || 'ESTUDIO'}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-[15px] font-semibold ${getItemHealth(item) === 'critical' ? 'text-[#9E3B2B]' : 'text-caramelo'}`}>{item.current_quantity} {item.unit}</p>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${getItemHealth(item) === 'critical' ? 'bg-[#F8E1DA] text-[#9E3B2B]' : 'bg-[#FBEAD2] text-[#8A5517]'}`}>{getItemHealth(item) === 'critical' ? 'CRIT' : 'LOW'}</span>
+                   <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-md ${getItemHealth(item) === 'critical' ? 'bg-[#F8E1DA] text-[#9E3B2B]' : 'bg-[#FBEAD2] text-[#8A5517]'}`}>{getItemHealth(item) === 'critical' ? 'CRIT' : 'LOW'}</span>
                 </div>
-              </div>
+              </button>
             ))}
             {items.filter(i => getItemHealth(i) !== 'ok').length === 0 && (
               <div className="h-full flex flex-col items-center justify-center py-10 opacity-40">
@@ -623,7 +635,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <p className="eyebrow">{editingItem ? 'Editar item' : 'Nuevo item'}</p>
-              <h3 className="text-[22px] md:text-[28px] font-bold text-neutral-textMain mt-2">Registro de inventario</h3>
+              <h3 className="ui-section-title text-neutral-textMain mt-2">Registro de inventario</h3>
             </div>
             <button
               onClick={() => setCurrentSubView('list')}
@@ -671,9 +683,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[12px] font-semibold text-neutral-textSec mb-2">Cantidad actual</label>
-                <input
-                  type="number"
-                  step="0.01"
+                   <input
+                     type="number"
+                     step="0.01"
+                     min="0"
                   value={itemForm.current_quantity}
                   onChange={(e) => setItemForm({ ...itemForm, current_quantity: Number(e.target.value) })}
                   className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none placeholder:text-neutral-textHelper"
@@ -681,9 +694,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
               </div>
               <div>
                 <label className="block text-[12px] font-semibold text-neutral-textSec mb-2">Minimo</label>
-                <input
-                  type="number"
-                  step="0.01"
+                 <input
+                   type="number"
+                   step="0.01"
+                   min="0"
                   value={itemForm.min_quantity}
                   onChange={(e) => setItemForm({ ...itemForm, min_quantity: Number(e.target.value) })}
                   className="w-full min-h-[44px] px-4 py-2.5 bg-white border border-neutral-border rounded-[10px] text-[15px] focus:border-brand focus:ring-2 focus:ring-brand/15 outline-none placeholder:text-neutral-textHelper"
@@ -852,10 +866,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
             </div>
 
             <div className="pt-4">
-              <button
-                type="button"
-                onClick={submitItem}
-                disabled={isSubmittingItem}
+               <button
+                 type="submit"
+                 disabled={isSubmittingItem}
                 className="w-full min-h-[44px] px-4 py-2.5 bg-brand text-white rounded-[10px] font-semibold text-[14px] hover:bg-brand-hover active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSubmittingItem ? 'GUARDANDO...' : (editingItem ? 'Guardar cambios' : 'Guardar item')}
@@ -873,7 +886,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
         <div className="flex items-end justify-between gap-4 mb-4">
           <div>
             <p className="eyebrow mb-1">Control de materiales</p>
-            <h1 className="text-[28px] md:text-[34px] font-bold text-neutral-textMain leading-tight">Inventario del <span className="text-brand italic">estudio</span></h1>
+            <h1 className="ui-page-title text-neutral-textMain">Inventario del <span className="text-brand italic">estudio</span></h1>
             <p className="text-[13px] text-neutral-textHelper mt-1">Materiales, existencias y movimientos del taller.</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -912,22 +925,35 @@ const InventoryView: React.FC<InventoryViewProps> = ({ items, movements, onAddIt
             </div>
 
             <section className="bg-white border border-neutral-border rounded-2xl overflow-hidden">
-              <div className="hidden md:grid grid-cols-[minmax(220px,1.7fr)_minmax(120px,.8fr)_minmax(110px,.8fr)_minmax(120px,.8fr)_64px] gap-4 px-4 py-3 bg-neutral-sec border-b border-neutral-border text-[10px] font-semibold text-neutral-textHelper uppercase tracking-[0.12em]">
+               <div className="hidden md:grid grid-cols-[minmax(220px,1.7fr)_minmax(120px,.8fr)_minmax(110px,.8fr)_minmax(120px,.8fr)_64px] gap-4 px-4 py-3 bg-neutral-sec border-b border-neutral-border text-[12px] font-semibold text-neutral-textHelper uppercase tracking-[0.12em]">
                 <span>Material</span><span>Categoría</span><span>Existencias</span><span>Estado</span><span></span>
               </div>
               {filteredItems.map(item => {
                 const health = getItemHealth(item);
                 return (
-                  <div key={item.id} onClick={() => handleOpenDetail(item.id)} className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(220px,1.7fr)_minmax(120px,.8fr)_minmax(110px,.8fr)_minmax(120px,.8fr)_64px] gap-3 md:gap-4 items-center px-3 md:px-4 py-3 border-b border-neutral-border last:border-b-0 hover:bg-neutral-base transition-colors cursor-pointer group">
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Abrir ${item.name}`}
+                    onClick={() => handleOpenDetail(item.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleOpenDetail(item.id);
+                      }
+                    }}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(220px,1.7fr)_minmax(120px,.8fr)_minmax(110px,.8fr)_minmax(120px,.8fr)_64px] gap-3 md:gap-4 items-center px-3 md:px-4 py-3 border-b border-neutral-border last:border-b-0 hover:bg-neutral-base transition-colors cursor-pointer group"
+                  >
                     <div className="min-w-0 flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-[12px] shrink-0 ${health === 'critical' ? 'bg-[#9E3B2B]' : health === 'low' ? 'bg-caramelo' : 'bg-[#20663B]'}`}>{item.name.charAt(0)}</div>
-                      <div className="min-w-0"><h4 className="text-[14px] font-semibold text-neutral-textMain truncate">{item.name}</h4><p className="text-[11px] text-neutral-textHelper truncate mt-0.5">#{item.code}{item.location ? ` · ${item.location}` : ''}</p></div>
-                    </div>
-                    <span className="hidden md:inline-flex justify-self-start px-2 py-1 rounded-md bg-neutral-sec text-neutral-textSec text-[11px] font-semibold">{getCategoryLabel(item.category)}</span>
-                    <div className="justify-self-end md:justify-self-start text-right md:text-left"><span className={`text-[15px] font-bold ${health === 'critical' ? 'text-[#9E3B2B]' : health === 'low' ? 'text-caramelo' : 'text-neutral-textMain'}`}>{item.current_quantity}</span><span className="text-[11px] font-semibold text-neutral-textHelper ml-1">{item.unit}</span><span className="hidden md:block text-[10px] text-neutral-textHelper">mín. {item.min_quantity || 0}</span></div>
-                    <span className={`hidden md:inline-flex justify-self-start px-2.5 py-1 rounded-md text-[11px] font-semibold ${health === 'critical' ? 'bg-[#F8E1DA] text-[#9E3B2B]' : health === 'low' ? 'bg-[#FBEAD2] text-[#8A5517]' : 'bg-[#DFF0E4] text-[#20663B]'}`}>{health === 'critical' ? 'Crítico' : health === 'low' ? 'Bajo' : 'Correcto'}</span>
-                    <button onClick={(event) => { event.stopPropagation(); handleOpenDetail(item.id); }} className="hidden md:flex justify-self-end w-8 h-8 items-center justify-center rounded-[8px] text-neutral-textHelper hover:text-brand hover:bg-brand-soft transition-colors" aria-label={`Abrir ${item.name}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
-                    <div className="col-span-2 md:hidden flex items-center gap-2 pt-2 border-t border-neutral-border"><span className="px-2 py-1 rounded-md bg-neutral-sec text-neutral-textSec text-[10px] font-semibold">{getCategoryLabel(item.category)}</span><span className={`px-2 py-1 rounded-md text-[10px] font-semibold ${health === 'critical' ? 'bg-[#F8E1DA] text-[#9E3B2B]' : health === 'low' ? 'bg-[#FBEAD2] text-[#8A5517]' : 'bg-[#DFF0E4] text-[#20663B]'}`}>{health === 'critical' ? 'Crítico' : health === 'low' ? 'Bajo' : 'Correcto'}</span></div>
+                       <div className="min-w-0"><h4 className="text-[14px] font-semibold text-neutral-textMain truncate">{item.name}</h4><p className="text-[12px] text-neutral-textHelper truncate mt-0.5">#{item.code}{item.location ? ` · ${item.location}` : ''}</p></div>
+                     </div>
+                     <span className="hidden md:inline-flex justify-self-start px-2 py-1 rounded-md bg-neutral-sec text-neutral-textSec text-[12px] font-semibold">{getCategoryLabel(item.category)}</span>
+                     <div className="justify-self-end md:justify-self-start text-right md:text-left"><span className={`text-[15px] font-bold ${health === 'critical' ? 'text-[#9E3B2B]' : health === 'low' ? 'text-caramelo' : 'text-neutral-textMain'}`}>{item.current_quantity}</span><span className="text-[12px] font-semibold text-neutral-textHelper ml-1">{item.unit}</span><span className="hidden md:block text-[12px] text-neutral-textHelper">mín. {item.min_quantity || 0}</span></div>
+                     <span className={`hidden md:inline-flex justify-self-start px-2.5 py-1 rounded-md text-[12px] font-semibold ${health === 'critical' ? 'bg-[#F8E1DA] text-[#9E3B2B]' : health === 'low' ? 'bg-[#FBEAD2] text-[#8A5517]' : 'bg-[#DFF0E4] text-[#20663B]'}`}>{health === 'critical' ? 'Crítico' : health === 'low' ? 'Bajo' : 'Correcto'}</span>
+                     <span aria-hidden="true" className="hidden md:flex justify-self-end w-8 h-8 items-center justify-center rounded-[8px] text-neutral-textHelper group-hover:text-brand group-hover:bg-brand-soft transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></span>
+                     <div className="col-span-2 md:hidden flex items-center gap-2 pt-2 border-t border-neutral-border"><span className="px-2 py-1 rounded-md bg-neutral-sec text-neutral-textSec text-[12px] font-semibold">{getCategoryLabel(item.category)}</span><span className={`px-2 py-1 rounded-md text-[12px] font-semibold ${health === 'critical' ? 'bg-[#F8E1DA] text-[#9E3B2B]' : health === 'low' ? 'bg-[#FBEAD2] text-[#8A5517]' : 'bg-[#DFF0E4] text-[#20663B]'}`}>{health === 'critical' ? 'Crítico' : health === 'low' ? 'Bajo' : 'Correcto'}</span></div>
                   </div>
                 );
               })}

@@ -52,10 +52,10 @@ export const WorkshopDetail: React.FC = () => {
                 </div>
                 <div className="flex-1 space-y-2">
                     <div className="flex flex-col md:flex-row items-center gap-3">
-                        <h1 className="text-3xl md:text-4xl font-bold">{workshop.nombre}</h1>
+                        <h1 className="ui-page-title text-neutral-textMain">{workshop.nombre}</h1>
                         <Badge variant={workshop.estado === WorkshopStatus.ACTIVE ? 'yellow' : 'outline'}>{workshop.estado}</Badge>
                     </div>
-                    <p className="text-[15px] md:text-lg text-neutral-textSec font-medium">
+                        <p className="ui-secondary font-medium">
                         {[workshop.ciudad, workshop.pais].filter(Boolean).join(', ') || 'Ubicación no registrada'}
                     </p>
                     <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-3">

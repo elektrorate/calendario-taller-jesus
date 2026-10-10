@@ -73,6 +73,7 @@ export interface ClassSession {
   attendance?: Record<string, 'present' | 'absent'>; // Record key is student name or ID
   studentIds?: string[];
   attendanceByStudentId?: Record<string, 'present' | 'absent'>;
+  giftCardIdByStudentId?: Record<string, string>;
   teacherId?: string;
   teacherSubstituteId?: string;
   completedAt?: string;
@@ -107,15 +108,41 @@ export interface CeramicPiece {
 
 export interface GiftCard {
   id: string;
+  code?: string;
   buyer: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
   recipient: string;
+  recipientEmail?: string;
   recipientStudentId?: string;
   numClasses: number;
   type: 'modelado' | 'torno';
+  validityMonths?: 3 | 6 | 8;
+  activatedAt?: string;
   issuedDate?: string;
   expiryDate?: string;
+  price?: number;
+  paymentStatus?: 'pending' | 'paid' | 'refunded';
+  status?: 'pending' | 'active' | 'exhausted' | 'consumed' | 'expired' | 'cancelled';
+  sessionsUsed?: number;
+  sessionsRemaining?: number;
+  consumedAt?: string;
+  deliveryFormat?: 'digital' | 'physical';
+  dedication?: string;
+  movements?: GiftCardMovement[];
   createdAt: string; // ISO format
   extraCommentary?: string;
+}
+
+export interface GiftCardMovement {
+  id: string;
+  giftCardId: string;
+  sessionId?: string;
+  studentId?: string;
+  type: 'redeem' | 'reverse' | 'manual' | 'cancel';
+  sessionsDelta: number;
+  note?: string;
+  createdAt: string;
 }
 
 // --- INVENTORY TYPES ---

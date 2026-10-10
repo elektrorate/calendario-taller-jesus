@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { Card, Button, Icon, ActivityPill } from '../components/UI';
 import { useNavigate } from 'react-router-dom';
 import { WorkshopStatus } from '../types';
+import DiagonalPattern from '../../components/shared/DiagonalPattern';
 
 export const Dashboard: React.FC = () => {
   const { workshops, users, globalMetrics } = useAppContext();
@@ -25,10 +26,10 @@ export const Dashboard: React.FC = () => {
         {/* COLUMNA IZQUIERDA: ACTIVIDAD DIARIA */}
         <section className="flex-1 space-y-6">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-textMain">
+            <h2 className="ui-page-title text-neutral-textMain">
               Resumen Global
             </h2>
-            <button className="p-2 text-neutral-textHelper hover:text-brand transition-colors">
+            <button type="button" aria-label="Más opciones del resumen" className="p-2 text-neutral-textHelper hover:text-brand transition-colors">
               <Icon.More />
             </button>
           </div>
@@ -41,8 +42,8 @@ export const Dashboard: React.FC = () => {
               </span>
             </div>
             <div className="px-4 py-2 border border-neutral-border rounded-full flex items-center gap-2.5 text-neutral-textMain">
-              <span className="text-[11px] font-semibold text-neutral-textSec uppercase tracking-[0.1em]">Red de Producción:</span>
-              <span className="text-[11px] font-bold text-brand">ACTIVA</span>
+              <span className="text-[12px] font-semibold text-neutral-textSec uppercase tracking-[0.1em]">Red de Producción:</span>
+              <span className="text-[12px] font-bold text-brand">ACTIVA</span>
             </div>
           </div>
 
@@ -52,40 +53,41 @@ export const Dashboard: React.FC = () => {
               value={`${activeWorkshops} / ${workshops.length}`}
               status="Operativo"
               percentage={`${workshops.length > 0 ? Math.round((activeWorkshops / workshops.length) * 100) : 0}%`}
-              iconBg="#7B3F22"
+                iconBg="#C7460A"
             />
             <ActivityPill
               label="Usuarios"
               value={`${adminUsers} / ${totalStudents}`}
               status="Admins / Alumnos"
               percentage={`${temporaryStudents} TEMP`}
-              iconBg="#8B6B5E"
+               iconBg="#C98A53"
             />
             <ActivityPill
               label="Bonos"
               value={`${activeGiftCards} / ${totalGiftCards}`}
               status="Vigentes / Total"
               percentage={`${expiredGiftCards} VENC`}
-              iconBg="#312620"
+               iconBg="#172338"
             />
           </div>
         </section>
 
         {/* COLUMNA DERECHA: TARJETA GESTIÓN */}
         <section className="w-full lg:w-[380px] shrink-0">
-          <Card className="!p-4 md:!p-6 flex flex-col justify-between gap-8 relative overflow-hidden group">
-            <div className="space-y-6">
-              <div className="w-14 h-14 bg-brand-soft rounded-2xl flex items-center justify-center text-brand">
+           <Card className="!p-4 md:!p-6 flex flex-col justify-between gap-8 relative overflow-hidden group">
+             <DiagonalPattern />
+             <div className="space-y-6">
+               <div className="relative z-10 w-14 h-14 bg-brand-soft rounded-2xl flex items-center justify-center text-brand">
                 <Icon.Target />
               </div>
-              <div className="space-y-4">
-                <h3 className="text-2xl md:text-3xl font-bold text-neutral-textMain leading-tight">Gestión<br />de Red</h3>
+               <div className="relative z-10 space-y-4">
+                 <h3 className="ui-section-title text-neutral-textMain leading-tight">Gestión<br />de Red</h3>
                 <div className="accent-line"></div>
               </div>
-              <p className="text-[15px] text-neutral-textSec leading-relaxed max-w-[280px]">Configura nuevos centros de producción y supervisa la actividad global.</p>
+               <p className="relative z-10 text-[15px] text-neutral-textSec leading-relaxed max-w-[280px]">Configura nuevos centros de producción y supervisa la actividad global.</p>
             </div>
 
-            <div className="mt-4">
+             <div className="relative z-10 mt-4">
               <Button
                 variant="primary"
                 className="w-full justify-between group-hover:scale-[1.01] transition-transform"

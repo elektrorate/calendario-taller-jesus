@@ -1,6 +1,6 @@
 import React from 'react';
 import { supabase } from '../../supabaseClient';
-import { inferMembershipTier, Student, ClassSession } from '../../types';
+import { inferMembershipTier, Student, ClassSession, GiftCard } from '../../types';
 
 export { supabase };
 
@@ -21,24 +21,32 @@ export const withTimeout = async <T,>(
 ): Promise<Awaited<T>> => {
     let didWarn = false;
     const hardLimit = timeoutMs * 2; // 30s for writes
+    const controller = new AbortController();
+    const abortableQuery = queryOrPromise as T & { abortSignal?: (signal: AbortSignal) => T };
+    const query = typeof abortableQuery?.abortSignal === 'function'
+        ? abortableQuery.abortSignal(controller.signal)
+        : queryOrPromise;
 
     const warnTimer = setTimeout(() => {
         didWarn = true;
         console.warn(`⚠️ ${operation} is taking longer than ${timeoutMs}ms — still waiting...`);
     }, timeoutMs);
+    let hardTimer: ReturnType<typeof setTimeout> | undefined;
 
     try {
         const result = await Promise.race([
-            Promise.resolve(queryOrPromise),
-            new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(
-                    `${operation}: timeout after ${hardLimit}ms. Revisa tu conexión.`
-                )), hardLimit)
-            )
+            Promise.resolve(query),
+            new Promise<never>((_, reject) => {
+                hardTimer = setTimeout(() => {
+                    controller.abort();
+                    reject(new Error(`${operation}: timeout after ${hardLimit}ms. Revisa tu conexión.`));
+                }, hardLimit);
+            })
         ]);
         return result as Awaited<T>;
     } finally {
         clearTimeout(warnTimer);
+        if (hardTimer) clearTimeout(hardTimer);
         if (didWarn) console.log(`✅ ${operation} completed (was slow but succeeded)`);
     }
 };
@@ -142,6 +150,44 @@ export const mapStudentRowToModel = (row: any): Student => ({
     createdAt: row.created_at || undefined
 });
 
+export const mapGiftCardRowToModel = (row: any): GiftCard => {
+    const sessionsUsed = Math.max(0, Number(row.sessions_used ?? 0));
+    const numClasses = Math.max(0, Number(row.num_classes ?? 0));
+    const expiryDate = row.expiry_date || undefined;
+    const today = new Date().toISOString().split('T')[0];
+    const status = row.status || (
+        row.payment_status === 'pending' ? 'pending' :
+            sessionsUsed >= numClasses ? 'exhausted' :
+                expiryDate && expiryDate < today ? 'expired' : 'active'
+    );
+    return {
+        id: row.id,
+        code: row.code || `CR-${String(row.id).replace(/-/g, '').slice(0, 10).toUpperCase()}`,
+        buyer: row.buyer || '',
+        buyerPhone: row.buyer_phone || undefined,
+        buyerEmail: row.buyer_email || undefined,
+        recipient: row.recipient || '',
+        recipientEmail: row.recipient_email || undefined,
+        recipientStudentId: row.recipient_student_id || undefined,
+        numClasses,
+        type: row.type === 'torno' ? 'torno' : 'modelado',
+        validityMonths: [3, 6, 8].includes(Number(row.validity_months)) ? Number(row.validity_months) as 3 | 6 | 8 : undefined,
+        activatedAt: row.activated_at || undefined,
+        issuedDate: row.scheduled_date || undefined,
+        expiryDate,
+        price: row.price ?? undefined,
+        paymentStatus: row.payment_status || 'paid',
+        status,
+        sessionsUsed,
+        sessionsRemaining: Math.max(0, numClasses - sessionsUsed),
+        consumedAt: row.consumed_at || undefined,
+        deliveryFormat: row.delivery_format === 'physical' ? 'physical' : 'digital',
+        dedication: row.dedication || undefined,
+        createdAt: row.created_at,
+        extraCommentary: row.internal_notes || row.extra_commentary || undefined
+    };
+};
+
 // Shared context passed to all operation modules
 export interface OpsContext {
     sedeId: string | null;
@@ -149,6 +195,7 @@ export interface OpsContext {
     operationLockRef: React.MutableRefObject<boolean>;
     students: Student[];
     sessions: ClassSession[];
+    giftCards: any[];
     pieces: any[];
     setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
     setSessions: React.Dispatch<React.SetStateAction<ClassSession[]>>;

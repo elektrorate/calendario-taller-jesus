@@ -82,6 +82,14 @@ export const addInventoryMovement = async (ctx: OpsContext, movement: Omit<Inven
         const { error } = await withTimeout('inventory_movements.insert', supabase.from('inventory_movements').insert(payload));
         if (error) { showError(`No se pudo registrar el movimiento. ${error.message || ''}`); return; }
         if (movement.new_quantity !== undefined) {
+            const { error: itemError } = await withTimeout(
+                'inventory_items.quantity_update',
+                supabase.from('inventory_items').update({ current_quantity: movement.new_quantity }).eq('id', movement.item_id)
+            );
+            if (itemError) {
+                showError(`El movimiento se registró, pero no se pudo actualizar la existencia. ${itemError.message || ''}`);
+                return;
+            }
             ctx.setInventoryItems(prev => prev.map(item =>
                 item.id === movement.item_id ? { ...item, current_quantity: movement.new_quantity! } : item
             ));
